@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { useStorage } from '../hooks/useStorage'
-import { getMonthSlots, formatMonthKey } from '../utils/dateUtils'
+import { getMonthSlots } from '../utils/dateUtils'
 
 export default function Settings() {
   const [oauthToken] = useStorage('google_oauth', null)
   const [flow1Window, setFlow1Window] = useStorage('flow1_window', null)
   const [flow2Window, setFlow2Window] = useStorage('flow2_window', null)
   const [sheetsUrl, setSheetsUrl] = useStorage('sheets_report_url', '')
+  const [, setFlow1Data] = useStorage('flow1_data', {})
+  const [, setFlow2Data] = useStorage('flow2_data', {})
 
   const [sheetsInput, setSheetsInput] = useState(sheetsUrl || '')
+  const [clearConfirm, setClearConfirm] = useState(null)
 
   // Build month options — current month back 24 months
   const monthOptions = buildMonthOptions()
@@ -45,6 +48,26 @@ export default function Settings() {
     }
   }
 
+  function handleClearData(target) {
+    if (clearConfirm !== target) { setClearConfirm(target); return }
+    if (target === 'flow1') setFlow1Data({})
+    else if (target === 'flow2') setFlow2Data({})
+    else if (target === 'all') {
+      setFlow1Data({})
+      setFlow2Data({})
+      setFlow1Window(null)
+      setFlow2Window(null)
+      setSheetsUrl('')
+      setSheetsInput('')
+    }
+    setClearConfirm(null)
+  }
+
+  const tokenExpiry = oauthToken?.expires_at
+    ? new Date(oauthToken.expires_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : null
+  const tokenExpired = oauthToken?.expires_at ? oauthToken.expires_at < Date.now() : false
+
   return (
     <div className="space-y-6 max-w-2xl">
       {/* Google Sheets OAuth */}
@@ -53,9 +76,15 @@ export default function Settings() {
         {oauthToken ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm text-green-700">
-              <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-              Connected — access token stored
+              <span className={`w-2 h-2 rounded-full inline-block ${tokenExpired ? 'bg-yellow-400' : 'bg-green-500'}`} />
+              {tokenExpired ? 'Token expired — will auto-refresh on next push' : 'Connected'}
             </div>
+            {tokenExpiry && (
+              <div className="text-xs text-gray-500">
+                Token {tokenExpired ? 'expired' : 'expires'}: {tokenExpiry}
+                {oauthToken.refresh_token && <span className="ml-2 text-green-600">· refresh token stored</span>}
+              </div>
+            )}
             <button onClick={handleDisconnect} className="btn-secondary text-red-600 border-red-200 hover:bg-red-50">
               Disconnect
             </button>
@@ -160,6 +189,36 @@ export default function Settings() {
         {flow2Window && (
           <SlotPreview window={flow2Window} count={8} />
         )}
+      </div>
+
+      {/* Data Management */}
+      <div className="card p-6 space-y-4">
+        <div>
+          <h2 className="font-semibold text-gray-900">Data Management</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Clear imported data from localStorage. This cannot be undone.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {[
+            { key: 'flow1', label: 'Clear Flow 1 data' },
+            { key: 'flow2', label: 'Clear Flow 2 data' },
+            { key: 'all', label: 'Clear everything', danger: true },
+          ].map(({ key, label, danger }) => (
+            <button
+              key={key}
+              onClick={() => handleClearData(key)}
+              className={`btn-secondary text-xs ${danger ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-gray-700'}`}
+            >
+              {clearConfirm === key ? `Confirm: ${label}?` : label}
+            </button>
+          ))}
+          {clearConfirm && (
+            <button onClick={() => setClearConfirm(null)} className="btn-ghost text-xs text-gray-500">
+              Cancel
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

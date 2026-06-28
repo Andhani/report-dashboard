@@ -61,13 +61,13 @@ export default function Dashboard() {
   const flow1Slots = flow1Window ? getMonthSlots(flow1Window, 6) : []
   const flow2Slots = flow2Window ? getMonthSlots(flow2Window, 8) : []
 
-  const flow1FilledBC = flow1Slots.filter(s => flow1Data[`bc_gsc_${s.key}`] && flow1Data[`bc_ga4_${s.key}`]).length
-  const flow1FilledBlog = flow1Slots.filter(s => flow1Data[`blog_gsc_${s.key}`] && flow1Data[`blog_ga4_${s.key}`]).length
-  const flow2Filled = flow2Slots.filter(s => flow2Data[s.key]).length
-
-  const flow1Ready = flow1Slots.length > 0 && bcUrls.length > 0 && blogUrls.length > 0
-  const flow2Ready = flow2Slots.length > 0
-  const flow3Ready = flow1Filled(flow1Data, flow1Slots) && flow2Filled > 0
+  const flow1FilledBC = flow1Slots.filter(s =>
+    (flow1Data[`bc_gsc_dijual_${s.key}`] || flow1Data[`bc_gsc_disewa_${s.key}`]) && flow1Data[`bc_ga4_${s.key}`]
+  ).length
+  const flow1FilledBlog = flow1Slots.filter(s =>
+    flow1Data[`blog_gsc_${s.key}`] && flow1Data[`blog_ga4_${s.key}`]
+  ).length
+  const flow2Filled = flow2Slots.filter(s => flow2Data[`ga4_free_${s.key}`]).length
 
   return (
     <div className="space-y-8">
@@ -140,10 +140,6 @@ export default function Dashboard() {
   )
 }
 
-function flow1Filled(data, slots) {
-  return slots.some(s => data[`bc_gsc_${s.key}`] || data[`blog_gsc_${s.key}`])
-}
-
 function SetupStatus({ bcUrls, blogUrls, flow1Window, flow2Window }) {
   const steps = [
     { label: 'BC URL list', done: bcUrls.length > 0, link: '/urls' },
@@ -180,13 +176,18 @@ function SetupStatus({ bcUrls, blogUrls, flow1Window, flow2Window }) {
 }
 
 function SlotGrid({ title, slots, data, type }) {
-  const projects = type === 'flow1'
+  // Flow 1: BC GSC needs dijual+disewa keys; others are simple
+  const ROWS = type === 'flow1'
     ? [
-        { key: 'bc', label: 'BC', sources: ['gsc', 'ga4'] },
-        { key: 'blog', label: 'Blog', sources: ['gsc', 'ga4'] },
+        { label: 'BC GSC', check: k => !!(data[`bc_gsc_dijual_${k}`] || data[`bc_gsc_disewa_${k}`]) },
+        { label: 'BC GA4', check: k => !!data[`bc_ga4_${k}`] },
+        { label: 'Blog GSC', check: k => !!data[`blog_gsc_${k}`] },
+        { label: 'Blog GA4', check: k => !!data[`blog_ga4_${k}`] },
       ]
     : [
-        { key: 'overview', label: 'Overview', sources: ['gsc', 'ga4_free', 'ga4_leads'] },
+        { label: 'GSC Chart (All)', check: k => !!data[`gsc_all_organic_${k}`] },
+        { label: 'GA4 Free-form',   check: k => !!data[`ga4_free_${k}`] },
+        { label: 'GA4 Leads',       check: k => !!data[`ga4_leads_${k}`] },
       ]
 
   return (
@@ -196,8 +197,7 @@ function SlotGrid({ title, slots, data, type }) {
         <table className="text-sm w-full">
           <thead>
             <tr>
-              <th className="text-left text-gray-500 font-medium pb-3 pr-4 w-24">Project</th>
-              <th className="text-left text-gray-500 font-medium pb-3 pr-4 w-16">Source</th>
+              <th className="text-left text-gray-500 font-medium pb-3 pr-4 w-36">Source</th>
               {slots.map((s) => (
                 <th key={s.key} className="text-center text-gray-500 font-medium pb-3 px-2 min-w-[70px]">
                   {s.label}
@@ -206,31 +206,21 @@ function SlotGrid({ title, slots, data, type }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {projects.flatMap((proj) =>
-              proj.sources.map((src, si) => {
-                return (
-                  <tr key={`${proj.key}_${src}`}>
-                    <td className="py-2 pr-4 text-gray-700 font-medium">
-                      {si === 0 ? proj.label : ''}
+            {ROWS.map((row) => (
+              <tr key={row.label}>
+                <td className="py-2 pr-4 text-gray-700 font-medium text-sm">{row.label}</td>
+                {slots.map((s) => {
+                  const filled = row.check(s.key)
+                  return (
+                    <td key={s.key} className="py-2 px-2 text-center">
+                      <span className={filled ? 'badge-green' : 'badge-gray'}>
+                        {filled ? '●' : '○'}
+                      </span>
                     </td>
-                    <td className="py-2 pr-4 text-gray-500 uppercase text-xs">{src}</td>
-                    {slots.map((s) => {
-                      const dataKey = type === 'flow1'
-                        ? `${proj.key}_${src}_${s.key}`
-                        : `${src}_${s.key}`
-                      const filled = !!data[dataKey]
-                      return (
-                        <td key={s.key} className="py-2 px-2 text-center">
-                          <span className={filled ? 'badge-green' : 'badge-gray'}>
-                            {filled ? '●' : '○'}
-                          </span>
-                        </td>
-                      )
-                    })}
-                  </tr>
-                )
-              })
-            )}
+                  )
+                })}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
