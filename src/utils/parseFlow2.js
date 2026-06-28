@@ -175,16 +175,17 @@ export async function parseFlow2File(file, arrayBuffer) {
   }
 
   if (name.endsWith('.csv')) {
-    const text = new TextDecoder('utf-8').decode(arrayBuffer)
-    // Distinguish GA4 Free-form vs Leads by row 2 content
+    // Strip UTF-8 BOM if present
+    const raw = new TextDecoder('utf-8').decode(arrayBuffer)
+    const text = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw
+    // Distinguish GA4 Free-form vs Leads:
+    // Leads report has "Leads" in row 2 OR headers row contains "Key events"
     const lines = text.split('\n')
     const row2 = lines[2] ?? ''
-    if (row2.toLowerCase().includes('leads') || row2.toLowerCase().includes('key events')) {
-      return parseGA4LeadsFile(text)
-    }
-    // Default: treat as GA4 Free-form
-    const result = parseGA4FreeFile(text)
-    return result
+    const row6 = lines[6] ?? ''
+    const isLeads = row2.toLowerCase().includes('leads') || row6.toLowerCase().includes('key events')
+    if (isLeads) return parseGA4LeadsFile(text)
+    return parseGA4FreeFile(text)
   }
 
   return null

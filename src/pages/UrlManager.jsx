@@ -76,6 +76,26 @@ export default function UrlManager() {
     }
   }
 
+  function handleExportCSV() {
+    const cols = activeTab === 'bc' ? BC_COLS : BLOG_COLS
+    const headers = cols.filter(c => c.type !== 'readonly').map(c => c.label).concat('Slug')
+    const rows = urls.map(row =>
+      cols.filter(c => c.type !== 'readonly').map(c => row[c.key] ?? '').concat(row.slug ?? '')
+    )
+    const csv = [headers, ...rows]
+      .map(r => r.map(c => {
+        const s = String(c ?? '')
+        return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s
+      }).join(','))
+      .join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${activeTab}_urls.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
   return (
     <div className="space-y-4">
       {/* Tabs */}
@@ -120,9 +140,14 @@ export default function UrlManager() {
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">{urls.length} rows</span>
           {urls.length > 0 && (
-            <button onClick={handleClearAll} className="btn-ghost text-red-600 hover:bg-red-50 text-xs">
-              Clear all
-            </button>
+            <>
+              <button onClick={handleExportCSV} className="btn-ghost text-xs text-gray-500">
+                ⬇ Export CSV
+              </button>
+              <button onClick={handleClearAll} className="btn-ghost text-red-600 hover:bg-red-50 text-xs">
+                Clear all
+              </button>
+            </>
           )}
         </div>
       </div>

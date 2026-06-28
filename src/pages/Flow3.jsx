@@ -26,9 +26,11 @@ export default function Flow3() {
 
   const [activeTab, setActiveTab] = useState('bc')
   const [pushStatus, setPushStatus] = useState(null)
+  const [selectedSlotIdx, setSelectedSlotIdx] = useState(null)
 
   const slots = flow1Window ? getMonthSlots(flow1Window, 6) : []
-  const currentSlot = getLeadsMonth(slots)
+  const defaultSlot = getLeadsMonth(slots)
+  const currentSlot = selectedSlotIdx !== null ? slots[selectedSlotIdx] : defaultSlot
 
   const hasFlow1 = Object.keys(flow1Data).length > 0
   const hasFlow2 = Object.keys(flow2Data).length > 0
@@ -67,18 +69,39 @@ export default function Flow3() {
     }
   }
 
-  const period = currentSlot
-    ? `Most recent month: ${currentSlot.label} (last slot of ${slots[0]?.label}–${currentSlot.label} window)`
-    : null
+  const isLastSlot = currentSlot?.key === defaultSlot?.key
 
   return (
     <div className="space-y-6">
       {/* Dependency status */}
       <DependencyBanner hasFlow1={hasFlow1} hasFlow2={hasFlow2} />
 
-      {period && (
-        <div className="card p-4 bg-green-50 border-green-200 text-sm text-green-800">
-          📅 <strong>Reporting month:</strong> {period}
+      {/* Month selector */}
+      {slots.length > 0 && (
+        <div className="card p-4 flex items-center gap-4">
+          <span className="text-sm font-medium text-gray-700">Reporting month:</span>
+          <div className="flex gap-1 flex-wrap">
+            {slots.map((s, i) => {
+              const isActive = currentSlot?.key === s.key
+              const isDefault = s.key === defaultSlot?.key
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => setSelectedSlotIdx(i)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {s.label}{isDefault ? ' ★' : ''}
+                </button>
+              )
+            })}
+          </div>
+          {!isLastSlot && (
+            <span className="text-xs text-gray-400">★ = most recent</span>
+          )}
         </div>
       )}
 
