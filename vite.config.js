@@ -6,4 +6,14 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          xlsx: ['xlsx'],
+          vendor: ['react', 'react-dom', 'react-router-dom', 'papaparse'],
+        },
+      },
+    },
+  },
 })
