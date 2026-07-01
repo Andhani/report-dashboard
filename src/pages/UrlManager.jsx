@@ -97,7 +97,7 @@ export default function UrlManager() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200">
         {TABS.map(tab => (
@@ -107,11 +107,13 @@ export default function UrlManager() {
             className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               activeTab === tab.id
                 ? 'border-brand-500 text-brand-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'
             }`}
           >
             {tab.label}
-            <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
+            <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
+              activeTab === tab.id ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-600'
+            }`}>
               {activeTab === tab.id ? urls.length : (tab.id === 'bc' ? bcUrls.length : blogUrls.length)}
             </span>
           </button>
@@ -119,11 +121,12 @@ export default function UrlManager() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+      <div className="card p-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <button onClick={handleAddRow} className="btn-primary">
             + Add Row
           </button>
+          <span className="w-px h-6 bg-gray-200 mx-1" />
           <CsvImportButton
             type={activeTab}
             cols={cols}
@@ -138,7 +141,7 @@ export default function UrlManager() {
           />
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">{urls.length} rows</span>
+          <span className="text-sm text-gray-500 font-medium">{urls.length} rows</span>
           {urls.length > 0 && (
             <>
               <button onClick={handleExportCSV} className="btn-ghost text-xs text-gray-500">
@@ -173,11 +176,11 @@ function UrlTable({ rows, cols, onUpdate, onDelete }) {
   return (
     <div className="card overflow-x-auto">
       <table className="text-sm w-full">
-        <thead className="bg-gray-50 border-b border-gray-200">
+        <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
           <tr>
             <th className="text-left py-3 px-3 text-gray-500 font-medium w-8">#</th>
             {cols.map(col => (
-              <th key={col.key} className={`text-left py-3 px-2 text-gray-500 font-medium ${col.width}`}>
+              <th key={col.key} className={`text-left py-3 px-2 text-gray-500 font-medium uppercase tracking-wide text-[11px] ${col.width}`}>
                 {col.label}
               </th>
             ))}
@@ -203,7 +206,7 @@ function UrlTable({ rows, cols, onUpdate, onDelete }) {
 
 function TableRow({ row, index, cols, onUpdate, onDelete }) {
   return (
-    <tr className="hover:bg-gray-50 group">
+    <tr className="hover:bg-brand-50/60 group even:bg-gray-50/40 transition-colors">
       <td className="py-2 px-3 text-gray-400 text-xs">{index}</td>
       {cols.map(col => (
         <td key={col.key} className="py-1.5 px-2">
@@ -281,10 +284,11 @@ function CsvImportButton({ type, cols, onImport, onReplace }) {
     e.target.value = ''
 
     Papa.parse(file, {
-      header: true,
+      header: false,
       skipEmptyLines: true,
       complete: ({ data }) => {
-        const rows = data.map(raw => parseImportedRow(raw, type, cols))
+        const headerIdx = locateHeaderRow(data)
+        const rows = rowsToObjects(data, headerIdx).map(raw => parseImportedRow(raw, type, cols))
         if (mode === 'replace') {
           if (confirm(`Replace all existing ${type.toUpperCase()} URLs with ${rows.length} imported rows?`)) {
             onReplace(rows)
@@ -298,12 +302,12 @@ function CsvImportButton({ type, cols, onImport, onReplace }) {
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       <button onClick={() => fileRef.current.click()} className="btn-secondary">
-        Import CSV
+        ⬆ Import CSV
       </button>
       <select
-        className="text-xs border border-gray-300 rounded px-1.5 py-1.5 bg-white text-gray-600"
+        className="text-xs border border-gray-300 rounded-lg px-2 py-2 bg-white text-gray-600 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-200"
         value={mode}
         onChange={e => setMode(e.target.value)}
         title="Import mode"
@@ -339,24 +343,33 @@ function SheetsImportButton({ type, cols, onImport, onReplace }) {
     }
     setLoading(true)
     try {
-      // Fetch first sheet's data
+      // Resolve which tab the link actually points to (gid), so a link to
+      // the 2nd/3rd tab doesn't silently fall back to the 1st tab.
+      let range = 'A1:Z5000'
+      const gid = extractGid(url)
+      if (gid) {
+        const metaRes = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,title)`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        const meta = await metaRes.json()
+        if (meta.error) throw new Error(meta.error.message)
+        const sheet = (meta.sheets || []).find(s => String(s.properties.sheetId) === gid)
+        if (sheet) range = `'${sheet.properties.title}'!A1:Z5000`
+      }
+
       const res = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/A1:Z5000`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       const data = await res.json()
       if (data.error) throw new Error(data.error.message)
 
-      const [headers, ...rawRows] = data.values || []
-      if (!headers) throw new Error('Sheet appears empty.')
+      const values = data.values || []
+      if (values.length === 0) throw new Error('Sheet appears empty.')
 
-      const rows = rawRows
-        .filter(r => r.some(c => c))
-        .map(r => {
-          const raw = {}
-          headers.forEach((h, i) => { raw[h] = r[i] || '' })
-          return parseImportedRow(raw, type, cols)
-        })
+      const headerIdx = locateHeaderRow(values)
+      const rows = rowsToObjects(values, headerIdx).map(raw => parseImportedRow(raw, type, cols))
 
       if (mode === 'replace') {
         if (confirm(`Replace all existing ${type.toUpperCase()} URLs with ${rows.length} imported rows?`)) {
@@ -377,22 +390,25 @@ function SheetsImportButton({ type, cols, onImport, onReplace }) {
   if (!open) {
     return (
       <button onClick={() => setOpen(true)} className="btn-secondary">
-        From Sheets
+        🔗 From Sheets
       </button>
     )
   }
 
   return (
-    <div className="flex items-start gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+    <div className="flex items-start gap-2 p-3.5 bg-gray-50 border border-gray-200 rounded-xl shadow-sm">
       <div className="flex-1 space-y-2">
         <input
           type="url"
           className="input text-sm"
-          placeholder="https://docs.google.com/spreadsheets/d/..."
+          placeholder="https://docs.google.com/spreadsheets/d/...#gid=..."
           value={url}
           onChange={e => setUrl(e.target.value)}
           autoFocus
         />
+        <p className="text-xs text-gray-500">
+          Paste the link to the exact tab you want (its <code>gid</code> is detected automatically). The sheet must be shared with <strong>"Anyone with the link can view"</strong> access.
+        </p>
         {error && <div className="text-xs text-red-600">{error}</div>}
         <div className="flex gap-2">
           <button
@@ -422,9 +438,9 @@ function SheetsImportButton({ type, cols, onImport, onReplace }) {
 
 function EmptyState({ type, onAdd }) {
   return (
-    <div className="card p-12 flex flex-col items-center text-center border-dashed border-2">
+    <div className="card p-12 flex flex-col items-center text-center border-dashed border-2 border-gray-200 bg-gray-50/50">
       <div className="text-4xl mb-3">📋</div>
-      <div className="font-semibold text-gray-700 mb-1">No {type.toUpperCase()} URLs yet</div>
+      <div className="font-semibold text-gray-800 mb-1">No {type.toUpperCase()} URLs yet</div>
       <div className="text-sm text-gray-500 mb-4">
         Add rows manually, import a CSV, or pull from a Google Sheet.
       </div>
@@ -436,6 +452,39 @@ function EmptyState({ type, onAdd }) {
 function extractSheetId(url) {
   const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
   return m ? m[1] : null
+}
+
+function extractGid(url) {
+  const m = url.match(/[#&?]gid=(\d+)/)
+  return m ? m[1] : null
+}
+
+// Known column labels (lowercased) across BC_COLS/BLOG_COLS, used to find the
+// real header row when the source has banner/notice rows above it (common in
+// Sheets exports, e.g. "⚠️ Do not change anything...").
+const HEADER_HINTS = [
+  'main keyword', 'keyword', 'offer', 'property', 'url', 'publish', 'publish date',
+  'status', 'content type', 'pic', 'slug',
+]
+
+function locateHeaderRow(rows) {
+  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    const cells = (rows[i] || []).map(c => String(c ?? '').trim().toLowerCase())
+    const hits = cells.filter(c => HEADER_HINTS.includes(c)).length
+    if (hits >= 2) return i
+  }
+  return 0
+}
+
+function rowsToObjects(rows, headerIdx) {
+  const headers = rows[headerIdx] || []
+  return rows.slice(headerIdx + 1)
+    .filter(r => r.some(c => String(c ?? '').trim() !== ''))
+    .map(r => {
+      const obj = {}
+      headers.forEach((h, i) => { if (h) obj[h] = r[i] ?? '' })
+      return obj
+    })
 }
 
 /**
