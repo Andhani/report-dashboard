@@ -152,8 +152,10 @@ async function getSpreadsheetTabNames(sheetId, token) {
 }
 
 async function getTabValues(sheetId, tabName, token) {
+  // Open-ended row range ("A:Z" not "A1:Z5000") — a fixed row cap silently
+  // truncated any sheet with more rows than the cap.
   const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`'${tabName}'!A1:Z5000`)}`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`'${tabName}'!A:Z`)}`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
   const data = await res.json()

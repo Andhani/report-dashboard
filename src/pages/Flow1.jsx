@@ -1,12 +1,14 @@
 import { useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useStorage } from '../hooks/useStorage'
+import { usePagination } from '../hooks/usePagination'
 import { getMonthSlots, formatMonthKey, secondsToHmmss, formatCTR } from '../utils/dateUtils'
 import { parseFlow1File, parseFlow1Workbook, getDataKey, formatDetectionLabel } from '../utils/parseFlow1'
 import { computeFlow1Output, buildCSVData, buildSheetsValues } from '../utils/computeFlow1'
 import { downloadCSV, readFileAsArrayBuffer } from '../utils/exportUtils'
 import { pushFlow1ToSheets, extractSpreadsheetId, buildWorkbookFromSheet } from '../utils/sheetsApi'
 import SheetLinkImport from '../components/SheetLinkImport'
+import PaginationControls from '../components/PaginationControls'
 
 const PERIOD_LABEL = (slots) =>
   slots.length ? `${slots[0].label.replace(' ', '')}–${slots[slots.length - 1].label.replace(' ', '')}` : ''
@@ -249,6 +251,7 @@ export default function Flow1() {
       {/* Preview + Export */}
       {anyData && canExport && (
         <PreviewSection
+          key={previewTab}
           previewTab={previewTab}
           setPreviewTab={setPreviewTab}
           slots={slots}
@@ -474,6 +477,7 @@ function PreviewSection({ previewTab, setPreviewTab, slots, flow1Data, bcUrls, b
   const urlList = previewTab === 'bc' ? bcUrls : blogUrls
   const output = computeFlow1Output(previewTab, urlList, flow1Data, slots)
   const matchCount = output.filter(r => r.metrics.clicks.some(v => v > 0) || r.metrics.views.some(v => v > 0)).length
+  const pagination = usePagination(output, 100)
 
   return (
     <div className="space-y-4">
@@ -526,14 +530,27 @@ function PreviewSection({ previewTab, setPreviewTab, slots, flow1Data, bcUrls, b
             ))}
           </div>
           <span className="text-xs text-gray-500">
-            {matchCount}/{urlList.length} URLs matched · showing first 50
+            {matchCount}/{urlList.length} URLs matched
           </span>
         </div>
         <PreviewTable
           project={previewTab}
-          output={output.slice(0, 50)}
+          output={pagination.pageItems}
           slots={slots}
         />
+        <div className="px-5 border-t border-gray-100">
+          <PaginationControls
+            page={pagination.page}
+            pageCount={pagination.pageCount}
+            pageSize={pagination.pageSize}
+            total={pagination.total}
+            onPageSizeChange={pagination.setPageSize}
+            onFirst={pagination.goFirst}
+            onPrev={pagination.goPrev}
+            onNext={pagination.goNext}
+            onLast={pagination.goLast}
+          />
+        </div>
       </div>
     </div>
   )

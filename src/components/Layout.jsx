@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
 
 const navItems = [
@@ -63,6 +64,22 @@ const navItems = [
 
 export default function Layout() {
   const location = useLocation()
+  const [showBackToTop, setShowBackToTop] = useState(false)
+
+  // The outer layout uses min-h-screen (not h-screen), so <main>'s
+  // overflow-auto never actually engages — the whole page grows past the
+  // viewport and the window/document scrolls instead. Track that.
+  useEffect(() => {
+    function onScroll() {
+      setShowBackToTop(window.scrollY > 400)
+    }
+    window.addEventListener('scroll', onScroll)
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   return (
     <div className="flex min-h-screen">
@@ -125,6 +142,19 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Back to top — applies to every tab, since all pages share this scroll container */}
+      {showBackToTop && (
+        <button
+          onClick={scrollToTop}
+          title="Back to top"
+          className="fixed bottom-6 right-6 z-50 w-10 h-10 rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700 flex items-center justify-center transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }
