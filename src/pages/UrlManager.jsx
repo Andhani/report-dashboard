@@ -172,7 +172,13 @@ export default function UrlManager() {
 
 // ─── Table ────────────────────────────────────────────────────────────────────
 
+// Rows render as plain text by default and only mount live <input>/<select>
+// elements for the one row being edited. With thousands of imported rows,
+// always-live inputs meant tens of thousands of interactive DOM nodes
+// mounted at once — this cuts that down to a handful.
 function UrlTable({ rows, cols, onUpdate, onDelete }) {
+  const [editingId, setEditingId] = useState(null)
+
   return (
     <div className="card overflow-x-auto">
       <table className="text-sm w-full">
@@ -196,6 +202,9 @@ function UrlTable({ rows, cols, onUpdate, onDelete }) {
               cols={cols}
               onUpdate={onUpdate}
               onDelete={onDelete}
+              editing={editingId === row.id}
+              onStartEdit={() => setEditingId(row.id)}
+              onStopEdit={() => setEditingId(null)}
             />
           ))}
         </tbody>
@@ -204,22 +213,31 @@ function UrlTable({ rows, cols, onUpdate, onDelete }) {
   )
 }
 
-function TableRow({ row, index, cols, onUpdate, onDelete }) {
+function TableRow({ row, index, cols, onUpdate, onDelete, editing, onStartEdit, onStopEdit }) {
   return (
-    <tr className="hover:bg-brand-50/60 group even:bg-gray-50/40 transition-colors">
+    <tr
+      className={`group transition-colors ${editing ? 'bg-brand-50/60' : 'even:bg-gray-50/40 hover:bg-brand-50/60 cursor-text'}`}
+      onClick={() => { if (!editing) onStartEdit() }}
+      onBlur={(e) => { if (editing && !e.currentTarget.contains(e.relatedTarget)) onStopEdit() }}
+      title={editing ? '' : 'Click to edit this row'}
+    >
       <td className="py-2 px-3 text-gray-400 text-xs">{index}</td>
       {cols.map(col => (
         <td key={col.key} className="py-1.5 px-2">
-          <CellInput
-            col={col}
-            value={row[col.key] ?? ''}
-            onChange={(val) => onUpdate(row.id, col.key, val)}
-          />
+          {editing || col.type === 'readonly' ? (
+            <CellInput
+              col={col}
+              value={row[col.key] ?? ''}
+              onChange={(val) => onUpdate(row.id, col.key, val)}
+            />
+          ) : (
+            <ReadOnlyCell value={row[col.key]} />
+          )}
         </td>
       ))}
       <td className="py-2 px-3">
         <button
-          onClick={() => onDelete(row.id)}
+          onClick={(e) => { e.stopPropagation(); onDelete(row.id) }}
           className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
           title="Delete row"
         >
@@ -229,6 +247,14 @@ function TableRow({ row, index, cols, onUpdate, onDelete }) {
         </button>
       </td>
     </tr>
+  )
+}
+
+function ReadOnlyCell({ value }) {
+  return (
+    <span className="text-sm text-gray-700 truncate block max-w-[200px]" title={value || undefined}>
+      {value || <span className="text-gray-300">—</span>}
+    </span>
   )
 }
 
