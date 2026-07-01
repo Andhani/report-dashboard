@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react'
 import Papa from 'papaparse'
 import { useStorage } from '../hooks/useStorage'
+import { usePagination } from '../hooks/usePagination'
 import { urlToSlug } from '../utils/dateUtils'
 import { getValidToken } from '../utils/googleAuth'
+import PaginationControls from '../components/PaginationControls'
 
 const TABS = [
   { id: 'bc', label: 'BC (Bottom Content)' },
@@ -50,6 +52,7 @@ export default function UrlManager() {
   const urls = activeTab === 'bc' ? bcUrls : blogUrls
   const setUrls = activeTab === 'bc' ? setBcUrls : setBlogUrls
   const cols = activeTab === 'bc' ? BC_COLS : BLOG_COLS
+  const pagination = usePagination(urls, 100)
 
   function handleAddRow() {
     setUrls(prev => [...prev, emptyRow(activeTab)])
@@ -159,12 +162,26 @@ export default function UrlManager() {
       {urls.length === 0 ? (
         <EmptyState type={activeTab} onAdd={handleAddRow} />
       ) : (
-        <UrlTable
-          rows={urls}
-          cols={cols}
-          onUpdate={handleUpdateRow}
-          onDelete={handleDeleteRow}
-        />
+        <>
+          <UrlTable
+            rows={pagination.pageItems}
+            cols={cols}
+            onUpdate={handleUpdateRow}
+            onDelete={handleDeleteRow}
+            startIndex={pagination.pageSize === 'all' ? 0 : (pagination.page - 1) * pagination.pageSize}
+          />
+          <PaginationControls
+            page={pagination.page}
+            pageCount={pagination.pageCount}
+            pageSize={pagination.pageSize}
+            total={pagination.total}
+            onPageSizeChange={pagination.setPageSize}
+            onFirst={pagination.goFirst}
+            onPrev={pagination.goPrev}
+            onNext={pagination.goNext}
+            onLast={pagination.goLast}
+          />
+        </>
       )}
     </div>
   )
@@ -176,7 +193,7 @@ export default function UrlManager() {
 // elements for the one row being edited. With thousands of imported rows,
 // always-live inputs meant tens of thousands of interactive DOM nodes
 // mounted at once — this cuts that down to a handful.
-function UrlTable({ rows, cols, onUpdate, onDelete }) {
+function UrlTable({ rows, cols, onUpdate, onDelete, startIndex = 0 }) {
   const [editingId, setEditingId] = useState(null)
 
   return (
@@ -198,7 +215,7 @@ function UrlTable({ rows, cols, onUpdate, onDelete }) {
             <TableRow
               key={row.id}
               row={row}
-              index={i + 1}
+              index={startIndex + i + 1}
               cols={cols}
               onUpdate={onUpdate}
               onDelete={onDelete}
@@ -313,11 +330,13 @@ function CellInput({ col, value, onChange }) {
 function CsvImportButton({ type, cols, onImport, onReplace }) {
   const fileRef = useRef()
   const [mode, setMode] = useState('append')
+  const [loading, setLoading] = useState(false)
 
   function handleFile(e) {
     const file = e.target.files[0]
     if (!file) return
     e.target.value = ''
+    setLoading(true)
 
     Papa.parse(file, {
       header: false,
@@ -332,15 +351,21 @@ function CsvImportButton({ type, cols, onImport, onReplace }) {
         } else {
           onImport(rows)
         }
+        setLoading(false)
       },
-      error: (err) => alert(`CSV parse error: ${err.message}`),
+      error: (err) => { setLoading(false); alert(`CSV parse error: ${err.message}`) },
     })
   }
 
   return (
     <div className="flex items-center gap-1.5">
-      <button onClick={() => fileRef.current.click()} className="btn-secondary">
-        ⬆ Import CSV
+      <button onClick={() => fileRef.current.click()} disabled={loading} className="btn-secondary disabled:opacity-50">
+        {loading ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+            Importing…
+          </span>
+        ) : '⬆ Import CSV'}
       </button>
       <select
         className="text-xs border border-gray-300 rounded-lg px-2 py-2 bg-white text-gray-600 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-200"
@@ -380,8 +405,10 @@ function SheetsImportButton({ type, cols, onImport, onReplace }) {
     setLoading(true)
     try {
       // Resolve which tab the link actually points to (gid), so a link to
-      // the 2nd/3rd tab doesn't silently fall back to the 1st tab.
-      let range = 'A1:Z5000'
+      // the 2nd/3rd tab doesn't silently fall back to the 1st tab. Range is
+      // open-ended ("A:Z" not "A1:Z5000") so sheets with more than 5000 rows
+      // aren't silently truncated.
+      let range = 'A:Z'
       const gid = extractGid(url)
       if (gid) {
         const metaRes = await fetch(
@@ -391,7 +418,7 @@ function SheetsImportButton({ type, cols, onImport, onReplace }) {
         const meta = await metaRes.json()
         if (meta.error) throw new Error(meta.error.message)
         const sheet = (meta.sheets || []).find(s => String(s.properties.sheetId) === gid)
-        if (sheet) range = `'${sheet.properties.title}'!A1:Z5000`
+        if (sheet) range = `'${sheet.properties.title}'!A:Z`
       }
 
       const res = await fetch(
