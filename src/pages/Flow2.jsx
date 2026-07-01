@@ -2,10 +2,11 @@ import { useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useStorage } from '../hooks/useStorage'
 import { getMonthSlots, formatMonthKey, secondsToHmmss } from '../utils/dateUtils'
-import { parseFlow2File, getFlow2DataKey, formatFlow2DetectionLabel } from '../utils/parseFlow2'
+import { parseFlow2File, parseGSCChartWorkbook, parseGA4FreeFile, parseGA4LeadsFile, getFlow2DataKey, formatFlow2DetectionLabel } from '../utils/parseFlow2'
 import { computeFlow2Output, buildFlow2CSV, SEGMENTS, METRICS, formatMetricValue } from '../utils/computeFlow2'
 import { downloadCSV, readFileAsArrayBuffer } from '../utils/exportUtils'
-import { pushFlow2ToSheets, extractSpreadsheetId } from '../utils/sheetsApi'
+import { pushFlow2ToSheets, extractSpreadsheetId, buildWorkbookFromSheet, fetchFirstTabAsCSV } from '../utils/sheetsApi'
+import SheetLinkImport from '../components/SheetLinkImport'
 
 export default function Flow2() {
   const [flow2Data, setFlow2Data] = useStorage('flow2_data', {})
@@ -18,7 +19,7 @@ export default function Flow2() {
   const [pushStatus, setPushStatus] = useState(null)
   const fileRef = useRef()
 
-  const slots = flow2Window ? getMonthSlots(flow2Window, 8) : []
+  const slots = flow2Window ? getMonthSlots(flow2Window, 6) : []
   const slotKeys = new Set(slots.map(s => s.key))
 
   // ─── File processing ────────────────────────────────────────────────────────
@@ -79,6 +80,40 @@ export default function Flow2() {
     setFlow2Data(prev => { const n = { ...prev }; delete n[key]; return n })
   }
 
+  // ─── Import from a Google Sheet link ────────────────────────────────────────
+  // GSC Chart exports reuse the workbook-based parser (same as .xlsx upload).
+  // GA4 Free-form/Leads sheets are single-tab, so they're read back as CSV
+  // text and run through the same CSV parsers used for uploaded .csv files.
+
+  async function importFromSheetLink(url) {
+    let wb = await buildWorkbookFromSheet(url, ['chart', 'filters'])
+    let result = wb.SheetNames.includes('Chart') ? parseGSCChartWorkbook(wb) : null
+
+    if (!result) {
+      const csvText = await fetchFirstTabAsCSV(url)
+      const lines = csvText.split('\n')
+      const isLeads = (lines[2] ?? '').toLowerCase().includes('leads') || (lines[6] ?? '').toLowerCase().includes('key events')
+      result = isLeads ? parseGA4LeadsFile(csvText) : parseGA4FreeFile(csvText)
+    }
+
+    if (!result) {
+      throw new Error('Could not find a GSC Chart tab or a GA4 Free-form/Leads layout in that sheet.')
+    }
+
+    const key = getFlow2DataKey(result)
+    if (!key) throw new Error('Detected but key could not be generated.')
+
+    const mk = formatMonthKey(result.month.year, result.month.month)
+    const inWindow = slotKeys.has(mk)
+
+    setFlow2Data(prev => ({ ...prev, [key]: result }))
+    setLog(prev => [{
+      file: 'Google Sheet',
+      status: inWindow ? 'ok' : 'warn',
+      message: formatFlow2DetectionLabel(result) + (inWindow ? '' : ' ⚠ outside current window'),
+    }, ...prev])
+  }
+
   // ─── Export ─────────────────────────────────────────────────────────────────
 
   function handleDownloadCSV() {
@@ -120,7 +155,7 @@ export default function Flow2() {
       <div className="card p-8 text-center max-w-lg mx-auto mt-8">
         <div className="text-3xl mb-3">⚙️</div>
         <div className="font-semibold text-gray-800 mb-2">Rolling window not set</div>
-        <p className="text-sm text-gray-500 mb-4">Set the Flow 2 start month in Settings (8-month window).</p>
+        <p className="text-sm text-gray-500 mb-4">Set the Flow 2 start month in Settings (6-month window).</p>
         <Link to="/settings" className="btn-primary">Go to Settings</Link>
       </div>
     )
@@ -130,16 +165,25 @@ export default function Flow2() {
 
   return (
     <div className="space-y-6">
-      {/* Info card */}
+      {/* What-to-upload guide */}
       <div className="card p-4 bg-purple-50 border-purple-200">
-        <div className="flex items-start gap-3">
-          <span className="text-xl">📊</span>
-          <div className="text-sm text-purple-900">
-            <strong>Flow 2 accepts different files from Flow 1.</strong> Upload the GSC Chart sheet (.xlsx) and the
-            GA4 Free-form summary (.csv) + GA4 Leads (.csv) — these are site-wide aggregates, not per-URL exports.
-            One GA4 Free-form file covers all segments automatically.
-          </div>
+        <div className="text-sm font-semibold text-purple-900 mb-2">
+          What to upload — 3 file kinds per month (different from Flow 1)
         </div>
+        <ul className="space-y-1.5">
+          <li className="flex items-start gap-2 text-sm text-purple-900">
+            <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-purple-400" />
+            <span><strong>GSC Chart export (.xlsx):</strong> one file per segment (All Organic, /dijual/, /disewa/, Blog) — site-wide totals, not per-URL</span>
+          </li>
+          <li className="flex items-start gap-2 text-sm text-purple-900">
+            <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-purple-400" />
+            <span><strong>GA4 Free-form export (.csv):</strong> a single file that covers every segment automatically</span>
+          </li>
+          <li className="flex items-start gap-2 text-sm text-purple-900">
+            <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-purple-400" />
+            <span><strong>GA4 Leads export (.csv):</strong> Click_Contact_Agent event count, one file per month</span>
+          </li>
+        </ul>
       </div>
 
       {/* Drop zone */}
@@ -158,6 +202,13 @@ export default function Flow2() {
         multiple
         className="hidden"
         onChange={e => { processFiles(e.target.files); e.target.value = '' }}
+      />
+
+      {/* Or import straight from a Google Sheet link */}
+      <SheetLinkImport
+        onImport={importFromSheetLink}
+        label="🔗 Or import from a Sheet link instead"
+        hint="For GSC Chart, its tabs must be named like the original export (Chart, optionally Filters). GA4 sheets should have a single tab matching the Free-form/Leads layout."
       />
 
       {/* Detection log */}
@@ -207,7 +258,7 @@ function DropZone({ dragging, processing, onDrop, onDragOver, onDragLeave, onCli
           </div>
           <div className="text-sm text-gray-500 space-y-0.5">
             <div>GSC Chart export (.xlsx) · GA4 Free-form export (.csv) · GA4 Leads export (.csv)</div>
-            <div className="text-gray-400">Up to 8 months × 3 files = 24 files at once</div>
+            <div className="text-gray-400">Up to 6 months × 3 files = 18 files at once</div>
           </div>
         </>
       )}
@@ -254,7 +305,7 @@ const SLOT_ROWS_F2 = [
 function SlotGrid({ slots, flow2Data, getSlotStatus, onClear }) {
   return (
     <div className="card p-5">
-      <h2 className="font-semibold text-gray-900 mb-4">Slot Status (8-month window)</h2>
+      <h2 className="font-semibold text-gray-900 mb-4">Slot Status (6-month window)</h2>
       <div className="overflow-x-auto">
         <table className="text-sm w-full">
           <thead>

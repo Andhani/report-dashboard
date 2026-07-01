@@ -168,9 +168,9 @@ export default function Settings() {
       {/* Flow 2 Rolling Window */}
       <div className="card p-6 space-y-4">
         <div>
-          <h2 className="font-semibold text-gray-900">Flow 2 — Rolling Window (8 months)</h2>
+          <h2 className="font-semibold text-gray-900">Flow 2 — Rolling Window (6 months)</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Set the first month of the 8-month window for Traffic Overview.
+            Set the first month of the 6-month window for Traffic Overview.
           </p>
         </div>
         <div>
@@ -187,7 +187,7 @@ export default function Settings() {
           </select>
         </div>
         {flow2Window && (
-          <SlotPreview window={flow2Window} count={8} />
+          <SlotPreview window={flow2Window} count={6} />
         )}
       </div>
 

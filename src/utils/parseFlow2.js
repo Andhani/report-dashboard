@@ -16,9 +16,16 @@ const MONTH_MAP = {
  * Returns: { type: 'gsc_chart', segment, month, clicks, impressions, avgPosition }
  */
 export function parseGSCChartFile(arrayBuffer) {
-  try {
-    const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' })
+  const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' })
+  return parseGSCChartWorkbook(wb)
+}
 
+/**
+ * Same as parseGSCChartFile, but takes an already-built SheetJS workbook —
+ * used for the "import from Google Sheets" path.
+ */
+export function parseGSCChartWorkbook(wb) {
+  try {
     if (!wb.SheetNames.includes('Chart')) return null
 
     // Segment from Filters sheet (same logic as Flow 1)

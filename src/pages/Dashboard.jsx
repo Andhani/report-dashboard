@@ -59,7 +59,7 @@ export default function Dashboard() {
   const [blogUrls] = useStorage('blog_urls', [])
 
   const flow1Slots = flow1Window ? getMonthSlots(flow1Window, 6) : []
-  const flow2Slots = flow2Window ? getMonthSlots(flow2Window, 8) : []
+  const flow2Slots = flow2Window ? getMonthSlots(flow2Window, 6) : []
 
   const flow1FilledBC = flow1Slots.filter(s =>
     (flow1Data[`bc_gsc_dijual_${s.key}`] || flow1Data[`bc_gsc_disewa_${s.key}`]) && flow1Data[`bc_ga4_${s.key}`]

@@ -13,14 +13,24 @@ const MONTH_MAP = {
  * Returns parsed result object or null.
  */
 export async function parseFlow1File(arrayBuffer) {
-  const gsc = tryParseGSC(arrayBuffer)
-  if (gsc) return gsc
-  return tryParseGA4(arrayBuffer)
+  const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' })
+  return parseFlow1Workbook(wb)
 }
 
-function tryParseGSC(arrayBuffer) {
+/**
+ * Same detection/parsing as parseFlow1File, but takes an already-built
+ * SheetJS workbook — used for the "import from Google Sheets" path, where
+ * the workbook is reassembled from Sheets API tab values instead of an
+ * uploaded .xlsx file.
+ */
+export function parseFlow1Workbook(wb) {
+  const gsc = tryParseGSC(wb)
+  if (gsc) return gsc
+  return tryParseGA4(wb)
+}
+
+function tryParseGSC(wb) {
   try {
-    const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' })
     if (!wb.SheetNames.includes('Filters') || !wb.SheetNames.includes('Pages')) return null
 
     // Parse Filters sheet for metadata
@@ -61,9 +71,8 @@ function tryParseGSC(arrayBuffer) {
   }
 }
 
-function tryParseGA4(arrayBuffer) {
+function tryParseGA4(wb) {
   try {
-    const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' })
     const sheetName = wb.SheetNames.find(s =>
       s.toLowerCase().includes('free-form') || s.toLowerCase().includes('freeform')
     )
