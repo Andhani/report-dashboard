@@ -232,6 +232,16 @@ function TableRow({ row, index, cols, onUpdate, onDelete }) {
   )
 }
 
+// <input type="date"> only accepts YYYY-MM-DD; imported dates like "3 Oct
+// 2025" render blank otherwise, even though the underlying value is intact.
+function toISODate(value) {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function CellInput({ col, value, onChange }) {
   if (col.type === 'readonly') {
     return (
@@ -256,7 +266,7 @@ function CellInput({ col, value, onChange }) {
       <input
         type="date"
         className="text-sm border border-transparent hover:border-gray-300 focus:border-brand-500 rounded px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none"
-        value={value}
+        value={toISODate(value)}
         onChange={e => onChange(e.target.value)}
       />
     )
