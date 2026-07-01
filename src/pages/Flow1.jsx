@@ -2,10 +2,11 @@ import { useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useStorage } from '../hooks/useStorage'
 import { getMonthSlots, formatMonthKey, secondsToHmmss, formatCTR } from '../utils/dateUtils'
-import { parseFlow1File, getDataKey, formatDetectionLabel } from '../utils/parseFlow1'
+import { parseFlow1File, parseFlow1Workbook, getDataKey, formatDetectionLabel } from '../utils/parseFlow1'
 import { computeFlow1Output, buildCSVData, buildSheetsValues } from '../utils/computeFlow1'
 import { downloadCSV, readFileAsArrayBuffer } from '../utils/exportUtils'
-import { pushFlow1ToSheets, extractSpreadsheetId } from '../utils/sheetsApi'
+import { pushFlow1ToSheets, extractSpreadsheetId, buildWorkbookFromSheet } from '../utils/sheetsApi'
+import SheetLinkImport from '../components/SheetLinkImport'
 
 const PERIOD_LABEL = (slots) =>
   slots.length ? `${slots[0].label.replace(' ', '')}–${slots[slots.length - 1].label.replace(' ', '')}` : ''
@@ -79,6 +80,36 @@ export default function Flow1() {
     setDragging(false)
     const files = Array.from(e.dataTransfer.files)
     if (files.length) processFiles(files)
+  }
+
+  // ─── Import from a Google Sheet link ────────────────────────────────────────
+  // Reuses the exact same detection/parsing as an uploaded .xlsx by
+  // reassembling a workbook from the sheet's tabs (see buildWorkbookFromSheet).
+
+  async function importFromSheetLink(url) {
+    let wb = await buildWorkbookFromSheet(url, ['filters', 'pages'])
+    let result = wb.SheetNames.length ? parseFlow1Workbook(wb) : null
+    if (!result) {
+      wb = await buildWorkbookFromSheet(url, ['freeform'])
+      result = wb.SheetNames.length ? parseFlow1Workbook(wb) : null
+    }
+    if (!result) {
+      throw new Error('Could not find a GSC (Filters + Pages) or GA4 (Free-form) tab in that sheet.')
+    }
+
+    const key = getDataKey(result)
+    if (!key) throw new Error(`Detected as ${result.type} but segment/project could not be determined.`)
+
+    const monthKey = formatMonthKey(result.month.year, result.month.month)
+    const inWindow = slotKeys.has(monthKey)
+
+    setFlow1Data(prev => ({ ...prev, [key]: { rows: result.rows, file: 'Google Sheet' } }))
+    setLog(prev => [{
+      file: 'Google Sheet',
+      status: inWindow ? 'ok' : 'warn',
+      message: formatDetectionLabel(result) + (inWindow ? '' : ' ⚠ outside current window'),
+      key,
+    }, ...prev])
   }
 
   function clearSlot(key) {
@@ -175,6 +206,9 @@ export default function Flow1() {
 
   return (
     <div className="space-y-6">
+      {/* What-to-upload guide */}
+      <UploadGuide />
+
       {/* Drop zone */}
       <DropZone
         dragging={dragging}
@@ -191,6 +225,13 @@ export default function Flow1() {
         multiple
         className="hidden"
         onChange={e => { processFiles(e.target.files); e.target.value = '' }}
+      />
+
+      {/* Or import straight from a Google Sheet link */}
+      <SheetLinkImport
+        onImport={importFromSheetLink}
+        label="🔗 Or import from a Sheet link instead"
+        hint="Its tabs must be named like the original export (Filters + Pages, or Free-form)."
       />
 
       {/* Detection log */}
@@ -220,6 +261,36 @@ export default function Flow1() {
           sheetsUrl={sheetsUrl}
         />
       )}
+    </div>
+  )
+}
+
+// ─── Upload Guide ─────────────────────────────────────────────────────────────
+// Explains exactly which file goes where — Flow 1 needs 4 file *kinds* per
+// month (BC GSC ×2 segments, BC GA4, Blog GSC, Blog GA4), which is easy to
+// get lost in without this breakdown.
+
+function UploadGuide() {
+  const rows = [
+    { label: 'BC — GSC export', detail: '.xlsx with Filters + Pages tabs, one file per segment (dijual, disewa)', dot: 'bg-blue-400' },
+    { label: 'BC — GA4 export', detail: '.xlsx with a Free-form tab, covers both BC segments in one file', dot: 'bg-blue-400' },
+    { label: 'Blog — GSC export', detail: '.xlsx with Filters + Pages tabs, Page filter set to /articles-all/', dot: 'bg-purple-400' },
+    { label: 'Blog — GA4 export', detail: '.xlsx with a Free-form tab for the blog project', dot: 'bg-purple-400' },
+  ]
+  return (
+    <div className="card p-4 bg-brand-50 border-brand-200">
+      <div className="text-sm font-semibold text-brand-900 mb-2">What to upload — 4 file kinds per month</div>
+      <ul className="space-y-1.5">
+        {rows.map(r => (
+          <li key={r.label} className="flex items-start gap-2 text-sm text-brand-900">
+            <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${r.dot}`} />
+            <span><strong>{r.label}:</strong> {r.detail}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-brand-700 mt-2">
+        Drop all files at once — each one is auto-detected and slotted into the correct month/segment below.
+      </p>
     </div>
   )
 }

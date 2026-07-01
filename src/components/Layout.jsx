@@ -72,11 +72,11 @@ export default function Layout() {
         <div className="px-6 py-5 border-b border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-              BR
+              RD
             </div>
             <div>
-              <div className="font-semibold text-sm leading-tight">Brighton SEO</div>
-              <div className="text-xs text-gray-400">Report Dashboard</div>
+              <div className="font-semibold text-sm leading-tight">Report Dashboard</div>
+              <div className="text-xs text-gray-400">Traffic & SEO Insights</div>
             </div>
           </div>
         </div>
@@ -140,7 +140,7 @@ function PageTitle({ pathname }) {
   }
   return (
     <h1 className="text-xl font-semibold text-gray-900">
-      {titles[pathname] ?? 'SEO Report Dashboard'}
+      {titles[pathname] ?? 'Report Dashboard'}
     </h1>
   )
 }
