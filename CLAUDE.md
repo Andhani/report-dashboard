@@ -2,15 +2,22 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Workflow
+
+- Analyze before implementing. Enter plan mode for anything beyond a trivial fix.
+- Minimal scope: touch only affected code, preserve backward compatibility.
+- Do not touch `/legacy` or `migrations/` (migrations are write-only — never edit existing files).
+- Run `pnpm lint:fix` before finishing any change.
+
 ## Commands
 
 ```bash
-npm run dev       # start dev server on port 3000
-npm run build     # production build
-npm run preview   # preview production build
+pnpm dev          # start dev server on port 3000
+pnpm build        # production build
+pnpm preview      # preview production build
+pnpm test         # run tests
+pnpm lint:fix     # format with prettier + fix lint errors
 ```
-
-No test runner or linter is configured.
 
 ## Environment Variables
 
