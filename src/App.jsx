@@ -1,12 +1,12 @@
-import { Routes, Route } from 'react-router-dom'
-import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
-import Flow1 from './pages/Flow1'
-import Flow2 from './pages/Flow2'
-import Flow3 from './pages/Flow3'
-import UrlManager from './pages/UrlManager'
-import Settings from './pages/Settings'
-import AuthCallback from './pages/AuthCallback'
+import { Routes, Route } from "react-router-dom";
+import Layout from "./components/Layout";
+import Dashboard from "./pages/Dashboard";
+import Flow1 from "./pages/Flow1";
+import Flow2 from "./pages/Flow2";
+import Flow3 from "./pages/Flow3";
+import UrlManager from "./pages/UrlManager";
+import Settings from "./pages/Settings";
+import AuthCallback from "./pages/AuthCallback";
 
 export default function App() {
   return (
@@ -24,5 +24,5 @@ export default function App() {
         <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>
-  )
+  );
 }

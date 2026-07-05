@@ -1,126 +1,175 @@
-import { useState, useRef } from 'react'
-import Papa from 'papaparse'
-import { useStorage } from '../hooks/useStorage'
-import { usePagination } from '../hooks/usePagination'
-import { urlToSlug } from '../utils/dateUtils'
-import { getValidToken } from '../utils/googleAuth'
-import PaginationControls from '../components/PaginationControls'
+import { useState, useRef } from "react";
+import Papa from "papaparse";
+import { useStorage } from "../hooks/useStorage";
+import { usePagination } from "../hooks/usePagination";
+import { urlToSlug } from "../utils/dateUtils";
+import { getValidToken } from "../utils/googleAuth";
+import PaginationControls from "../components/PaginationControls";
 
 const TABS = [
-  { id: 'bc', label: 'BC (Bottom Content)' },
-  { id: 'blog', label: 'Blog (Articles)' },
-]
+  { id: "bc", label: "BC (Bottom Content)" },
+  { id: "blog", label: "Blog (Articles)" },
+];
 
 // Column definitions per project
 const BC_COLS = [
-  { key: 'main_keyword', label: 'Main Keyword', type: 'text', width: 'w-40' },
-  { key: 'offer', label: 'Offer', type: 'select', options: ['dijual/', 'disewa/'], width: 'w-28' },
-  { key: 'property', label: 'Property', type: 'text', width: 'w-28' },
-  { key: 'url', label: 'URL', type: 'url', width: 'w-64' },
-  { key: 'publish', label: 'Publish', type: 'date', width: 'w-32' },
-  { key: 'status', label: 'Status', type: 'text', width: 'w-36' },
-  { key: 'pic', label: 'PIC', type: 'text', width: 'w-28' },
-  { key: 'slug', label: 'Slug', type: 'readonly', width: 'w-48' },
-]
+  { key: "main_keyword", label: "Main Keyword", type: "text", width: "w-40" },
+  {
+    key: "offer",
+    label: "Offer",
+    type: "select",
+    options: ["dijual/", "disewa/"],
+    width: "w-28",
+  },
+  { key: "property", label: "Property", type: "text", width: "w-28" },
+  { key: "url", label: "URL", type: "url", width: "w-64" },
+  { key: "publish", label: "Publish", type: "date", width: "w-32" },
+  { key: "status", label: "Status", type: "text", width: "w-36" },
+  { key: "pic", label: "PIC", type: "text", width: "w-28" },
+  { key: "slug", label: "Slug", type: "readonly", width: "w-48" },
+];
 
 const BLOG_COLS = [
-  { key: 'keyword', label: 'Keyword', type: 'text', width: 'w-44' },
-  { key: 'url', label: 'URL', type: 'url', width: 'w-64' },
-  { key: 'status', label: 'Status', type: 'text', width: 'w-28' },
-  { key: 'publish_date', label: 'Publish Date', type: 'date', width: 'w-32' },
-  { key: 'content_type', label: 'Content Type', type: 'select', options: ['Create', 'Optimize', 'Update'], width: 'w-28' },
-  { key: 'pic', label: 'PIC', type: 'text', width: 'w-28' },
-  { key: 'slug', label: 'Slug', type: 'readonly', width: 'w-48' },
-]
+  { key: "keyword", label: "Keyword", type: "text", width: "w-44" },
+  { key: "url", label: "URL", type: "url", width: "w-64" },
+  { key: "status", label: "Status", type: "text", width: "w-28" },
+  { key: "publish_date", label: "Publish Date", type: "date", width: "w-32" },
+  {
+    key: "content_type",
+    label: "Content Type",
+    type: "select",
+    options: ["Create", "Optimize", "Update"],
+    width: "w-28",
+  },
+  { key: "pic", label: "PIC", type: "text", width: "w-28" },
+  { key: "slug", label: "Slug", type: "readonly", width: "w-48" },
+];
 
 function emptyRow(type) {
-  if (type === 'bc') {
-    return { id: crypto.randomUUID(), main_keyword: '', offer: 'dijual/', property: '', url: '', publish: '', status: '', pic: '', slug: '' }
+  if (type === "bc") {
+    return {
+      id: crypto.randomUUID(),
+      main_keyword: "",
+      offer: "dijual/",
+      property: "",
+      url: "",
+      publish: "",
+      status: "",
+      pic: "",
+      slug: "",
+    };
   }
-  return { id: crypto.randomUUID(), keyword: '', url: '', status: '', publish_date: '', content_type: 'Create', pic: '', slug: '' }
+  return {
+    id: crypto.randomUUID(),
+    keyword: "",
+    url: "",
+    status: "",
+    publish_date: "",
+    content_type: "Create",
+    pic: "",
+    slug: "",
+  };
 }
 
 function withSlug(row) {
-  return { ...row, slug: urlToSlug(row.url || '') }
+  return { ...row, slug: urlToSlug(row.url || "") };
 }
 
 export default function UrlManager() {
-  const [activeTab, setActiveTab] = useState('bc')
-  const [bcUrls, setBcUrls] = useStorage('bc_urls', [])
-  const [blogUrls, setBlogUrls] = useStorage('blog_urls', [])
+  const [activeTab, setActiveTab] = useState("bc");
+  const [bcUrls, setBcUrls] = useStorage("bc_urls", []);
+  const [blogUrls, setBlogUrls] = useStorage("blog_urls", []);
 
-  const urls = activeTab === 'bc' ? bcUrls : blogUrls
-  const setUrls = activeTab === 'bc' ? setBcUrls : setBlogUrls
-  const cols = activeTab === 'bc' ? BC_COLS : BLOG_COLS
-  const pagination = usePagination(urls, 100)
+  const urls = activeTab === "bc" ? bcUrls : blogUrls;
+  const setUrls = activeTab === "bc" ? setBcUrls : setBlogUrls;
+  const cols = activeTab === "bc" ? BC_COLS : BLOG_COLS;
+  const pagination = usePagination(urls, 100);
 
   function handleAddRow() {
-    setUrls(prev => [...prev, emptyRow(activeTab)])
+    setUrls((prev) => [...prev, emptyRow(activeTab)]);
   }
 
   function handleUpdateRow(id, field, value) {
-    setUrls(prev =>
-      prev.map(row => {
-        if (row.id !== id) return row
-        const updated = { ...row, [field]: value }
-        if (field === 'url') updated.slug = urlToSlug(value)
-        return updated
-      })
-    )
+    setUrls((prev) =>
+      prev.map((row) => {
+        if (row.id !== id) return row;
+        const updated = { ...row, [field]: value };
+        if (field === "url") updated.slug = urlToSlug(value);
+        return updated;
+      }),
+    );
   }
 
   function handleDeleteRow(id) {
-    setUrls(prev => prev.filter(r => r.id !== id))
+    setUrls((prev) => prev.filter((r) => r.id !== id));
   }
 
   function handleClearAll() {
-    if (confirm(`Clear all ${activeTab.toUpperCase()} URLs? This cannot be undone.`)) {
-      setUrls([])
+    if (
+      confirm(
+        `Clear all ${activeTab.toUpperCase()} URLs? This cannot be undone.`,
+      )
+    ) {
+      setUrls([]);
     }
   }
 
   function handleExportCSV() {
-    const cols = activeTab === 'bc' ? BC_COLS : BLOG_COLS
-    const headers = cols.filter(c => c.type !== 'readonly').map(c => c.label).concat('Slug')
-    const rows = urls.map(row =>
-      cols.filter(c => c.type !== 'readonly').map(c => row[c.key] ?? '').concat(row.slug ?? '')
-    )
+    const cols = activeTab === "bc" ? BC_COLS : BLOG_COLS;
+    const headers = cols
+      .filter((c) => c.type !== "readonly")
+      .map((c) => c.label)
+      .concat("Slug");
+    const rows = urls.map((row) =>
+      cols
+        .filter((c) => c.type !== "readonly")
+        .map((c) => row[c.key] ?? "")
+        .concat(row.slug ?? ""),
+    );
     const csv = [headers, ...rows]
-      .map(r => r.map(c => {
-        const s = String(c ?? '')
-        return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s
-      }).join(','))
-      .join('\n')
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${activeTab}_urls.csv`
-    a.click()
-    URL.revokeObjectURL(a.href)
+      .map((r) =>
+        r
+          .map((c) => {
+            const s = String(c ?? "");
+            return s.includes(",") || s.includes('"')
+              ? `"${s.replace(/"/g, '""')}"`
+              : s;
+          })
+          .join(","),
+      )
+      .join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${activeTab}_urls.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   return (
     <div className="space-y-5">
       {/* Tabs */}
       <div className="inline-flex bg-stone-100 rounded-btn p-1">
-        {TABS.map(tab => {
-          const count = tab.id === 'bc' ? bcUrls.length : blogUrls.length
+        {TABS.map((tab) => {
+          const count = tab.id === "bc" ? bcUrls.length : blogUrls.length;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-white text-stone-900 shadow-card'
-                  : 'text-stone-500 hover:text-stone-700'
+                  ? "bg-white text-stone-900 shadow-card"
+                  : "text-stone-500 hover:text-stone-700"
               }`}
             >
               {tab.label}
-              <span className={`ml-1.5 text-[10px] ${activeTab === tab.id ? 'text-stone-400' : 'text-stone-400'}`}>
+              <span
+                className={`ml-1.5 text-[10px] ${activeTab === tab.id ? "text-stone-400" : "text-stone-400"}`}
+              >
                 {count}
               </span>
             </button>
-          )
+          );
         })}
       </div>
 
@@ -134,24 +183,32 @@ export default function UrlManager() {
           <CsvImportButton
             type={activeTab}
             cols={cols}
-            onImport={(rows) => setUrls(prev => [...prev, ...rows])}
+            onImport={(rows) => setUrls((prev) => [...prev, ...rows])}
             onReplace={(rows) => setUrls(rows)}
           />
           <SheetsImportButton
             type={activeTab}
             cols={cols}
-            onImport={(rows) => setUrls(prev => [...prev, ...rows])}
+            onImport={(rows) => setUrls((prev) => [...prev, ...rows])}
             onReplace={(rows) => setUrls(rows)}
           />
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500 font-medium">{urls.length} rows</span>
+          <span className="text-sm text-gray-500 font-medium">
+            {urls.length} rows
+          </span>
           {urls.length > 0 && (
             <>
-              <button onClick={handleExportCSV} className="btn-ghost text-xs text-gray-500">
+              <button
+                onClick={handleExportCSV}
+                className="btn-ghost text-xs text-gray-500"
+              >
                 ⬇ Export CSV
               </button>
-              <button onClick={handleClearAll} className="btn-ghost text-red-600 hover:bg-red-50 text-xs">
+              <button
+                onClick={handleClearAll}
+                className="btn-ghost text-danger hover:bg-danger/5 text-xs"
+              >
                 Clear all
               </button>
             </>
@@ -169,7 +226,11 @@ export default function UrlManager() {
             cols={cols}
             onUpdate={handleUpdateRow}
             onDelete={handleDeleteRow}
-            startIndex={pagination.pageSize === 'all' ? 0 : (pagination.page - 1) * pagination.pageSize}
+            startIndex={
+              pagination.pageSize === "all"
+                ? 0
+                : (pagination.page - 1) * pagination.pageSize
+            }
           />
           <PaginationControls
             page={pagination.page}
@@ -185,7 +246,7 @@ export default function UrlManager() {
         </>
       )}
     </div>
-  )
+  );
 }
 
 // ─── Table ────────────────────────────────────────────────────────────────────
@@ -195,16 +256,21 @@ export default function UrlManager() {
 // always-live inputs meant tens of thousands of interactive DOM nodes
 // mounted at once — this cuts that down to a handful.
 function UrlTable({ rows, cols, onUpdate, onDelete, startIndex = 0 }) {
-  const [editingId, setEditingId] = useState(null)
+  const [editingId, setEditingId] = useState(null);
 
   return (
     <div className="card overflow-x-auto">
       <table className="text-sm w-full">
         <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
           <tr>
-            <th className="text-left py-3 px-3 text-gray-500 font-medium w-8">#</th>
-            {cols.map(col => (
-              <th key={col.key} className={`text-left py-3 px-2 text-gray-500 font-medium uppercase tracking-wide text-[11px] ${col.width}`}>
+            <th className="text-left py-3 px-3 text-gray-500 font-medium w-8">
+              #
+            </th>
+            {cols.map((col) => (
+              <th
+                key={col.key}
+                className={`text-left py-3 px-2 text-gray-500 font-medium uppercase tracking-wide text-[11px] ${col.width}`}
+              >
                 {col.label}
               </th>
             ))}
@@ -228,24 +294,37 @@ function UrlTable({ rows, cols, onUpdate, onDelete, startIndex = 0 }) {
         </tbody>
       </table>
     </div>
-  )
+  );
 }
 
-function TableRow({ row, index, cols, onUpdate, onDelete, editing, onStartEdit, onStopEdit }) {
+function TableRow({
+  row,
+  index,
+  cols,
+  onUpdate,
+  onDelete,
+  editing,
+  onStartEdit,
+  onStopEdit,
+}) {
   return (
     <tr
-      className={`group transition-colors ${editing ? 'bg-brand-50/60' : 'even:bg-gray-50/40 hover:bg-brand-50/60 cursor-text'}`}
-      onClick={() => { if (!editing) onStartEdit() }}
-      onBlur={(e) => { if (editing && !e.currentTarget.contains(e.relatedTarget)) onStopEdit() }}
-      title={editing ? '' : 'Click to edit this row'}
+      className={`group transition-colors ${editing ? "bg-accent/5" : "even:bg-gray-50/40 hover:bg-accent/5 cursor-text"}`}
+      onClick={() => {
+        if (!editing) onStartEdit();
+      }}
+      onBlur={(e) => {
+        if (editing && !e.currentTarget.contains(e.relatedTarget)) onStopEdit();
+      }}
+      title={editing ? "" : "Click to edit this row"}
     >
       <td className="py-2 px-3 text-gray-400 text-xs">{index}</td>
-      {cols.map(col => (
+      {cols.map((col) => (
         <td key={col.key} className="py-1.5 px-2">
-          {editing || col.type === 'readonly' ? (
+          {editing || col.type === "readonly" ? (
             <CellInput
               col={col}
-              value={row[col.key] ?? ''}
+              value={row[col.key] ?? ""}
               onChange={(val) => onUpdate(row.id, col.key, val)}
             />
           ) : (
@@ -255,199 +334,253 @@ function TableRow({ row, index, cols, onUpdate, onDelete, editing, onStartEdit, 
       ))}
       <td className="py-2 px-3">
         <button
-          onClick={(e) => { e.stopPropagation(); onDelete(row.id) }}
-          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(row.id);
+          }}
+          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-danger transition-all"
           title="Delete row"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </td>
     </tr>
-  )
+  );
 }
 
 function ReadOnlyCell({ value }) {
   return (
-    <span className="text-sm text-gray-700 truncate block max-w-[200px]" title={value || undefined}>
+    <span
+      className="text-sm text-gray-700 truncate block max-w-[200px]"
+      title={value || undefined}
+    >
       {value || <span className="text-gray-300">—</span>}
     </span>
-  )
+  );
 }
 
 // <input type="date"> only accepts YYYY-MM-DD; imported dates like "3 Oct
 // 2025" render blank otherwise, even though the underlying value is intact.
 function toISODate(value) {
-  if (!value) return ''
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
-  const d = new Date(value)
-  if (isNaN(d.getTime())) return ''
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function CellInput({ col, value, onChange }) {
-  if (col.type === 'readonly') {
+  if (col.type === "readonly") {
     return (
-      <span className="text-xs text-gray-400 font-mono truncate block max-w-[180px]" title={value}>
-        {value || '—'}
+      <span
+        className="text-xs text-gray-400 font-mono truncate block max-w-[180px]"
+        title={value}
+      >
+        {value || "—"}
       </span>
-    )
+    );
   }
-  if (col.type === 'select') {
+  if (col.type === "select") {
     return (
       <select
-        className="text-xs border border-transparent hover:border-stone-200 focus:border-brand-500 rounded-btn px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none w-full"
+        className="text-xs border border-transparent hover:border-stone-200 focus:border-accent rounded-btn px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none w-full"
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
       >
-        {col.options.map(o => <option key={o} value={o}>{o}</option>)}
+        {col.options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
       </select>
-    )
+    );
   }
-  if (col.type === 'date') {
+  if (col.type === "date") {
     return (
       <input
         type="date"
-        className="text-xs border border-transparent hover:border-stone-200 focus:border-brand-500 rounded-btn px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none"
+        className="text-xs border border-transparent hover:border-stone-200 focus:border-accent rounded-btn px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none"
         value={toISODate(value)}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
       />
-    )
+    );
   }
   return (
     <input
       type="text"
-      className="text-xs border border-transparent hover:border-stone-200 focus:border-brand-500 rounded-btn px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none w-full min-w-[80px]"
+      className="text-xs border border-transparent hover:border-stone-200 focus:border-accent rounded-btn px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none w-full min-w-[80px]"
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       placeholder={col.label}
     />
-  )
+  );
 }
 
 // ─── CSV Import ───────────────────────────────────────────────────────────────
 
 function CsvImportButton({ type, cols, onImport, onReplace }) {
-  const fileRef = useRef()
-  const [mode, setMode] = useState('append')
-  const [loading, setLoading] = useState(false)
+  const fileRef = useRef();
+  const [mode, setMode] = useState("append");
+  const [loading, setLoading] = useState(false);
 
   function handleFile(e) {
-    const file = e.target.files[0]
-    if (!file) return
-    e.target.value = ''
-    setLoading(true)
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    setLoading(true);
 
     Papa.parse(file, {
       header: false,
       skipEmptyLines: true,
       complete: ({ data }) => {
-        const headerIdx = locateHeaderRow(data)
-        const rows = rowsToObjects(data, headerIdx).map(raw => parseImportedRow(raw, type, cols))
-        if (mode === 'replace') {
-          if (confirm(`Replace all existing ${type.toUpperCase()} URLs with ${rows.length} imported rows?`)) {
-            onReplace(rows)
+        const headerIdx = locateHeaderRow(data);
+        const rows = rowsToObjects(data, headerIdx).map((raw) =>
+          parseImportedRow(raw, type, cols),
+        );
+        if (mode === "replace") {
+          if (
+            confirm(
+              `Replace all existing ${type.toUpperCase()} URLs with ${rows.length} imported rows?`,
+            )
+          ) {
+            onReplace(rows);
           }
         } else {
-          onImport(rows)
+          onImport(rows);
         }
-        setLoading(false)
+        setLoading(false);
       },
-      error: (err) => { setLoading(false); alert(`CSV parse error: ${err.message}`) },
-    })
+      error: (err) => {
+        setLoading(false);
+        alert(`CSV parse error: ${err.message}`);
+      },
+    });
   }
 
   return (
     <div className="flex items-center gap-1.5">
-      <button onClick={() => fileRef.current.click()} disabled={loading} className="btn-secondary disabled:opacity-50">
+      <button
+        onClick={() => fileRef.current.click()}
+        disabled={loading}
+        className="btn-secondary disabled:opacity-50"
+      >
         {loading ? (
           <span className="inline-flex items-center gap-1.5">
             <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
             Importing…
           </span>
-        ) : '⬆ Import CSV'}
+        ) : (
+          "⬆ Import CSV"
+        )}
       </button>
       <select
-        className="text-xs border border-stone-200 rounded-btn px-2 py-1.5 bg-white text-stone-600 hover:border-stone-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+        className="text-xs border border-stone-200 rounded-btn px-2 py-1.5 bg-white text-stone-600 hover:border-stone-300 focus:outline-none focus:ring-2 focus:ring-accent/20"
         value={mode}
-        onChange={e => setMode(e.target.value)}
+        onChange={(e) => setMode(e.target.value)}
         title="Import mode"
       >
         <option value="append">Append</option>
         <option value="replace">Replace</option>
       </select>
-      <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFile} />
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".csv"
+        className="hidden"
+        onChange={handleFile}
+      />
     </div>
-  )
+  );
 }
 
 // ─── Google Sheets Import ──────────────────────────────────────────────────────
 
 function SheetsImportButton({ type, cols, onImport, onReplace }) {
-  const [open, setOpen] = useState(false)
-  const [url, setUrl] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   async function handleImport(mode) {
-    setError(null)
-    const sheetId = extractSheetId(url)
+    setError(null);
+    const sheetId = extractSheetId(url);
     if (!sheetId) {
-      setError('Could not parse spreadsheet ID from URL.')
-      return
+      setError("Could not parse spreadsheet ID from URL.");
+      return;
     }
 
-    const token = await getValidToken()
+    const token = await getValidToken();
     if (!token) {
-      setError('Not connected to Google. Go to Settings → Connect Google first.')
-      return
+      setError(
+        "Not connected to Google. Go to Settings → Connect Google first.",
+      );
+      return;
     }
-    setLoading(true)
+    setLoading(true);
     try {
       // Resolve which tab the link actually points to (gid), so a link to
       // the 2nd/3rd tab doesn't silently fall back to the 1st tab. Range is
       // open-ended ("A:Z" not "A1:Z5000") so sheets with more than 5000 rows
       // aren't silently truncated.
-      let range = 'A:Z'
-      const gid = extractGid(url)
+      let range = "A:Z";
+      const gid = extractGid(url);
       if (gid) {
         const metaRes = await fetch(
           `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,title)`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-        const meta = await metaRes.json()
-        if (meta.error) throw new Error(meta.error.message)
-        const sheet = (meta.sheets || []).find(s => String(s.properties.sheetId) === gid)
-        if (sheet) range = `'${sheet.properties.title}'!A:Z`
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        const meta = await metaRes.json();
+        if (meta.error) throw new Error(meta.error.message);
+        const sheet = (meta.sheets || []).find(
+          (s) => String(s.properties.sheetId) === gid,
+        );
+        if (sheet) range = `'${sheet.properties.title}'!A:Z`;
       }
 
       const res = await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      const data = await res.json()
-      if (data.error) throw new Error(data.error.message)
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
 
-      const values = data.values || []
-      if (values.length === 0) throw new Error('Sheet appears empty.')
+      const values = data.values || [];
+      if (values.length === 0) throw new Error("Sheet appears empty.");
 
-      const headerIdx = locateHeaderRow(values)
-      const rows = rowsToObjects(values, headerIdx).map(raw => parseImportedRow(raw, type, cols))
+      const headerIdx = locateHeaderRow(values);
+      const rows = rowsToObjects(values, headerIdx).map((raw) =>
+        parseImportedRow(raw, type, cols),
+      );
 
-      if (mode === 'replace') {
-        if (confirm(`Replace all existing ${type.toUpperCase()} URLs with ${rows.length} imported rows?`)) {
-          onReplace(rows)
+      if (mode === "replace") {
+        if (
+          confirm(
+            `Replace all existing ${type.toUpperCase()} URLs with ${rows.length} imported rows?`,
+          )
+        ) {
+          onReplace(rows);
         }
       } else {
-        onImport(rows)
+        onImport(rows);
       }
-      setOpen(false)
-      setUrl('')
+      setOpen(false);
+      setUrl("");
     } catch (err) {
-      setError(err.message)
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -456,7 +589,7 @@ function SheetsImportButton({ type, cols, onImport, onReplace }) {
       <button onClick={() => setOpen(true)} className="btn-secondary">
         🔗 From Sheets
       </button>
-    )
+    );
   }
 
   return (
@@ -467,35 +600,43 @@ function SheetsImportButton({ type, cols, onImport, onReplace }) {
           className="input text-sm"
           placeholder="https://docs.google.com/spreadsheets/d/...#gid=..."
           value={url}
-          onChange={e => setUrl(e.target.value)}
+          onChange={(e) => setUrl(e.target.value)}
           autoFocus
         />
         <p className="text-xs text-gray-500">
-          Paste the link to the exact tab you want (its <code>gid</code> is detected automatically). The sheet must be shared with <strong>"Anyone with the link can view"</strong> access.
+          Paste the link to the exact tab you want (its <code>gid</code> is
+          detected automatically). The sheet must be shared with{" "}
+          <strong>"Anyone with the link can view"</strong> access.
         </p>
-        {error && <div className="text-xs text-red-600">{error}</div>}
+        {error && <div className="text-xs text-danger">{error}</div>}
         <div className="flex gap-2">
           <button
-            onClick={() => handleImport('append')}
+            onClick={() => handleImport("append")}
             disabled={!url || loading}
             className="btn-primary text-xs py-1.5 disabled:opacity-50"
           >
-            {loading ? 'Loading…' : 'Append'}
+            {loading ? "Loading…" : "Append"}
           </button>
           <button
-            onClick={() => handleImport('replace')}
+            onClick={() => handleImport("replace")}
             disabled={!url || loading}
             className="btn-secondary text-xs py-1.5 disabled:opacity-50"
           >
             Replace all
           </button>
-          <button onClick={() => { setOpen(false); setError(null) }} className="btn-ghost text-xs py-1.5">
+          <button
+            onClick={() => {
+              setOpen(false);
+              setError(null);
+            }}
+            className="btn-ghost text-xs py-1.5"
+          >
             Cancel
           </button>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -503,61 +644,99 @@ function SheetsImportButton({ type, cols, onImport, onReplace }) {
 function EmptyState({ type, onAdd }) {
   return (
     <div className="border-2 border-dashed border-stone-200 rounded-card py-12 px-8 flex flex-col items-center text-center">
-      <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center text-brand-600 mb-4">
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+      <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center text-accent mb-4">
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+          />
         </svg>
       </div>
-      <div className="text-sm font-semibold text-stone-800 mb-1">No {type.toUpperCase()} URLs yet</div>
+      <div className="text-sm font-semibold text-stone-800 mb-1">
+        No {type.toUpperCase()} URLs yet
+      </div>
       <div className="text-xs text-stone-500 mb-4">
         Add rows manually, import a CSV, or pull from a Google Sheet.
       </div>
       <button onClick={onAdd} className="btn-primary">
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" />
+        <svg
+          className="w-3.5 h-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 4.5v15m7.5-7.5h-15"
+          />
         </svg>
         Add first row
       </button>
     </div>
-  )
+  );
 }
 
 function extractSheetId(url) {
-  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
-  return m ? m[1] : null
+  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
 }
 
 function extractGid(url) {
-  const m = url.match(/[#&?]gid=(\d+)/)
-  return m ? m[1] : null
+  const m = url.match(/[#&?]gid=(\d+)/);
+  return m ? m[1] : null;
 }
 
 // Known column labels (lowercased) across BC_COLS/BLOG_COLS, used to find the
 // real header row when the source has banner/notice rows above it (common in
 // Sheets exports, e.g. "⚠️ Do not change anything...").
 const HEADER_HINTS = [
-  'main keyword', 'keyword', 'offer', 'property', 'url', 'publish', 'publish date',
-  'status', 'content type', 'pic', 'slug',
-]
+  "main keyword",
+  "keyword",
+  "offer",
+  "property",
+  "url",
+  "publish",
+  "publish date",
+  "status",
+  "content type",
+  "pic",
+  "slug",
+];
 
 function locateHeaderRow(rows) {
   for (let i = 0; i < Math.min(rows.length, 20); i++) {
-    const cells = (rows[i] || []).map(c => String(c ?? '').trim().toLowerCase())
-    const hits = cells.filter(c => HEADER_HINTS.includes(c)).length
-    if (hits >= 2) return i
+    const cells = (rows[i] || []).map((c) =>
+      String(c ?? "")
+        .trim()
+        .toLowerCase(),
+    );
+    const hits = cells.filter((c) => HEADER_HINTS.includes(c)).length;
+    if (hits >= 2) return i;
   }
-  return 0
+  return 0;
 }
 
 function rowsToObjects(rows, headerIdx) {
-  const headers = rows[headerIdx] || []
-  return rows.slice(headerIdx + 1)
-    .filter(r => r.some(c => String(c ?? '').trim() !== ''))
-    .map(r => {
-      const obj = {}
-      headers.forEach((h, i) => { if (h) obj[h] = r[i] ?? '' })
-      return obj
-    })
+  const headers = rows[headerIdx] || [];
+  return rows
+    .slice(headerIdx + 1)
+    .filter((r) => r.some((c) => String(c ?? "").trim() !== ""))
+    .map((r) => {
+      const obj = {};
+      headers.forEach((h, i) => {
+        if (h) obj[h] = r[i] ?? "";
+      });
+      return obj;
+    });
 }
 
 /**
@@ -566,43 +745,45 @@ function rowsToObjects(rows, headerIdx) {
  */
 function parseImportedRow(raw, type, cols) {
   // Build case-insensitive lookup
-  const lowerRaw = {}
-  Object.entries(raw).forEach(([k, v]) => { lowerRaw[k.toLowerCase().trim()] = v })
+  const lowerRaw = {};
+  Object.entries(raw).forEach(([k, v]) => {
+    lowerRaw[k.toLowerCase().trim()] = v;
+  });
 
   function get(...aliases) {
     for (const alias of aliases) {
-      const v = raw[alias] ?? lowerRaw[alias.toLowerCase()]
-      if (v !== undefined && v !== '') return v
+      const v = raw[alias] ?? lowerRaw[alias.toLowerCase()];
+      if (v !== undefined && v !== "") return v;
     }
-    return ''
+    return "";
   }
 
-  let row
-  if (type === 'bc') {
+  let row;
+  if (type === "bc") {
     row = {
       id: crypto.randomUUID(),
-      main_keyword: get('Main Keyword', 'main_keyword', 'keyword'),
-      offer: get('Offer', 'offer'),
-      property: get('Property', 'property'),
-      url: get('URL', 'url', 'Url'),
-      publish: get('Publish', 'publish', 'Publish Date', 'publish_date'),
-      status: get('Status', 'status'),
-      pic: get('PIC', 'pic'),
-      slug: '',
-    }
+      main_keyword: get("Main Keyword", "main_keyword", "keyword"),
+      offer: get("Offer", "offer"),
+      property: get("Property", "property"),
+      url: get("URL", "url", "Url"),
+      publish: get("Publish", "publish", "Publish Date", "publish_date"),
+      status: get("Status", "status"),
+      pic: get("PIC", "pic"),
+      slug: "",
+    };
   } else {
     row = {
       id: crypto.randomUUID(),
-      keyword: get('Keyword', 'keyword', 'Main Keyword', 'main_keyword'),
-      url: get('URL', 'url', 'Url'),
-      status: get('Status', 'status'),
-      publish_date: get('Publish Date', 'publish_date', 'Publish', 'publish'),
-      content_type: get('Content Type', 'content_type', 'ContentType'),
-      pic: get('PIC', 'pic'),
-      slug: '',
-    }
+      keyword: get("Keyword", "keyword", "Main Keyword", "main_keyword"),
+      url: get("URL", "url", "Url"),
+      status: get("Status", "status"),
+      publish_date: get("Publish Date", "publish_date", "Publish", "publish"),
+      content_type: get("Content Type", "content_type", "ContentType"),
+      pic: get("PIC", "pic"),
+      slug: "",
+    };
   }
 
-  row.slug = urlToSlug(row.url)
-  return row
+  row.slug = urlToSlug(row.url);
+  return row;
 }
