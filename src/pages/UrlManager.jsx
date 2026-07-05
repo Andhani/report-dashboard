@@ -102,25 +102,26 @@ export default function UrlManager() {
   return (
     <div className="space-y-5">
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab.id
-                ? 'border-brand-500 text-brand-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'
-            }`}
-          >
-            {tab.label}
-            <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-              activeTab === tab.id ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-600'
-            }`}>
-              {activeTab === tab.id ? urls.length : (tab.id === 'bc' ? bcUrls.length : blogUrls.length)}
-            </span>
-          </button>
-        ))}
+      <div className="inline-flex bg-stone-100 rounded-btn p-1">
+        {TABS.map(tab => {
+          const count = tab.id === 'bc' ? bcUrls.length : blogUrls.length
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-white text-stone-900 shadow-card'
+                  : 'text-stone-500 hover:text-stone-700'
+              }`}
+            >
+              {tab.label}
+              <span className={`ml-1.5 text-[10px] ${activeTab === tab.id ? 'text-stone-400' : 'text-stone-400'}`}>
+                {count}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       {/* Toolbar */}
@@ -296,7 +297,7 @@ function CellInput({ col, value, onChange }) {
   if (col.type === 'select') {
     return (
       <select
-        className="text-sm border border-transparent hover:border-gray-300 focus:border-brand-500 rounded px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none w-full"
+        className="text-xs border border-transparent hover:border-stone-200 focus:border-brand-500 rounded-btn px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none w-full"
         value={value}
         onChange={e => onChange(e.target.value)}
       >
@@ -308,7 +309,7 @@ function CellInput({ col, value, onChange }) {
     return (
       <input
         type="date"
-        className="text-sm border border-transparent hover:border-gray-300 focus:border-brand-500 rounded px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none"
+        className="text-xs border border-transparent hover:border-stone-200 focus:border-brand-500 rounded-btn px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none"
         value={toISODate(value)}
         onChange={e => onChange(e.target.value)}
       />
@@ -317,7 +318,7 @@ function CellInput({ col, value, onChange }) {
   return (
     <input
       type="text"
-      className="text-sm border border-transparent hover:border-gray-300 focus:border-brand-500 rounded px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none w-full min-w-[80px]"
+      className="text-xs border border-transparent hover:border-stone-200 focus:border-brand-500 rounded-btn px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none w-full min-w-[80px]"
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={col.label}
@@ -368,7 +369,7 @@ function CsvImportButton({ type, cols, onImport, onReplace }) {
         ) : '⬆ Import CSV'}
       </button>
       <select
-        className="text-xs border border-gray-300 rounded-lg px-2 py-2 bg-white text-gray-600 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-200"
+        className="text-xs border border-stone-200 rounded-btn px-2 py-1.5 bg-white text-stone-600 hover:border-stone-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
         value={mode}
         onChange={e => setMode(e.target.value)}
         title="Import mode"
@@ -501,13 +502,22 @@ function SheetsImportButton({ type, cols, onImport, onReplace }) {
 
 function EmptyState({ type, onAdd }) {
   return (
-    <div className="card p-12 flex flex-col items-center text-center border-dashed border-2 border-gray-200 bg-gray-50/50">
-      <div className="text-4xl mb-3">📋</div>
-      <div className="font-semibold text-gray-800 mb-1">No {type.toUpperCase()} URLs yet</div>
-      <div className="text-sm text-gray-500 mb-4">
+    <div className="border-2 border-dashed border-stone-200 rounded-card py-12 px-8 flex flex-col items-center text-center">
+      <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center text-brand-600 mb-4">
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+        </svg>
+      </div>
+      <div className="text-sm font-semibold text-stone-800 mb-1">No {type.toUpperCase()} URLs yet</div>
+      <div className="text-xs text-stone-500 mb-4">
         Add rows manually, import a CSV, or pull from a Google Sheet.
       </div>
-      <button onClick={onAdd} className="btn-primary">+ Add first row</button>
+      <button onClick={onAdd} className="btn-primary">
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Add first row
+      </button>
     </div>
   )
 }

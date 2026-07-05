@@ -90,7 +90,7 @@ export default function Flow3() {
                   onClick={() => setSelectedSlotIdx(i)}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                     isActive
-                      ? 'bg-green-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -106,13 +106,13 @@ export default function Flow3() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="inline-flex bg-stone-100 rounded-btn p-1 gap-0.5">
         {['bc', 'blog'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            className={`px-4 py-1.5 rounded-btn text-xs font-medium transition-all ${
+              activeTab === tab ? 'bg-white text-stone-900 shadow-card' : 'text-stone-500 hover:text-stone-700'
             }`}
           >
             {tab === 'bc' ? 'BC Leads Summary' : 'Blog Leads Summary'}
@@ -137,7 +137,7 @@ export default function Flow3() {
                 <button
                   onClick={() => handlePushSheets(proj)}
                   disabled={pushing || !sheetsUrl}
-                  className={`btn text-xs ${sheetsUrl ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'}`}
+                  className={`btn text-xs ${sheetsUrl ? 'btn-primary' : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'}`}
                 >
                   {pushing ? '…' : ok ? '✓ Pushed!' : '→ Push to Sheets'}
                 </button>
@@ -167,11 +167,13 @@ export default function Flow3() {
 
 function GatingMessage({ icon, title, desc, to, btnLabel }) {
   return (
-    <div className="card p-8 text-center max-w-lg mx-auto mt-8">
-      <div className="text-3xl mb-3">{icon}</div>
-      <div className="font-semibold text-gray-800 mb-2">{title}</div>
-      <p className="text-sm text-gray-500 mb-4">{desc}</p>
-      <Link to={to} className="btn-primary">{btnLabel}</Link>
+    <div className="max-w-lg mx-auto mt-8 border-2 border-dashed border-stone-200 rounded-card py-12 px-8 flex flex-col items-center text-center">
+      <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center text-brand-600 mb-4 text-xl">
+        {icon}
+      </div>
+      <div className="text-sm font-semibold text-stone-800 mb-1">{title}</div>
+      <p className="text-xs text-stone-500 mb-4">{desc}</p>
+      <Link to={to} className="btn btn-primary">{btnLabel}</Link>
     </div>
   )
 }

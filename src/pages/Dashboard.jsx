@@ -87,10 +87,10 @@ export default function Dashboard() {
               <p className="text-sm text-gray-600 mb-5 leading-relaxed">{card.description}</p>
               <Link
                 to={card.to}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${c.btn}`}
+                className={`btn text-white shadow-card hover:shadow-card-hover ${c.btn}`}
               >
                 Open
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>

@@ -186,10 +186,14 @@ export default function Flow1() {
 
   if (!flow1Window) {
     return (
-      <div className="card p-8 text-center max-w-lg mx-auto mt-8">
-        <div className="text-3xl mb-3">⚙️</div>
-        <div className="font-semibold text-gray-800 mb-2">Rolling window not set</div>
-        <p className="text-sm text-gray-500 mb-4">Set the Flow 1 start month in Settings before uploading files.</p>
+      <div className="max-w-lg mx-auto mt-8 border-2 border-dashed border-stone-200 rounded-card py-12 px-8 flex flex-col items-center text-center">
+        <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center text-brand-600 mb-4">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+          </svg>
+        </div>
+        <div className="text-sm font-semibold text-stone-800 mb-1">Rolling window not set</div>
+        <p className="text-xs text-stone-500 mb-4">Set the Flow 1 start month in Settings before uploading files.</p>
         <Link to="/settings" className="btn-primary">Go to Settings</Link>
       </div>
     )
@@ -197,10 +201,14 @@ export default function Flow1() {
 
   if (bcUrls.length === 0 && blogUrls.length === 0) {
     return (
-      <div className="card p-8 text-center max-w-lg mx-auto mt-8">
-        <div className="text-3xl mb-3">🔗</div>
-        <div className="font-semibold text-gray-800 mb-2">URL lists are empty</div>
-        <p className="text-sm text-gray-500 mb-4">Add BC and Blog URL lists before running VLOOKUP.</p>
+      <div className="max-w-lg mx-auto mt-8 border-2 border-dashed border-stone-200 rounded-card py-12 px-8 flex flex-col items-center text-center">
+        <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center text-brand-600 mb-4">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+          </svg>
+        </div>
+        <div className="text-sm font-semibold text-stone-800 mb-1">URL lists are empty</div>
+        <p className="text-xs text-stone-500 mb-4">Add BC and Blog URL lists before running VLOOKUP.</p>
         <Link to="/urls" className="btn-primary">Go to URL Manager</Link>
       </div>
     )
@@ -307,25 +315,29 @@ function DropZone({ dragging, processing, onDrop, onDragOver, onDragLeave, onCli
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onClick={onClick}
-      className={`card border-2 border-dashed transition-colors cursor-pointer select-none p-10 flex flex-col items-center text-center ${
-        dragging ? 'border-brand-500 bg-brand-50' : 'border-gray-300 hover:border-brand-400 hover:bg-gray-50'
+      className={`border-2 border-dashed rounded-card transition-colors cursor-pointer select-none py-12 px-8 flex flex-col items-center text-center ${
+        dragging ? 'border-brand-500 bg-brand-50' : 'border-stone-200 hover:border-brand-400 hover:bg-stone-50'
       }`}
     >
       {processing ? (
         <>
           <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mb-3" />
-          <div className="font-medium text-gray-700">Processing files…</div>
+          <div className="text-xs font-medium text-stone-600">Processing files…</div>
         </>
       ) : (
         <>
-          <div className="text-4xl mb-3">📂</div>
-          <div className="font-semibold text-gray-800 mb-1">
-            {dragging ? 'Drop files here' : 'Drag & drop .xlsx files (up to 30)'}
+          <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center text-brand-600 mb-4">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
           </div>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm font-semibold text-stone-800 mb-1">
+            {dragging ? 'Drop files here' : 'Drag & drop .xlsx files'}
+          </div>
+          <div className="text-xs text-stone-500 mb-4">
             GSC exports (Pages + Filters sheets) · GA4 exports (Free-form 1 sheet)
           </div>
-          <div className="text-xs text-gray-400 mt-2">or click to browse</div>
+          <div className="btn-secondary pointer-events-none">Browse files</div>
         </>
       )}
     </div>
@@ -516,13 +528,13 @@ function PreviewSection({ previewTab, setPreviewTab, slots, flow1Data, bcUrls, b
       {/* Preview table */}
       <div className="card">
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-200">
-          <div className="flex gap-1">
+          <div className="inline-flex bg-stone-100 rounded-btn p-1">
             {['bc', 'blog'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setPreviewTab(tab)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  previewTab === tab ? 'bg-brand-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${
+                  previewTab === tab ? 'bg-white text-stone-900 shadow-card' : 'text-stone-500 hover:text-stone-700'
                 }`}
               >
                 {tab === 'bc' ? 'BC' : 'Blog'}
