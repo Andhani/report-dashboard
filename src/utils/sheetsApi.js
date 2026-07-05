@@ -1,5 +1,5 @@
-import * as XLSX from 'xlsx'
-import { getValidToken } from './googleAuth'
+import * as XLSX from "xlsx";
+import { getValidToken } from "./googleAuth";
 
 /**
  * Push Flow 1 values to the report spreadsheet.
@@ -9,29 +9,38 @@ import { getValidToken } from './googleAuth'
  * Blog: starts at col H (1-based 8), 48 cols → H:BC
  */
 export async function pushFlow1ToSheets(spreadsheetId, project, valuesArray) {
-  const token = await getValidToken()
-  if (!token) throw new Error('Not connected to Google — go to Settings to connect.')
+  const token = await getValidToken();
+  if (!token)
+    throw new Error("Not connected to Google — go to Settings to connect.");
 
-  const sheetName = project === 'bc' ? 'BC Traffic (Optimized)' : 'Blog Traffic (Optimized)'
-  const startColNum = project === 'bc' ? 9 : 8  // I=9, H=8
-  const endColNum = startColNum + 47             // 48 metric columns
-  const startRow = 4
-  const endRow = startRow + valuesArray.length - 1
+  const sheetName =
+    project === "bc" ? "BC Traffic (Optimized)" : "Blog Traffic (Optimized)";
+  const startColNum = project === "bc" ? 9 : 8; // I=9, H=8
+  const endColNum = startColNum + 47; // 48 metric columns
+  const startRow = 4;
+  const endRow = startRow + valuesArray.length - 1;
 
-  const range = `'${sheetName}'!${colNum2Letter(startColNum)}${startRow}:${colNum2Letter(endColNum)}${endRow}`
+  const range = `'${sheetName}'!${colNum2Letter(startColNum)}${startRow}:${colNum2Letter(endColNum)}${endRow}`;
 
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
     {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ range, majorDimension: 'ROWS', values: valuesArray }),
-    }
-  )
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        range,
+        majorDimension: "ROWS",
+        values: valuesArray,
+      }),
+    },
+  );
 
-  const data = await res.json()
-  if (data.error) throw new Error(data.error.message)
-  return data
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data;
 }
 
 /**
@@ -39,13 +48,13 @@ export async function pushFlow1ToSheets(spreadsheetId, project, valuesArray) {
  * 1→A, 26→Z, 27→AA, 56→BD
  */
 function colNum2Letter(n) {
-  let result = ''
+  let result = "";
   while (n > 0) {
-    n--
-    result = String.fromCharCode(65 + (n % 26)) + result
-    n = Math.floor(n / 26)
+    n--;
+    result = String.fromCharCode(65 + (n % 26)) + result;
+    n = Math.floor(n / 26);
   }
-  return result
+  return result;
 }
 
 /**
@@ -54,38 +63,43 @@ function colNum2Letter(n) {
  * Strategy: read existing data, prepend new rows, write back.
  */
 export async function pushFlow3ToSheets(spreadsheetId, project, csvRows) {
-  const token = await getValidToken()
-  if (!token) throw new Error('Not connected to Google — go to Settings to connect.')
+  const token = await getValidToken();
+  if (!token)
+    throw new Error("Not connected to Google — go to Settings to connect.");
 
-  const sheetName = project === 'bc' ? 'BC Leads Summary' : 'Blog Leads Summary'
-  const nRows = csvRows.length
-  const nCols = Math.max(...csvRows.map(r => r.length))
-  const endCol = colNum2Letter(nCols)
+  const sheetName =
+    project === "bc" ? "BC Leads Summary" : "Blog Leads Summary";
+  const nRows = csvRows.length;
+  const nCols = Math.max(...csvRows.map((r) => r.length));
+  const endCol = colNum2Letter(nCols);
 
   // Read current data to find last row
   const readRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`'${sheetName}'!A1:Z1000`)}`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  )
-  const readData = await readRes.json()
-  if (readData.error) throw new Error(readData.error.message)
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const readData = await readRes.json();
+  if (readData.error) throw new Error(readData.error.message);
 
-  const existingRows = readData.values || []
+  const existingRows = readData.values || [];
   // Prepend new block on top, keep existing rows below
-  const combined = [...csvRows, ...existingRows]
+  const combined = [...csvRows, ...existingRows];
 
-  const range = `'${sheetName}'!A1:${colNum2Letter(nCols)}${combined.length}`
+  const range = `'${sheetName}'!A1:${colNum2Letter(nCols)}${combined.length}`;
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
     {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ range, majorDimension: 'ROWS', values: combined }),
-    }
-  )
-  const data = await res.json()
-  if (data.error) throw new Error(data.error.message)
-  return data
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ range, majorDimension: "ROWS", values: combined }),
+    },
+  );
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data;
 }
 
 /**
@@ -94,34 +108,38 @@ export async function pushFlow3ToSheets(spreadsheetId, project, csvRows) {
  * Layout matches buildFlow2CSV: rows = metrics, columns = segments × months.
  */
 export async function pushFlow2ToSheets(spreadsheetId, csvRows) {
-  const token = await getValidToken()
-  if (!token) throw new Error('Not connected to Google — go to Settings to connect.')
+  const token = await getValidToken();
+  if (!token)
+    throw new Error("Not connected to Google — go to Settings to connect.");
 
-  const sheetName = 'Traffic Overview (BC & Blog)'
-  const nRows = csvRows.length
-  const nCols = csvRows[0]?.length ?? 1
-  const endCol = colNum2Letter(nCols)
-  const range = `'${sheetName}'!A1:${endCol}${nRows}`
+  const sheetName = "Traffic Overview (BC & Blog)";
+  const nRows = csvRows.length;
+  const nCols = csvRows[0]?.length ?? 1;
+  const endCol = colNum2Letter(nCols);
+  const range = `'${sheetName}'!A1:${endCol}${nRows}`;
 
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
     {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ range, majorDimension: 'ROWS', values: csvRows }),
-    }
-  )
-  const data = await res.json()
-  if (data.error) throw new Error(data.error.message)
-  return data
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ range, majorDimension: "ROWS", values: csvRows }),
+    },
+  );
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data;
 }
 
 /**
  * Extract spreadsheet ID from a Google Sheets URL.
  */
 export function extractSpreadsheetId(url) {
-  const m = (url || '').match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
-  return m ? m[1] : null
+  const m = (url || "").match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
 }
 
 // ─── Sheets-as-file-upload helpers (Flow 1 / Flow 2 "paste a link" import) ────
@@ -138,17 +156,22 @@ const TAB_PATTERNS = {
   pages: /pages/i,
   chart: /chart/i,
   freeform: /free.?form/i,
-}
-const CANONICAL_TAB_NAMES = { filters: 'Filters', pages: 'Pages', chart: 'Chart', freeform: 'Free-form 1' }
+};
+const CANONICAL_TAB_NAMES = {
+  filters: "Filters",
+  pages: "Pages",
+  chart: "Chart",
+  freeform: "Free-form 1",
+};
 
 async function getSpreadsheetTabNames(sheetId, token) {
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  )
-  const data = await res.json()
-  if (data.error) throw new Error(data.error.message)
-  return (data.sheets || []).map(s => s.properties.title)
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return (data.sheets || []).map((s) => s.properties.title);
 }
 
 async function getTabValues(sheetId, tabName, token) {
@@ -156,19 +179,22 @@ async function getTabValues(sheetId, tabName, token) {
   // truncated any sheet with more rows than the cap.
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`'${tabName}'!A:Z`)}`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  )
-  const data = await res.json()
-  if (data.error) throw new Error(data.error.message)
-  return data.values || []
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.values || [];
 }
 
 async function resolveSheetAccess(sheetUrl) {
-  const sheetId = extractSpreadsheetId(sheetUrl)
-  if (!sheetId) throw new Error('Could not parse spreadsheet ID from URL.')
-  const token = await getValidToken()
-  if (!token) throw new Error('Not connected to Google — go to Settings → Connect Google first.')
-  return { sheetId, token }
+  const sheetId = extractSpreadsheetId(sheetUrl);
+  if (!sheetId) throw new Error("Could not parse spreadsheet ID from URL.");
+  const token = await getValidToken();
+  if (!token)
+    throw new Error(
+      "Not connected to Google — go to Settings → Connect Google first.",
+    );
+  return { sheetId, token };
 }
 
 /**
@@ -177,19 +203,19 @@ async function resolveSheetAccess(sheetUrl) {
  * Tabs that aren't found are simply omitted — callers check SheetNames.
  */
 export async function buildWorkbookFromSheet(sheetUrl, wantedKeys) {
-  const { sheetId, token } = await resolveSheetAccess(sheetUrl)
-  const availableTabs = await getSpreadsheetTabNames(sheetId, token)
+  const { sheetId, token } = await resolveSheetAccess(sheetUrl);
+  const availableTabs = await getSpreadsheetTabNames(sheetId, token);
 
-  const wb = { SheetNames: [], Sheets: {} }
+  const wb = { SheetNames: [], Sheets: {} };
   for (const wantKey of wantedKeys) {
-    const match = availableTabs.find(t => TAB_PATTERNS[wantKey].test(t))
-    if (!match) continue
-    const values = await getTabValues(sheetId, match, token)
-    const name = CANONICAL_TAB_NAMES[wantKey]
-    wb.Sheets[name] = XLSX.utils.aoa_to_sheet(values)
-    wb.SheetNames.push(name)
+    const match = availableTabs.find((t) => TAB_PATTERNS[wantKey].test(t));
+    if (!match) continue;
+    const values = await getTabValues(sheetId, match, token);
+    const name = CANONICAL_TAB_NAMES[wantKey];
+    wb.Sheets[name] = XLSX.utils.aoa_to_sheet(values);
+    wb.SheetNames.push(name);
   }
-  return wb
+  return wb;
 }
 
 /**
@@ -197,10 +223,12 @@ export async function buildWorkbookFromSheet(sheetUrl, wantedKeys) {
  * Flow 2's GA4 Free-form / Leads imports, which are parsed as CSV.
  */
 export async function fetchFirstTabAsCSV(sheetUrl) {
-  const { sheetId, token } = await resolveSheetAccess(sheetUrl)
-  const availableTabs = await getSpreadsheetTabNames(sheetId, token)
-  const firstTab = availableTabs[0]
-  if (!firstTab) throw new Error('Sheet appears empty.')
-  const values = await getTabValues(sheetId, firstTab, token)
-  return XLSX.utils.sheet_to_csv(XLSX.utils.aoa_to_sheet(values), { blankrows: true })
+  const { sheetId, token } = await resolveSheetAccess(sheetUrl);
+  const availableTabs = await getSpreadsheetTabNames(sheetId, token);
+  const firstTab = availableTabs[0];
+  if (!firstTab) throw new Error("Sheet appears empty.");
+  const values = await getTabValues(sheetId, firstTab, token);
+  return XLSX.utils.sheet_to_csv(XLSX.utils.aoa_to_sheet(values), {
+    blankrows: true,
+  });
 }
