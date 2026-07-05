@@ -536,22 +536,9 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
         <h2 className="text-base font-semibold text-gray-900 leading-tight">
           Slot Status
         </h2>
-        <div className="flex items-center gap-4">
-          <div className="flex gap-3 text-xs text-gray-500">
-            <span className="flex items-center gap-1">
-              <span className="badge-green">●</span> Complete
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="badge-yellow">◐</span> Partial
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="badge-gray">○</span> Empty
-            </span>
-          </div>
-          <span className="text-xs text-gray-500">
-            {filled}/{total} filled
-          </span>
-        </div>
+        <span className="text-xs text-gray-500">
+          {filled}/{total} filled
+        </span>
       </div>
       <div className="overflow-x-auto">
         <table className="text-sm w-full">
@@ -600,6 +587,17 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
+        <span className="flex items-center gap-1">
+          <span className="badge-green">●</span> Complete
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="badge-yellow">◐</span> Partial
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="badge-gray">○</span> Empty
+        </span>
       </div>
     </div>
   );
@@ -686,7 +684,6 @@ function PreviewSection({
     <div className="space-y-4">
       {/* Export bar */}
       <div className="card p-4 flex flex-wrap items-center gap-3">
-        <span className="font-semibold text-gray-800 text-sm mr-2">Export</span>
         {(() => {
           const proj = previewTab;
           const ps = pushStatus[proj];
@@ -696,7 +693,7 @@ function PreviewSection({
                 onClick={() => onDownloadCSV(proj)}
                 className="btn-secondary"
               >
-                ⬇ {proj === "bc" ? "BC" : "Blog"} CSV
+                Export {proj === "bc" ? "BC" : "Blog"} CSV
               </button>
               <button
                 onClick={() => onPushSheets(proj)}
@@ -710,7 +707,7 @@ function PreviewSection({
                   ? "…"
                   : ps === "ok"
                     ? "✓ Pushed!"
-                    : "→ Push to Sheets"}
+                    : `Push ${proj === "bc" ? "BC" : "Blog"} to Sheets`}
               </button>
               {ps?.startsWith("error:") && (
                 <span className="text-xs text-danger">{ps.slice(6)}</span>
