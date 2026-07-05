@@ -34,7 +34,7 @@ export default function SheetLinkImport({ onImport, label = '🔗 Import from Sh
   }
 
   return (
-    <div className="flex items-start gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg w-full max-w-xl">
+    <div className="flex items-start gap-2 p-3 bg-stone-50 border border-stone-200 rounded-card w-full max-w-xl">
       <div className="flex-1 space-y-2">
         <input
           type="url"

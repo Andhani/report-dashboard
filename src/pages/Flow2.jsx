@@ -152,10 +152,14 @@ export default function Flow2() {
 
   if (!flow2Window) {
     return (
-      <div className="card p-8 text-center max-w-lg mx-auto mt-8">
-        <div className="text-3xl mb-3">⚙️</div>
-        <div className="font-semibold text-gray-800 mb-2">Rolling window not set</div>
-        <p className="text-sm text-gray-500 mb-4">Set the Flow 2 start month in Settings (6-month window).</p>
+      <div className="max-w-lg mx-auto mt-8 border-2 border-dashed border-stone-200 rounded-card py-12 px-8 flex flex-col items-center text-center">
+        <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center text-brand-600 mb-4">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+          </svg>
+        </div>
+        <div className="text-sm font-semibold text-stone-800 mb-1">Rolling window not set</div>
+        <p className="text-xs text-stone-500 mb-4">Set the Flow 2 start month in Settings (6-month window).</p>
         <Link to="/settings" className="btn-primary">Go to Settings</Link>
       </div>
     )
@@ -241,25 +245,27 @@ function DropZone({ dragging, processing, onDrop, onDragOver, onDragLeave, onCli
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onClick={onClick}
-      className={`card border-2 border-dashed transition-colors cursor-pointer select-none p-10 flex flex-col items-center text-center ${
-        dragging ? 'border-purple-500 bg-purple-50' : 'border-gray-300 hover:border-purple-400 hover:bg-gray-50'
+      className={`card border-2 border-dashed transition-colors cursor-pointer select-none py-12 px-8 flex flex-col items-center text-center ${
+        dragging ? 'border-brand-400 bg-brand-50' : 'border-stone-200 hover:border-brand-300 hover:bg-stone-50'
       }`}
     >
       {processing ? (
         <>
-          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-3" />
-          <div className="font-medium text-gray-700">Processing files…</div>
+          <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mb-3" />
+          <div className="text-sm font-semibold text-stone-700">Processing files…</div>
         </>
       ) : (
         <>
-          <div className="text-4xl mb-3">📂</div>
-          <div className="font-semibold text-gray-800 mb-1">
+          <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center text-brand-600 mb-4">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+          </div>
+          <div className="text-sm font-semibold text-stone-800 mb-1">
             {dragging ? 'Drop files here' : 'Drag & drop Flow 2 files'}
           </div>
-          <div className="text-sm text-gray-500 space-y-0.5">
-            <div>GSC Chart export (.xlsx) · GA4 Free-form export (.csv) · GA4 Leads export (.csv)</div>
-            <div className="text-gray-400">Up to 6 months × 3 files = 18 files at once</div>
-          </div>
+          <p className="text-xs text-stone-500 mb-4">GSC Chart export (.xlsx) · GA4 Free-form export (.csv) · GA4 Leads export (.csv)<br />Up to 6 months × 3 files = 18 files at once</p>
+          <span className="btn btn-secondary pointer-events-none">Browse files</span>
         </>
       )}
     </div>
@@ -380,7 +386,7 @@ function OverviewSection({ output, slots, onDownloadCSV, onPushSheets, pushStatu
         <button
           onClick={onPushSheets}
           disabled={pushStatus === 'pushing' || !sheetsUrl}
-          className={`btn text-xs ${sheetsUrl ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'}`}
+          className={`btn text-xs ${sheetsUrl ? 'btn-primary' : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'}`}
         >
           {pushStatus === 'pushing' ? '…' : pushStatus === 'ok' ? '✓ Pushed!' : '→ Push to Sheets'}
         </button>
@@ -392,18 +398,22 @@ function OverviewSection({ output, slots, onDownloadCSV, onPushSheets, pushStatu
 
       {/* Segment tabs + metrics table */}
       <div className="card">
-        <div className="flex gap-1 px-5 pt-4 pb-3 border-b border-gray-200 overflow-x-auto">
-          {SEGMENTS.map(seg => (
-            <button
-              key={seg.id}
-              onClick={() => setActiveSeg(seg.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                activeSeg === seg.id ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              {seg.label}
-            </button>
-          ))}
+        <div className="flex px-5 pt-4 pb-3 border-b border-gray-100 overflow-x-auto">
+          <div className="inline-flex bg-stone-100 rounded-btn p-1 gap-0.5">
+            {SEGMENTS.map(seg => (
+              <button
+                key={seg.id}
+                onClick={() => setActiveSeg(seg.id)}
+                className={`px-3 py-1.5 rounded-btn text-xs font-medium whitespace-nowrap transition-all ${
+                  activeSeg === seg.id
+                    ? 'bg-white text-stone-900 shadow-card'
+                    : 'text-stone-500 hover:text-stone-700'
+                }`}
+              >
+                {seg.label}
+              </button>
+            ))}
+          </div>
         </div>
         <SegmentTable segId={activeSeg} output={output} slots={slots} />
       </div>

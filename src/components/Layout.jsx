@@ -160,17 +160,22 @@ export default function Layout() {
 }
 
 function PageTitle({ pathname }) {
-  const titles = {
-    '/': 'Dashboard',
-    '/flow1': 'Flow 1 — Traffic Import (GSC + GA4)',
-    '/flow2': 'Flow 2 — Traffic Overview',
-    '/flow3': 'Flow 3 — Leads Summary',
-    '/urls': 'URL List Manager',
-    '/settings': 'Settings',
+  const pages = {
+    '/':         { accent: 'Dashboard',  rest: '',                         sub: 'Overview of all flows and slot status' },
+    '/flow1':    { accent: 'Flow 1',     rest: ' — Traffic Import',        sub: 'Upload GSC + GA4 exports, merge by slug, push to Sheets' },
+    '/flow2':    { accent: 'Flow 2',     rest: ' — Traffic Overview',      sub: 'Aggregate segment-level metrics across 6 months' },
+    '/flow3':    { accent: 'Flow 3',     rest: ' — Leads Summary',         sub: 'Computed from Flow 1 + Flow 2 — no uploads needed' },
+    '/urls':     { accent: 'URL Lists',  rest: '',                         sub: 'Manage BC and Blog URL lists used for VLOOKUP' },
+    '/settings': { accent: 'Settings',   rest: '',                         sub: 'OAuth connection, rolling window, and Sheets URL' },
   }
+  const info = pages[pathname] ?? { accent: 'Report Dashboard', rest: '', sub: '' }
   return (
-    <h1 className="text-xl font-semibold text-gray-900">
-      {titles[pathname] ?? 'Report Dashboard'}
-    </h1>
+    <div>
+      <h1 className="text-xl font-bold leading-tight">
+        <span className="text-brand-600">{info.accent}</span>
+        {info.rest && <span className="text-stone-900">{info.rest}</span>}
+      </h1>
+      {info.sub && <p className="text-xs text-stone-500 mt-0.5">{info.sub}</p>}
+    </div>
   )
 }
