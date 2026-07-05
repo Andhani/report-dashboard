@@ -80,6 +80,15 @@ export default function UrlManager() {
   const [bcUrls, setBcUrls] = useStorage("bc_urls", []);
   const [blogUrls, setBlogUrls] = useStorage("blog_urls", []);
 
+  // Import toolbar state
+  const [importMode, setImportMode] = useState("sheets");
+  const [replaceMode, setReplaceMode] = useState("replace");
+  const [importSheetUrl, setImportSheetUrl] = useState("");
+  const [sheetLoading, setSheetLoading] = useState(false);
+  const [sheetError, setSheetError] = useState(null);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const csvRef = useRef();
+
   const urls = activeTab === "bc" ? bcUrls : blogUrls;
   const setUrls = activeTab === "bc" ? setBcUrls : setBlogUrls;
   const cols = activeTab === "bc" ? BC_COLS : BLOG_COLS;
@@ -112,6 +121,94 @@ export default function UrlManager() {
     ) {
       setUrls([]);
     }
+  }
+
+  function applyImport(rows) {
+    if (replaceMode === "replace") {
+      if (
+        confirm(
+          `Replace all existing ${activeTab.toUpperCase()} URLs with ${rows.length} imported rows?`,
+        )
+      ) {
+        setUrls(rows);
+      }
+    } else {
+      setUrls((prev) => [...prev, ...rows]);
+    }
+  }
+
+  async function handleSheetImport() {
+    setSheetError(null);
+    const sheetId = extractSheetId(importSheetUrl);
+    if (!sheetId) {
+      setSheetError("Could not parse spreadsheet ID from URL.");
+      return;
+    }
+    const token = await getValidToken();
+    if (!token) {
+      setSheetError(
+        "Not connected to Google. Go to Settings → Connect Google first.",
+      );
+      return;
+    }
+    setSheetLoading(true);
+    try {
+      let range = "A:Z";
+      const gid = extractGid(importSheetUrl);
+      if (gid) {
+        const metaRes = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,title)`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        const meta = await metaRes.json();
+        if (meta.error) throw new Error(meta.error.message);
+        const sheet = (meta.sheets || []).find(
+          (s) => String(s.properties.sheetId) === gid,
+        );
+        if (sheet) range = `'${sheet.properties.title}'!A:Z`;
+      }
+      const res = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const values = data.values || [];
+      if (values.length === 0) throw new Error("Sheet appears empty.");
+      const headerIdx = locateHeaderRow(values);
+      const rows = rowsToObjects(values, headerIdx).map((raw) =>
+        parseImportedRow(raw, activeTab, cols),
+      );
+      applyImport(rows);
+      setImportSheetUrl("");
+    } catch (err) {
+      setSheetError(err.message);
+    } finally {
+      setSheetLoading(false);
+    }
+  }
+
+  function handleCsvFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    setCsvLoading(true);
+    Papa.parse(file, {
+      header: false,
+      skipEmptyLines: true,
+      complete: ({ data }) => {
+        const headerIdx = locateHeaderRow(data);
+        const rows = rowsToObjects(data, headerIdx).map((raw) =>
+          parseImportedRow(raw, activeTab, cols),
+        );
+        applyImport(rows);
+        setCsvLoading(false);
+      },
+      error: (err) => {
+        setCsvLoading(false);
+        alert(`CSV parse error: ${err.message}`);
+      },
+    });
   }
 
   function handleExportCSV() {
@@ -176,18 +273,32 @@ export default function UrlManager() {
       {/* Toolbar */}
       <div className="card p-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <CsvImportButton
-            type={activeTab}
-            cols={cols}
-            onImport={(rows) => setUrls((prev) => [...prev, ...rows])}
-            onReplace={(rows) => setUrls(rows)}
-          />
-          <SheetsImportButton
-            type={activeTab}
-            cols={cols}
-            onImport={(rows) => setUrls((prev) => [...prev, ...rows])}
-            onReplace={(rows) => setUrls(rows)}
-          />
+          {/* Import mode toggle */}
+          <div className="inline-flex bg-stone-100 rounded-btn p-0.5">
+            <button
+              onClick={() => setImportMode("sheets")}
+              className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${importMode === "sheets" ? "bg-white text-stone-900 shadow-card" : "text-stone-500 hover:text-stone-700"}`}
+            >
+              🔗 From Sheets
+            </button>
+            <button
+              onClick={() => setImportMode("csv")}
+              className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${importMode === "csv" ? "bg-white text-stone-900 shadow-card" : "text-stone-500 hover:text-stone-700"}`}
+            >
+              📂 Upload CSV
+            </button>
+          </div>
+          {/* Replace/Append dropdown */}
+          <select
+            className="text-sm border border-stone-200 rounded-btn px-2 py-1.5 bg-white text-stone-600 hover:border-stone-300 focus:outline-none focus:ring-2 focus:ring-accent/20"
+            value={replaceMode}
+            onChange={(e) => setReplaceMode(e.target.value)}
+          >
+            <option value="replace">Replace</option>
+            <option value="append">Add to existing</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-3">
           {urls.length > 0 && (
             <button
               onClick={handleExportCSV}
@@ -196,8 +307,6 @@ export default function UrlManager() {
               ⬇ Export CSV
             </button>
           )}
-        </div>
-        <div className="flex items-center gap-3">
           <button onClick={handleAddRow} className="btn-secondary">
             + Add Row
           </button>
@@ -214,6 +323,67 @@ export default function UrlManager() {
           )}
         </div>
       </div>
+
+      {/* Import panel */}
+      {importMode === "sheets" && (
+        <div className="card p-4 space-y-3">
+          <div className="flex gap-2">
+            <input
+              type="url"
+              className="input flex-1 text-sm"
+              placeholder="https://docs.google.com/spreadsheets/d/...#gid=..."
+              value={importSheetUrl}
+              onChange={(e) => {
+                setImportSheetUrl(e.target.value);
+                setSheetError(null);
+              }}
+            />
+            <button
+              onClick={handleSheetImport}
+              disabled={!importSheetUrl || sheetLoading}
+              className="btn-primary disabled:opacity-50 flex-shrink-0"
+            >
+              {sheetLoading ? "Loading…" : "Import"}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500">
+            Paste the link to the exact tab (its <code>gid</code> is detected
+            automatically). The sheet must be shared with{" "}
+            <strong>"Anyone with the link can view"</strong> access.
+          </p>
+          {sheetError && (
+            <div className="text-xs text-danger">{sheetError}</div>
+          )}
+        </div>
+      )}
+      {importMode === "csv" && (
+        <div className="card p-4 flex items-center gap-3">
+          <button
+            onClick={() => csvRef.current.click()}
+            disabled={csvLoading}
+            className="btn-secondary disabled:opacity-50"
+          >
+            {csvLoading ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                Importing…
+              </span>
+            ) : (
+              "Choose CSV file"
+            )}
+          </button>
+          <span className="text-xs text-gray-500">
+            Select a .csv file from your computer to import.
+          </span>
+          <input
+            ref={csvRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleCsvFile}
+          />
+        </div>
+      )}
 
       {/* Table */}
       {urls.length === 0 ? (
@@ -424,217 +594,6 @@ function CellInput({ col, value, onChange }) {
       onChange={(e) => onChange(e.target.value)}
       placeholder={col.label}
     />
-  );
-}
-
-// ─── CSV Import ───────────────────────────────────────────────────────────────
-
-function CsvImportButton({ type, cols, onImport, onReplace }) {
-  const fileRef = useRef();
-  const [mode, setMode] = useState("replace");
-  const [loading, setLoading] = useState(false);
-
-  function handleFile(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    e.target.value = "";
-    setLoading(true);
-
-    Papa.parse(file, {
-      header: false,
-      skipEmptyLines: true,
-      complete: ({ data }) => {
-        const headerIdx = locateHeaderRow(data);
-        const rows = rowsToObjects(data, headerIdx).map((raw) =>
-          parseImportedRow(raw, type, cols),
-        );
-        if (mode === "replace") {
-          if (
-            confirm(
-              `Replace all existing ${type.toUpperCase()} URLs with ${rows.length} imported rows?`,
-            )
-          ) {
-            onReplace(rows);
-          }
-        } else {
-          onImport(rows);
-        }
-        setLoading(false);
-      },
-      error: (err) => {
-        setLoading(false);
-        alert(`CSV parse error: ${err.message}`);
-      },
-    });
-  }
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <button
-        onClick={() => fileRef.current.click()}
-        disabled={loading}
-        className="btn-secondary disabled:opacity-50"
-      >
-        {loading ? (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-            Importing…
-          </span>
-        ) : (
-          "⬆ Import CSV"
-        )}
-      </button>
-      <select
-        className="text-sm border border-stone-200 rounded-btn px-2 py-1.5 bg-white text-stone-600 hover:border-stone-300 focus:outline-none focus:ring-2 focus:ring-accent/20"
-        value={mode}
-        onChange={(e) => setMode(e.target.value)}
-        title="Import mode"
-      >
-        <option value="append">Add to existing</option>
-        <option value="replace">Replace</option>
-      </select>
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".csv"
-        className="hidden"
-        onChange={handleFile}
-      />
-    </div>
-  );
-}
-
-// ─── Google Sheets Import ──────────────────────────────────────────────────────
-
-function SheetsImportButton({ type, cols, onImport, onReplace }) {
-  const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  async function handleImport(mode) {
-    setError(null);
-    const sheetId = extractSheetId(url);
-    if (!sheetId) {
-      setError("Could not parse spreadsheet ID from URL.");
-      return;
-    }
-
-    const token = await getValidToken();
-    if (!token) {
-      setError(
-        "Not connected to Google. Go to Settings → Connect Google first.",
-      );
-      return;
-    }
-    setLoading(true);
-    try {
-      // Resolve which tab the link actually points to (gid), so a link to
-      // the 2nd/3rd tab doesn't silently fall back to the 1st tab. Range is
-      // open-ended ("A:Z" not "A1:Z5000") so sheets with more than 5000 rows
-      // aren't silently truncated.
-      let range = "A:Z";
-      const gid = extractGid(url);
-      if (gid) {
-        const metaRes = await fetch(
-          `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,title)`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-        const meta = await metaRes.json();
-        if (meta.error) throw new Error(meta.error.message);
-        const sheet = (meta.sheets || []).find(
-          (s) => String(s.properties.sheetId) === gid,
-        );
-        if (sheet) range = `'${sheet.properties.title}'!A:Z`;
-      }
-
-      const res = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-
-      const values = data.values || [];
-      if (values.length === 0) throw new Error("Sheet appears empty.");
-
-      const headerIdx = locateHeaderRow(values);
-      const rows = rowsToObjects(values, headerIdx).map((raw) =>
-        parseImportedRow(raw, type, cols),
-      );
-
-      if (mode === "replace") {
-        if (
-          confirm(
-            `Replace all existing ${type.toUpperCase()} URLs with ${rows.length} imported rows?`,
-          )
-        ) {
-          onReplace(rows);
-        }
-      } else {
-        onImport(rows);
-      }
-      setOpen(false);
-      setUrl("");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="btn-secondary">
-        🔗 From Sheets
-      </button>
-    );
-  }
-
-  return (
-    <div className="flex items-start gap-2 p-3.5 bg-gray-50 border border-gray-200 rounded-xl shadow-sm">
-      <div className="flex-1 space-y-2">
-        <input
-          type="url"
-          className="input text-sm"
-          placeholder="https://docs.google.com/spreadsheets/d/...#gid=..."
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          autoFocus
-        />
-        <p className="text-xs text-gray-500">
-          Paste the link to the exact tab you want (its <code>gid</code> is
-          detected automatically). The sheet must be shared with{" "}
-          <strong>"Anyone with the link can view"</strong> access.
-        </p>
-        {error && <div className="text-xs text-danger">{error}</div>}
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleImport("append")}
-            disabled={!url || loading}
-            className="btn-secondary py-1.5 disabled:opacity-50"
-          >
-            {loading ? "Loading…" : "Add to existing"}
-          </button>
-          <button
-            onClick={() => handleImport("replace")}
-            disabled={!url || loading}
-            className="btn-primary py-1.5 disabled:opacity-50"
-          >
-            Replace all
-          </button>
-          <button
-            onClick={() => {
-              setOpen(false);
-              setError(null);
-            }}
-            className="btn-ghost py-1.5"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 

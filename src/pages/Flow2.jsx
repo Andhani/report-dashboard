@@ -544,19 +544,9 @@ const SLOT_ROWS_F2 = [
 function SlotGrid({ slots, flow2Data, getSlotStatus, onClear }) {
   return (
     <div className="card p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-semibold text-gray-900 leading-tight">
-          Slot Status (6-month window)
-        </h2>
-        <div className="flex gap-3 text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            <span className="badge-green">●</span> Filled
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="badge-gray">○</span> Empty
-          </span>
-        </div>
-      </div>
+      <h2 className="text-base font-semibold text-gray-900 leading-tight mb-4">
+        Slot Status (6-month window)
+      </h2>
       <div className="overflow-x-auto">
         <table className="text-sm w-full">
           <thead>
@@ -599,6 +589,14 @@ function SlotGrid({ slots, flow2Data, getSlotStatus, onClear }) {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
+        <span className="flex items-center gap-1">
+          <span className="badge-green">●</span> Filled
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="badge-gray">○</span> Empty
+        </span>
       </div>
     </div>
   );
@@ -654,9 +652,8 @@ function OverviewSection({
     <div className="space-y-4">
       {/* Export bar */}
       <div className="card p-4 flex flex-wrap items-center gap-3">
-        <span className="font-semibold text-gray-800 text-sm mr-2">Export</span>
         <button onClick={onDownloadCSV} className="btn-secondary">
-          ⬇ Download CSV
+          Export CSV
         </button>
         <button
           onClick={onPushSheets}
@@ -667,7 +664,7 @@ function OverviewSection({
             ? "…"
             : pushStatus === "ok"
               ? "✓ Pushed!"
-              : "→ Push to Sheets"}
+              : "Push to Sheets"}
         </button>
         {typeof pushStatus === "string" && pushStatus.startsWith("error:") && (
           <span className="text-xs text-danger">{pushStatus.slice(6)}</span>

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useStorage } from "../hooks/useStorage";
 import { getMonthSlots } from "../utils/dateUtils";
+import { getValidToken } from "../utils/googleAuth";
 
 export default function Settings() {
-  const [oauthToken] = useStorage("google_oauth", null);
+  const [oauthToken, setOauthToken] = useStorage("google_oauth", null);
   const [flow1Window, setFlow1Window] = useStorage("flow1_window", null);
   const [flow2Window, setFlow2Window] = useStorage("flow2_window", null);
   const [sheetsUrl, setSheetsUrl] = useStorage("sheets_report_url", "");
@@ -12,6 +13,24 @@ export default function Settings() {
 
   const [sheetsInput, setSheetsInput] = useState(sheetsUrl || "");
   const [clearConfirm, setClearConfirm] = useState(null);
+
+  // Fetch email from Google userinfo if token exists but email not yet stored
+  useEffect(() => {
+    if (!oauthToken || oauthToken.email) return;
+    getValidToken().then((token) => {
+      if (!token) return;
+      fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => r.json())
+        .then((user) => {
+          if (user.email) {
+            setOauthToken((prev) => ({ ...prev, email: user.email }));
+          }
+        })
+        .catch(() => {});
+    });
+  }, [oauthToken?.access_token]);
 
   // Build month options — current month back 24 months
   const monthOptions = buildMonthOptions();
@@ -193,8 +212,8 @@ export default function Settings() {
           Report Sheet Tabs
         </h2>
         <p className="text-sm text-gray-600">
-          Reports are written to the following tabs in your spreadsheet. Make
-          sure these tab names exist exactly as shown.
+          Each flow writes to a specific tab in your spreadsheet. These tabs
+          will be created automatically if they don't exist yet.
         </p>
         <div className="space-y-2">
           {[

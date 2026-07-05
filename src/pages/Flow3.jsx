@@ -157,9 +157,6 @@ export default function Flow3() {
       {/* Export bar */}
       {currentSlot && (
         <div className="card p-4 flex flex-wrap items-center gap-3">
-          <span className="font-semibold text-gray-800 text-sm mr-2">
-            Export
-          </span>
           {(() => {
             const proj = activeTab;
             const ps = pushStatus;
@@ -174,14 +171,18 @@ export default function Flow3() {
                   onClick={() => handleDownloadCSV(proj)}
                   className="btn-secondary"
                 >
-                  ⬇ {proj === "bc" ? "BC" : "Blog"} CSV
+                  Export {proj === "bc" ? "BC" : "Blog"} CSV
                 </button>
                 <button
                   onClick={() => handlePushSheets(proj)}
                   disabled={pushing || !sheetsUrl}
                   className={`btn ${sheetsUrl ? "btn-primary" : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"}`}
                 >
-                  {pushing ? "…" : ok ? "✓ Pushed!" : "→ Push to Sheets"}
+                  {pushing
+                    ? "…"
+                    : ok
+                      ? "✓ Pushed!"
+                      : `Push ${proj === "bc" ? "BC" : "Blog"} to Sheets`}
                 </button>
                 {err && <span className="text-xs text-danger">{err}</span>}
               </div>
