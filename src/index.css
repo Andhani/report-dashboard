@@ -14,7 +14,7 @@
 
 @layer components {
   .btn {
-    @apply inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-btn font-medium text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-btn font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
   }
   .btn-primary {
     @apply btn bg-accent text-white hover:bg-accent-dark focus:ring-accent;
@@ -29,7 +29,7 @@
     @apply bg-white rounded-card border border-gray-200 shadow-card transition-shadow hover:shadow-card-hover;
   }
   .input {
-    @apply w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent;
+    @apply w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent;
   }
   .label {
     @apply block text-xs font-medium text-gray-600 mb-1;

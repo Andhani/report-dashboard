@@ -143,7 +143,7 @@ export default function Flow3() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1.5 rounded-btn text-xs font-medium transition-all ${
+            className={`px-4 py-1.5 rounded-btn text-sm font-medium transition-all ${
               activeTab === tab
                 ? "bg-white text-stone-900 shadow-card"
                 : "text-stone-500 hover:text-stone-700"
@@ -171,14 +171,14 @@ export default function Flow3() {
               <div key={proj} className="flex items-center gap-2">
                 <button
                   onClick={() => handleDownloadCSV(proj)}
-                  className="btn-secondary text-xs"
+                  className="btn-secondary"
                 >
                   ⬇ {proj === "bc" ? "BC" : "Blog"} CSV
                 </button>
                 <button
                   onClick={() => handlePushSheets(proj)}
                   disabled={pushing || !sheetsUrl}
-                  className={`btn text-xs ${sheetsUrl ? "btn-primary" : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"}`}
+                  className={`btn ${sheetsUrl ? "btn-primary" : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"}`}
                 >
                   {pushing ? "…" : ok ? "✓ Pushed!" : "→ Push to Sheets"}
                 </button>
@@ -232,7 +232,7 @@ function DependencyBanner({ hasFlow1, hasFlow2 }) {
   return (
     <div className="card p-4 bg-warning/10 border-warning/30">
       <div className="flex items-start gap-3">
-        <span className="text-warning text-lg">⚠️</span>
+        <span className="text-warning text-sm">⚠️</span>
         <div className="text-sm text-ink">
           <strong>Partial data</strong> — some rates will show as 0.
           {!hasFlow1 && (
@@ -267,7 +267,7 @@ function BCLeadsBlock({ block }) {
   return (
     <div className="space-y-4">
       <div className="card p-6">
-        <div className="text-lg font-semibold text-gray-900 mb-1">
+        <div className="text-base font-semibold text-gray-900 leading-tight mb-1">
           {monthLabel}
         </div>
         <div className="text-xs text-gray-500 mb-5">Data Source = GA4</div>
@@ -347,7 +347,7 @@ function BlogLeadsBlock({ block }) {
   return (
     <div className="space-y-4">
       <div className="card p-6">
-        <div className="text-lg font-semibold text-gray-900 mb-1">
+        <div className="text-base font-semibold text-gray-900 leading-tight mb-1">
           {monthLabel}
         </div>
         <div className="text-xs text-gray-500 mb-5">Data Source = GA4</div>

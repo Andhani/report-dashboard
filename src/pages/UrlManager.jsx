@@ -156,7 +156,7 @@ export default function UrlManager() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? "bg-white text-stone-900 shadow-card"
                   : "text-stone-500 hover:text-stone-700"
@@ -201,13 +201,13 @@ export default function UrlManager() {
             <>
               <button
                 onClick={handleExportCSV}
-                className="btn-ghost text-xs text-gray-500"
+                className="btn-ghost text-gray-500"
               >
                 ⬇ Export CSV
               </button>
               <button
                 onClick={handleClearAll}
-                className="btn-ghost text-danger hover:bg-danger/5 text-xs"
+                className="btn-ghost text-danger hover:bg-danger/5"
               >
                 Clear all
               </button>
@@ -269,7 +269,7 @@ function UrlTable({ rows, cols, onUpdate, onDelete, startIndex = 0 }) {
             {cols.map((col) => (
               <th
                 key={col.key}
-                className={`text-left py-3 px-2 text-gray-500 font-medium uppercase tracking-wide text-[11px] ${col.width}`}
+                className={`text-left py-3 px-2 text-gray-500 font-medium uppercase tracking-wide text-xs ${col.width}`}
               >
                 {col.label}
               </th>
@@ -486,7 +486,7 @@ function CsvImportButton({ type, cols, onImport, onReplace }) {
         )}
       </button>
       <select
-        className="text-xs border border-stone-200 rounded-btn px-2 py-1.5 bg-white text-stone-600 hover:border-stone-300 focus:outline-none focus:ring-2 focus:ring-accent/20"
+        className="text-sm border border-stone-200 rounded-btn px-2 py-1.5 bg-white text-stone-600 hover:border-stone-300 focus:outline-none focus:ring-2 focus:ring-accent/20"
         value={mode}
         onChange={(e) => setMode(e.target.value)}
         title="Import mode"
@@ -613,14 +613,14 @@ function SheetsImportButton({ type, cols, onImport, onReplace }) {
           <button
             onClick={() => handleImport("append")}
             disabled={!url || loading}
-            className="btn-primary text-xs py-1.5 disabled:opacity-50"
+            className="btn-primary py-1.5 disabled:opacity-50"
           >
             {loading ? "Loading…" : "Append"}
           </button>
           <button
             onClick={() => handleImport("replace")}
             disabled={!url || loading}
-            className="btn-secondary text-xs py-1.5 disabled:opacity-50"
+            className="btn-secondary py-1.5 disabled:opacity-50"
           >
             Replace all
           </button>
@@ -629,7 +629,7 @@ function SheetsImportButton({ type, cols, onImport, onReplace }) {
               setOpen(false);
               setError(null);
             }}
-            className="btn-ghost text-xs py-1.5"
+            className="btn-ghost py-1.5"
           >
             Cancel
           </button>

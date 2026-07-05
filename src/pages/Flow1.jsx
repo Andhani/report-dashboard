@@ -481,7 +481,9 @@ function DetectionLog({ log, onClear }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-800 text-sm">Detection Log</h3>
+        <h3 className="text-base font-semibold text-gray-800 leading-tight">
+          Detection Log
+        </h3>
         <button
           onClick={onClear}
           className="text-xs text-gray-400 hover:text-gray-600"
@@ -492,7 +494,7 @@ function DetectionLog({ log, onClear }) {
       <div className="space-y-1 max-h-48 overflow-y-auto">
         {log.map((entry, i) => (
           <div key={i} className="flex items-start gap-2 text-sm">
-            <span className="flex-shrink-0 text-base leading-5">
+            <span className="flex-shrink-0 leading-5">
               {icons[entry.status]}
             </span>
             <span
@@ -531,7 +533,9 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-gray-900">Slot Status</h2>
+        <h2 className="text-base font-semibold text-gray-900 leading-tight">
+          Slot Status
+        </h2>
         <span className="text-xs text-gray-500">
           {filled}/{total} months fully filled
         </span>
@@ -687,14 +691,14 @@ function PreviewSection({
             <div key={proj} className="flex items-center gap-2">
               <button
                 onClick={() => onDownloadCSV(proj)}
-                className="btn-secondary text-xs"
+                className="btn-secondary"
               >
                 ⬇ {proj === "bc" ? "BC" : "Blog"} CSV
               </button>
               <button
                 onClick={() => onPushSheets(proj)}
                 disabled={ps === "pushing" || !sheetsUrl}
-                className={`btn text-xs ${sheetsUrl ? "btn-primary" : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"}`}
+                className={`btn ${sheetsUrl ? "btn-primary" : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"}`}
                 title={
                   !sheetsUrl ? "Configure spreadsheet URL in Settings" : ""
                 }
@@ -726,7 +730,7 @@ function PreviewSection({
               <button
                 key={tab}
                 onClick={() => setPreviewTab(tab)}
-                className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${
                   previewTab === tab
                     ? "bg-white text-stone-900 shadow-card"
                     : "text-stone-500 hover:text-stone-700"
