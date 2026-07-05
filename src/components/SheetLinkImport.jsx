@@ -31,7 +31,7 @@ export default function SheetLinkImport({
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="btn-secondary text-xs">
+      <button onClick={() => setOpen(true)} className="btn-secondary">
         {label}
       </button>
     );
@@ -58,7 +58,7 @@ export default function SheetLinkImport({
           <button
             onClick={handleImport}
             disabled={!url || loading}
-            className="btn-primary text-xs py-1.5 disabled:opacity-50"
+            className="btn-primary py-1.5 disabled:opacity-50"
           >
             {loading ? "Importing…" : "Import"}
           </button>
@@ -67,7 +67,7 @@ export default function SheetLinkImport({
               setOpen(false);
               setError(null);
             }}
-            className="btn-ghost text-xs py-1.5"
+            className="btn-ghost py-1.5"
           >
             Cancel
           </button>

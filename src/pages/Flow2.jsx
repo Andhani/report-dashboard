@@ -401,7 +401,9 @@ function DetectionLog({ log, onClear }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-800 text-sm">Detection Log</h3>
+        <h3 className="text-base font-semibold text-gray-800 leading-tight">
+          Detection Log
+        </h3>
         <button
           onClick={onClear}
           className="text-xs text-gray-400 hover:text-gray-600"
@@ -412,7 +414,7 @@ function DetectionLog({ log, onClear }) {
       <div className="space-y-1 max-h-48 overflow-y-auto">
         {log.map((entry, i) => (
           <div key={i} className="flex items-start gap-2 text-sm">
-            <span className="flex-shrink-0 text-base leading-5">
+            <span className="flex-shrink-0 leading-5">
               {icons[entry.status]}
             </span>
             <span
@@ -477,7 +479,7 @@ const SLOT_ROWS_F2 = [
 function SlotGrid({ slots, flow2Data, getSlotStatus, onClear }) {
   return (
     <div className="card p-5">
-      <h2 className="font-semibold text-gray-900 mb-4">
+      <h2 className="text-base font-semibold text-gray-900 leading-tight mb-4">
         Slot Status (6-month window)
       </h2>
       <div className="overflow-x-auto">
@@ -586,13 +588,13 @@ function OverviewSection({
       {/* Export bar */}
       <div className="card p-4 flex flex-wrap items-center gap-3">
         <span className="font-semibold text-gray-800 text-sm mr-2">Export</span>
-        <button onClick={onDownloadCSV} className="btn-secondary text-xs">
+        <button onClick={onDownloadCSV} className="btn-secondary">
           ⬇ Download CSV
         </button>
         <button
           onClick={onPushSheets}
           disabled={pushStatus === "pushing" || !sheetsUrl}
-          className={`btn text-xs ${sheetsUrl ? "btn-primary" : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"}`}
+          className={`btn ${sheetsUrl ? "btn-primary" : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"}`}
         >
           {pushStatus === "pushing"
             ? "…"
@@ -618,7 +620,7 @@ function OverviewSection({
               <button
                 key={seg.id}
                 onClick={() => setActiveSeg(seg.id)}
-                className={`px-3 py-1.5 rounded-btn text-xs font-medium whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 rounded-btn text-sm font-medium whitespace-nowrap transition-all ${
                   activeSeg === seg.id
                     ? "bg-white text-stone-900 shadow-card"
                     : "text-stone-500 hover:text-stone-700"

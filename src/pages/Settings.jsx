@@ -83,7 +83,7 @@ export default function Settings() {
     <div className="space-y-6 max-w-2xl">
       {/* Google Sheets OAuth */}
       <div className="card p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">
+        <h2 className="text-base font-semibold text-gray-900 leading-tight">
           Google Sheets Connection
         </h2>
         {oauthToken ? (
@@ -156,7 +156,9 @@ export default function Settings() {
 
       {/* Report Spreadsheet URL */}
       <div className="card p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">Report Spreadsheet URL</h2>
+        <h2 className="text-base font-semibold text-gray-900 leading-tight">
+          Report Spreadsheet URL
+        </h2>
         <p className="text-sm text-gray-600">
           Paste the URL of the Google Spreadsheet where reports will be written.
         </p>
@@ -182,7 +184,7 @@ export default function Settings() {
       {/* Flow 1 Rolling Window */}
       <div className="card p-6 space-y-4">
         <div>
-          <h2 className="font-semibold text-gray-900">
+          <h2 className="text-base font-semibold text-gray-900 leading-tight">
             Flow 1 — Rolling Window (6 months)
           </h2>
           <p className="text-sm text-gray-600 mt-1">
@@ -210,7 +212,7 @@ export default function Settings() {
       {/* Flow 2 Rolling Window */}
       <div className="card p-6 space-y-4">
         <div>
-          <h2 className="font-semibold text-gray-900">
+          <h2 className="text-base font-semibold text-gray-900 leading-tight">
             Flow 2 — Rolling Window (6 months)
           </h2>
           <p className="text-sm text-gray-600 mt-1">
@@ -238,7 +240,9 @@ export default function Settings() {
       {/* Data Management */}
       <div className="card p-6 space-y-4">
         <div>
-          <h2 className="font-semibold text-gray-900">Data Management</h2>
+          <h2 className="text-base font-semibold text-gray-900 leading-tight">
+            Data Management
+          </h2>
           <p className="text-sm text-gray-600 mt-1">
             Clear imported data from localStorage. This cannot be undone.
           </p>
@@ -252,7 +256,7 @@ export default function Settings() {
             <button
               key={key}
               onClick={() => handleClearData(key)}
-              className={`btn-secondary text-xs ${danger ? "text-danger border-danger/30 hover:bg-danger/5" : "text-gray-700"}`}
+              className={`btn-secondary ${danger ? "text-danger border-danger/30 hover:bg-danger/5" : "text-gray-700"}`}
             >
               {clearConfirm === key ? `Confirm: ${label}?` : label}
             </button>
@@ -260,7 +264,7 @@ export default function Settings() {
           {clearConfirm && (
             <button
               onClick={() => setClearConfirm(null)}
-              className="btn-ghost text-xs text-gray-500"
+              className="btn-ghost text-gray-500"
             >
               Cancel
             </button>

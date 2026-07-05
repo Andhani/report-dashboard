@@ -183,7 +183,7 @@ export default function Layout() {
               <span className="flex-shrink-0">{item.icon}</span>
               <span className="flex-1 min-w-0 truncate">{item.label}</span>
               {item.badge && (
-                <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-muted">
+                <span className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded bg-gray-100 text-muted">
                   {item.badge}
                 </span>
               )}

@@ -70,10 +70,12 @@ export default function Dashboard() {
             key={card.id}
             className="card p-6 border-l-[3px] border-l-accent"
           >
-            <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center text-2xl mb-4">
+            <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center text-xl mb-4">
               {card.icon}
             </div>
-            <h3 className="font-semibold text-gray-900 mb-2">{card.title}</h3>
+            <h3 className="text-base font-semibold text-gray-900 leading-tight mb-2">
+              {card.title}
+            </h3>
             <p className="text-sm text-gray-600 mb-5 leading-relaxed">
               {card.description}
             </p>
@@ -167,7 +169,7 @@ function SetupStatus({ bcUrls, blogUrls, flow1Window, flow2Window }) {
   return (
     <div className="card p-4 bg-warning/10 border-warning/30">
       <div className="flex items-start gap-3">
-        <span className="text-warning text-lg mt-0.5">⚠️</span>
+        <span className="text-warning text-sm mt-0.5">⚠️</span>
         <div>
           <div className="font-medium text-ink mb-2">
             Complete setup to get started
@@ -227,7 +229,9 @@ function SlotGrid({ title, slots, data, type }) {
 
   return (
     <div className="card p-6">
-      <h2 className="font-semibold text-gray-900 mb-4">{title}</h2>
+      <h2 className="text-base font-semibold text-gray-900 leading-tight mb-4">
+        {title}
+      </h2>
       <div className="overflow-x-auto">
         <table className="text-sm w-full">
           <thead>
