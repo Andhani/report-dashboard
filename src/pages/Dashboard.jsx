@@ -211,20 +211,40 @@ function SlotGrid({ title, slots, data, type }) {
       ? [
           {
             label: "BC GSC",
-            check: (k) =>
-              !!(data[`bc_gsc_dijual_${k}`] || data[`bc_gsc_disewa_${k}`]),
+            status: (k) => {
+              const d = !!data[`bc_gsc_dijual_${k}`];
+              const s = !!data[`bc_gsc_disewa_${k}`];
+              if (d && s) return "green";
+              if (d || s) return "yellow";
+              return "gray";
+            },
           },
-          { label: "BC GA4", check: (k) => !!data[`bc_ga4_${k}`] },
-          { label: "Blog GSC", check: (k) => !!data[`blog_gsc_${k}`] },
-          { label: "Blog GA4", check: (k) => !!data[`blog_ga4_${k}`] },
+          {
+            label: "BC GA4",
+            status: (k) => (data[`bc_ga4_${k}`] ? "green" : "gray"),
+          },
+          {
+            label: "Blog GSC",
+            status: (k) => (data[`blog_gsc_${k}`] ? "green" : "gray"),
+          },
+          {
+            label: "Blog GA4",
+            status: (k) => (data[`blog_ga4_${k}`] ? "green" : "gray"),
+          },
         ]
       : [
           {
             label: "GSC Chart (All)",
-            check: (k) => !!data[`gsc_all_organic_${k}`],
+            status: (k) => (data[`gsc_all_organic_${k}`] ? "green" : "gray"),
           },
-          { label: "GA4 Free-form", check: (k) => !!data[`ga4_free_${k}`] },
-          { label: "GA4 Leads", check: (k) => !!data[`ga4_leads_${k}`] },
+          {
+            label: "GA4 Free-form",
+            status: (k) => (data[`ga4_free_${k}`] ? "green" : "gray"),
+          },
+          {
+            label: "GA4 Leads",
+            status: (k) => (data[`ga4_leads_${k}`] ? "green" : "gray"),
+          },
         ];
 
   return (
@@ -256,11 +276,19 @@ function SlotGrid({ title, slots, data, type }) {
                   {row.label}
                 </td>
                 {slots.map((s) => {
-                  const filled = row.check(s.key);
+                  const st = row.status(s.key);
                   return (
                     <td key={s.key} className="py-2 px-2 text-center">
-                      <span className={filled ? "badge-green" : "badge-gray"}>
-                        {filled ? "●" : "○"}
+                      <span
+                        className={
+                          st === "green"
+                            ? "badge-green"
+                            : st === "yellow"
+                              ? "badge-yellow"
+                              : "badge-gray"
+                        }
+                      >
+                        {st === "green" ? "●" : st === "yellow" ? "◐" : "○"}
                       </span>
                     </td>
                   );
@@ -272,7 +300,10 @@ function SlotGrid({ title, slots, data, type }) {
       </div>
       <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
         <span className="flex items-center gap-1.5">
-          <span className="badge-green">●</span> Filled
+          <span className="badge-green">●</span> Complete
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="badge-yellow">◐</span> Partial
         </span>
         <span className="flex items-center gap-1.5">
           <span className="badge-gray">○</span> Empty

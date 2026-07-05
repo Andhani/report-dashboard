@@ -536,9 +536,22 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
         <h2 className="text-base font-semibold text-gray-900 leading-tight">
           Slot Status
         </h2>
-        <span className="text-xs text-gray-500">
-          {filled}/{total} months fully filled
-        </span>
+        <div className="flex items-center gap-4">
+          <div className="flex gap-3 text-xs text-gray-500">
+            <span className="flex items-center gap-1">
+              <span className="badge-green">●</span> Complete
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="badge-yellow">◐</span> Partial
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="badge-gray">○</span> Empty
+            </span>
+          </div>
+          <span className="text-xs text-gray-500">
+            {filled}/{total} filled
+          </span>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="text-sm w-full">
@@ -587,17 +600,6 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
             ))}
           </tbody>
         </table>
-      </div>
-      <div className="flex gap-4 mt-3 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <span className="badge-green">●</span> Complete
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="badge-yellow">◐</span> Partial
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="badge-gray">○</span> Empty
-        </span>
       </div>
     </div>
   );
@@ -685,10 +687,11 @@ function PreviewSection({
       {/* Export bar */}
       <div className="card p-4 flex flex-wrap items-center gap-3">
         <span className="font-semibold text-gray-800 text-sm mr-2">Export</span>
-        {["bc", "blog"].map((proj) => {
+        {(() => {
+          const proj = previewTab;
           const ps = pushStatus[proj];
           return (
-            <div key={proj} className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => onDownloadCSV(proj)}
                 className="btn-secondary"
@@ -714,7 +717,7 @@ function PreviewSection({
               )}
             </div>
           );
-        })}
+        })()}
         {!sheetsUrl && (
           <Link to="/settings" className="text-xs text-gray-400 underline">
             Configure Sheets URL

@@ -35,7 +35,8 @@ export default function Settings() {
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: "code",
-      scope: "https://www.googleapis.com/auth/spreadsheets",
+      scope:
+        "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email",
       access_type: "offline",
       prompt: "consent",
     });
@@ -96,6 +97,11 @@ export default function Settings() {
                 ? "Token expired — will auto-refresh on next push"
                 : "Connected"}
             </div>
+            {oauthToken.email && (
+              <div className="text-sm text-gray-700">
+                Signed in as <strong>{oauthToken.email}</strong>
+              </div>
+            )}
             {tokenExpiry && (
               <div className="text-xs text-gray-500">
                 Token {tokenExpired ? "expired" : "expires"}: {tokenExpiry}
@@ -179,6 +185,33 @@ export default function Settings() {
             <span>✓</span> Saved
           </div>
         )}
+      </div>
+
+      {/* Report Sheet Tabs */}
+      <div className="card p-6 space-y-4">
+        <h2 className="text-base font-semibold text-gray-900 leading-tight">
+          Report Sheet Tabs
+        </h2>
+        <p className="text-sm text-gray-600">
+          Reports are written to the following tabs in your spreadsheet. Make
+          sure these tab names exist exactly as shown.
+        </p>
+        <div className="space-y-2">
+          {[
+            { flow: "Flow 1 — BC", tab: "BC Traffic (Optimized)" },
+            { flow: "Flow 1 — Blog", tab: "Blog Traffic (Optimized)" },
+            { flow: "Flow 2", tab: "Traffic Overview (BC & Blog)" },
+            { flow: "Flow 3 — BC", tab: "BC Leads Summary" },
+            { flow: "Flow 3 — Blog", tab: "Blog Leads Summary" },
+          ].map(({ flow, tab }) => (
+            <div key={flow} className="flex items-center gap-3 text-sm">
+              <span className="text-gray-500 w-36 flex-shrink-0">{flow}</span>
+              <code className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-mono">
+                {tab}
+              </code>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Flow 1 Rolling Window */}

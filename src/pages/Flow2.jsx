@@ -28,7 +28,6 @@ import {
   buildWorkbookFromSheet,
   fetchFirstTabAsCSV,
 } from "../utils/sheetsApi";
-import SheetLinkImport from "../components/SheetLinkImport";
 
 export default function Flow2() {
   const [flow2Data, setFlow2Data] = useStorage("flow2_data", {});
@@ -39,6 +38,10 @@ export default function Flow2() {
   const [processing, setProcessing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [pushStatus, setPushStatus] = useState(null);
+  const [importMode, setImportMode] = useState("sheets");
+  const [sheetUrl, setSheetUrl] = useState("");
+  const [sheetLoading, setSheetLoading] = useState(false);
+  const [sheetError, setSheetError] = useState(null);
   const fileRef = useRef();
 
   const slots = flow2Window ? getMonthSlots(flow2Window, 6) : [];
@@ -111,6 +114,19 @@ export default function Flow2() {
     e.preventDefault();
     setDragging(false);
     processFiles(Array.from(e.dataTransfer.files));
+  }
+
+  async function handleSheetImport() {
+    setSheetError(null);
+    setSheetLoading(true);
+    try {
+      await importFromSheetLink(sheetUrl.trim());
+      setSheetUrl("");
+    } catch (err) {
+      setSheetError(err.message);
+    } finally {
+      setSheetLoading(false);
+    }
   }
 
   function clearSlot(key) {
@@ -273,36 +289,85 @@ export default function Flow2() {
         </ul>
       </div>
 
-      {/* Drop zone */}
-      <DropZone
-        dragging={dragging}
-        processing={processing}
-        onDrop={onDrop}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onClick={() => fileRef.current.click()}
-      />
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".xlsx,.csv"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          processFiles(e.target.files);
-          e.target.value = "";
-        }}
-      />
+      {/* Import section with mode toggle */}
+      <div className="space-y-3">
+        <div className="inline-flex bg-stone-100 rounded-btn p-1 gap-0.5">
+          <button
+            onClick={() => setImportMode("sheets")}
+            className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-all ${
+              importMode === "sheets"
+                ? "bg-white text-stone-900 shadow-card"
+                : "text-stone-500 hover:text-stone-700"
+            }`}
+          >
+            🔗 From Sheets
+          </button>
+          <button
+            onClick={() => setImportMode("file")}
+            className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-all ${
+              importMode === "file"
+                ? "bg-white text-stone-900 shadow-card"
+                : "text-stone-500 hover:text-stone-700"
+            }`}
+          >
+            📂 Upload File
+          </button>
+        </div>
 
-      {/* Or import straight from a Google Sheet link */}
-      <SheetLinkImport
-        onImport={importFromSheetLink}
-        label="🔗 Or import from a Sheet link instead"
-        hint="For GSC Chart, its tabs must be named like the original export (Chart, optionally Filters). GA4 sheets should have a single tab matching the Free-form/Leads layout."
-      />
+        {importMode === "sheets" ? (
+          <div className="card p-5 space-y-3">
+            <input
+              type="url"
+              className="input"
+              placeholder="https://docs.google.com/spreadsheets/d/..."
+              value={sheetUrl}
+              onChange={(e) => setSheetUrl(e.target.value)}
+            />
+            <p className="text-xs text-gray-500">
+              ⚠️ The sheet must be shared with{" "}
+              <strong>"Anyone with the link can view"</strong> access. For GSC
+              Chart, tabs must be named like the original export (Chart +
+              Filters). GA4 sheets need a single tab with the Free-form or Leads
+              layout.
+            </p>
+            {sheetError && (
+              <div className="text-xs text-danger">{sheetError}</div>
+            )}
+            <button
+              onClick={handleSheetImport}
+              disabled={!sheetUrl.trim() || sheetLoading}
+              className="btn-primary disabled:opacity-50"
+            >
+              {sheetLoading ? "Importing…" : "Import"}
+            </button>
+          </div>
+        ) : (
+          <>
+            <DropZone
+              dragging={dragging}
+              processing={processing}
+              onDrop={onDrop}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onClick={() => fileRef.current.click()}
+            />
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.csv"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                processFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </>
+        )}
+      </div>
 
       {/* Detection log */}
       {log.length > 0 && <DetectionLog log={log} onClear={() => setLog([])} />}
@@ -479,9 +544,19 @@ const SLOT_ROWS_F2 = [
 function SlotGrid({ slots, flow2Data, getSlotStatus, onClear }) {
   return (
     <div className="card p-5">
-      <h2 className="text-base font-semibold text-gray-900 leading-tight mb-4">
-        Slot Status (6-month window)
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-semibold text-gray-900 leading-tight">
+          Slot Status (6-month window)
+        </h2>
+        <div className="flex gap-3 text-xs text-gray-500">
+          <span className="flex items-center gap-1">
+            <span className="badge-green">●</span> Filled
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="badge-gray">○</span> Empty
+          </span>
+        </div>
+      </div>
       <div className="overflow-x-auto">
         <table className="text-sm w-full">
           <thead>
@@ -524,14 +599,6 @@ function SlotGrid({ slots, flow2Data, getSlotStatus, onClear }) {
             ))}
           </tbody>
         </table>
-      </div>
-      <div className="flex gap-4 mt-3 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <span className="badge-green">●</span> Filled
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="badge-gray">○</span> Empty
-        </span>
       </div>
     </div>
   );

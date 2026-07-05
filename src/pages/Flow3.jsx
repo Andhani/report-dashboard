@@ -160,7 +160,8 @@ export default function Flow3() {
           <span className="font-semibold text-gray-800 text-sm mr-2">
             Export
           </span>
-          {["bc", "blog"].map((proj) => {
+          {(() => {
+            const proj = activeTab;
             const ps = pushStatus;
             const pushing = ps === proj + "_pushing";
             const ok = ps === proj + "_ok";
@@ -168,7 +169,7 @@ export default function Flow3() {
               ? ps.slice(proj.length + 7)
               : null;
             return (
-              <div key={proj} className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleDownloadCSV(proj)}
                   className="btn-secondary"
@@ -185,7 +186,7 @@ export default function Flow3() {
                 {err && <span className="text-xs text-danger">{err}</span>}
               </div>
             );
-          })}
+          })()}
           {!sheetsUrl && (
             <Link to="/settings" className="text-xs text-gray-400 underline">
               Configure Sheets URL
