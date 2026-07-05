@@ -556,6 +556,18 @@ function PreviewSection({ previewTab, setPreviewTab, slots, flow1Data, bcUrls, b
   )
 }
 
+// Ordered GSC-first then GA4, matching the report template column layout.
+const PREVIEW_METRICS = [
+  { key: 'rank',        label: 'Rank',     fmt: v => v ? v.toFixed(1) : null },
+  { key: 'impressions', label: 'Impr',     fmt: v => v ? String(Math.round(v)) : null },
+  { key: 'clicks',      label: 'Clicks',   fmt: v => v || null },
+  { key: 'ctr',         label: 'CTR',      fmt: v => v ? formatCTR(v) : null,         dim: true },
+  { key: 'views',       label: 'Views',    fmt: v => v || null },
+  { key: 'users',       label: 'Users',    fmt: v => v || null },
+  { key: 'sessions',    label: 'Sessions', fmt: v => v || null },
+  { key: 'aet',         label: 'AET',      fmt: v => v ? secondsToHmmss(v) : null,    dim: true },
+]
+
 function PreviewTable({ project, output, slots }) {
   if (output.length === 0) {
     return <div className="p-8 text-center text-sm text-gray-400">No URLs in list</div>
@@ -569,21 +581,25 @@ function PreviewTable({ project, output, slots }) {
         <thead className="bg-gray-50 sticky top-0">
           <tr>
             <th className="text-left py-2 px-3 font-medium text-gray-500 sticky left-0 bg-gray-50 z-10 min-w-[140px]">
-              {project === 'bc' ? 'Keyword' : 'Keyword'}
+              Keyword
             </th>
             <th className="text-left py-2 px-2 font-medium text-gray-500 min-w-[120px]">Slug</th>
-            {slots.map(s => (
-              <th key={s.key} colSpan={4} className="text-center py-2 px-2 font-medium text-gray-500 border-l border-gray-200 min-w-[160px]">
-                {s.label}
+            {PREVIEW_METRICS.map((m, mi) => (
+              <th key={m.key} colSpan={slots.length}
+                  className={`text-center py-2 px-2 font-medium text-gray-500 border-l border-gray-200${mi === 0 ? '' : ''}`}>
+                {m.label}
               </th>
             ))}
           </tr>
           <tr className="bg-gray-50">
             <th className="sticky left-0 bg-gray-50 z-10" />
             <th />
-            {slots.flatMap(s => ['Rank', 'Clicks', 'Views', 'CTR'].map(m => (
-              <th key={`${s.key}_${m}`} className="text-center py-1 px-1.5 font-medium text-gray-400 border-l first:border-l-0 border-gray-100">
-                {m}
+            {PREVIEW_METRICS.flatMap((m, mi) => slots.map((s, si) => (
+              <th key={`${m.key}_${s.key}`}
+                  className={`text-center py-1 px-1.5 font-medium text-gray-400 border-l ${
+                    mi === 0 && si === 0 ? 'border-gray-200' : si === 0 ? 'border-gray-200' : 'border-gray-100'
+                  }`}>
+                {s.label.split(' ')[0]}
               </th>
             )))}
           </tr>
@@ -599,20 +615,14 @@ function PreviewTable({ project, output, slots }) {
                 <td className="py-1.5 px-2 font-mono text-gray-400 max-w-[120px] truncate" title={urlRow.slug}>
                   {urlRow.slug || '—'}
                 </td>
-                {slots.flatMap((s, si) => [
-                  <td key={`${si}_rank`} className="py-1.5 px-1.5 text-center border-l border-gray-100">
-                    {metrics.rank[si] ? metrics.rank[si].toFixed(1) : <Dash />}
-                  </td>,
-                  <td key={`${si}_clicks`} className="py-1.5 px-1.5 text-center">
-                    {metrics.clicks[si] || <Dash />}
-                  </td>,
-                  <td key={`${si}_views`} className="py-1.5 px-1.5 text-center">
-                    {metrics.views[si] || <Dash />}
-                  </td>,
-                  <td key={`${si}_ctr`} className="py-1.5 px-1.5 text-center text-gray-500">
-                    {metrics.ctr[si] ? formatCTR(metrics.ctr[si]) : <Dash />}
-                  </td>,
-                ])}
+                {PREVIEW_METRICS.flatMap((m, mi) => metrics[m.key].map((v, si) => (
+                  <td key={`${m.key}_${si}`}
+                      className={`py-1.5 px-1.5 text-center ${m.dim ? 'text-gray-500' : ''} border-l ${
+                        si === 0 ? 'border-gray-200' : 'border-gray-100'
+                      }`}>
+                    {m.fmt(v) ?? <Dash />}
+                  </td>
+                )))}
               </tr>
             )
           })}
