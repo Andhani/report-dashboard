@@ -176,10 +176,6 @@ export default function UrlManager() {
       {/* Toolbar */}
       <div className="card p-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={handleAddRow} className="btn-primary">
-            + Add Row
-          </button>
-          <span className="w-px h-6 bg-gray-200 mx-1" />
           <CsvImportButton
             type={activeTab}
             cols={cols}
@@ -192,19 +188,22 @@ export default function UrlManager() {
             onImport={(rows) => setUrls((prev) => [...prev, ...rows])}
             onReplace={(rows) => setUrls(rows)}
           />
+          {urls.length > 0 && (
+            <button
+              onClick={handleExportCSV}
+              className="btn-ghost text-gray-500"
+            >
+              ⬇ Export CSV
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500 font-medium">
-            {urls.length} rows
-          </span>
+          <button onClick={handleAddRow} className="btn-secondary">
+            + Add Row
+          </button>
           {urls.length > 0 && (
             <>
-              <button
-                onClick={handleExportCSV}
-                className="btn-ghost text-gray-500"
-              >
-                ⬇ Export CSV
-              </button>
+              <span className="text-sm text-gray-500">{urls.length} rows</span>
               <button
                 onClick={handleClearAll}
                 className="btn-ghost text-danger hover:bg-danger/5"
@@ -432,7 +431,7 @@ function CellInput({ col, value, onChange }) {
 
 function CsvImportButton({ type, cols, onImport, onReplace }) {
   const fileRef = useRef();
-  const [mode, setMode] = useState("append");
+  const [mode, setMode] = useState("replace");
   const [loading, setLoading] = useState(false);
 
   function handleFile(e) {
@@ -491,7 +490,7 @@ function CsvImportButton({ type, cols, onImport, onReplace }) {
         onChange={(e) => setMode(e.target.value)}
         title="Import mode"
       >
-        <option value="append">Append</option>
+        <option value="append">Add to existing</option>
         <option value="replace">Replace</option>
       </select>
       <input
@@ -613,14 +612,14 @@ function SheetsImportButton({ type, cols, onImport, onReplace }) {
           <button
             onClick={() => handleImport("append")}
             disabled={!url || loading}
-            className="btn-primary py-1.5 disabled:opacity-50"
+            className="btn-secondary py-1.5 disabled:opacity-50"
           >
-            {loading ? "Loading…" : "Append"}
+            {loading ? "Loading…" : "Add to existing"}
           </button>
           <button
             onClick={() => handleImport("replace")}
             disabled={!url || loading}
-            className="btn-secondary py-1.5 disabled:opacity-50"
+            className="btn-primary py-1.5 disabled:opacity-50"
           >
             Replace all
           </button>

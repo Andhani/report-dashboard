@@ -59,6 +59,19 @@ export default function AuthCallback() {
         refresh_token: data.refresh_token,
         expires_at: Date.now() + (data.expires_in - 60) * 1000,
       };
+
+      // Fetch user email (best-effort — don't fail auth if this errors)
+      try {
+        const userRes = await fetch(
+          "https://www.googleapis.com/oauth2/v3/userinfo",
+          { headers: { Authorization: `Bearer ${data.access_token}` } },
+        );
+        const user = await userRes.json();
+        if (user.email) tokenData.email = user.email;
+      } catch (_) {
+        // email is optional
+      }
+
       localStorage.setItem("google_oauth", JSON.stringify(tokenData));
 
       setStatus("Connected! Redirecting…");
