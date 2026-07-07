@@ -1,9 +1,5 @@
 import { PAGE_SIZE_OPTIONS } from "../hooks/usePagination";
 
-/**
- * Page-size selector + First/Prev/Next/Last controls, shared by any table
- * driven by usePagination (URL Manager, Flow 1 preview).
- */
 export default function PaginationControls({
   page,
   pageCount,
@@ -21,11 +17,11 @@ export default function PaginationControls({
   const end = pageSize === "all" ? total : Math.min(page * pageSize, total);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-2 text-sm text-gray-600">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-2 text-sm text-muted">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-gray-500">Rows per page</span>
+        <span className="text-xs text-muted font-mono">Rows</span>
         <select
-          className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-600 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="text-xs border border-border rounded-[6px] px-2 py-1 bg-surface text-ink hover:border-muted focus:outline-none focus:ring-2 focus:ring-accent/20"
           value={pageSize}
           onChange={(e) =>
             onPageSizeChange(
@@ -41,37 +37,17 @@ export default function PaginationControls({
         </select>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-muted font-mono">
           {start}–{end} of {total}
         </span>
         <div className="flex items-center gap-1">
-          <PageBtn
-            label="«"
-            title="First page"
-            onClick={onFirst}
-            disabled={page <= 1}
-          />
-          <PageBtn
-            label="‹"
-            title="Previous page"
-            onClick={onPrev}
-            disabled={page <= 1}
-          />
-          <span className="text-xs text-gray-500 px-2 whitespace-nowrap">
-            Page {page} / {pageCount}
+          <PageBtn label="«" title="First page" onClick={onFirst} disabled={page <= 1} />
+          <PageBtn label="‹" title="Previous page" onClick={onPrev} disabled={page <= 1} />
+          <span className="text-xs text-muted font-mono px-2 whitespace-nowrap">
+            {page} / {pageCount}
           </span>
-          <PageBtn
-            label="›"
-            title="Next page"
-            onClick={onNext}
-            disabled={page >= pageCount}
-          />
-          <PageBtn
-            label="»"
-            title="Last page"
-            onClick={onLast}
-            disabled={page >= pageCount}
-          />
+          <PageBtn label="›" title="Next page" onClick={onNext} disabled={page >= pageCount} />
+          <PageBtn label="»" title="Last page" onClick={onLast} disabled={page >= pageCount} />
         </div>
       </div>
     </div>
@@ -84,7 +60,7 @@ function PageBtn({ label, title, onClick, disabled }) {
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+      className="w-7 h-7 flex items-center justify-center rounded-[6px] border border-border text-muted hover:bg-surface-2 hover:text-ink disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-mono"
     >
       {label}
     </button>

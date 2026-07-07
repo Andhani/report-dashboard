@@ -32,7 +32,6 @@ export default function Settings() {
     });
   }, [oauthToken?.access_token]);
 
-  // Build month options — current month back 24 months
   const monthOptions = buildMonthOptions();
 
   function handleSheetsUrl(e) {
@@ -100,34 +99,36 @@ export default function Settings() {
     : false;
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-5 max-w-2xl">
       {/* Google Sheets OAuth */}
-      <div className="card p-6 space-y-4">
-        <h2 className="text-base font-semibold text-gray-900 leading-tight">
+      <div className="card p-5 space-y-4">
+        <h2 className="font-heading text-base font-semibold text-ink">
           Google Sheets Connection
         </h2>
         {oauthToken ? (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-success">
+            <div className="flex items-center gap-2 text-sm">
               <span
-                className={`w-2 h-2 rounded-full inline-block ${tokenExpired ? "bg-warning" : "bg-success"}`}
+                className={`w-2 h-2 rounded-full inline-block flex-shrink-0 ${
+                  tokenExpired ? "bg-pending" : "bg-ok"
+                }`}
               />
-              {tokenExpired
-                ? "Token expired — will auto-refresh on next push"
-                : "Connected"}
+              <span className={tokenExpired ? "text-warning" : "text-ok"}>
+                {tokenExpired
+                  ? "Token expired — will auto-refresh on next push"
+                  : "Connected"}
+              </span>
             </div>
             {oauthToken.email && (
-              <div className="text-sm text-gray-700">
-                Signed in as <strong>{oauthToken.email}</strong>
+              <div className="text-sm text-muted">
+                Signed in as <strong className="text-ink">{oauthToken.email}</strong>
               </div>
             )}
             {tokenExpiry && (
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-muted font-mono">
                 Token {tokenExpired ? "expired" : "expires"}: {tokenExpiry}
                 {oauthToken.refresh_token && (
-                  <span className="ml-2 text-success">
-                    · refresh token stored
-                  </span>
+                  <span className="ml-2 text-ok">· refresh token stored</span>
                 )}
               </div>
             )}
@@ -140,14 +141,14 @@ export default function Settings() {
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted">
               Connect your Google account to push results directly to a Google
               Spreadsheet.
             </p>
             {!clientId && (
-              <div className="p-3 bg-warning/10 border border-warning/30 rounded-lg text-sm text-ink">
+              <div className="p-3 bg-warning/8 border border-warning/30 rounded-lg text-sm text-ink">
                 <strong>VITE_GOOGLE_CLIENT_ID</strong> not set — add it to your{" "}
-                <code>.env</code> file first.
+                <code className="font-mono text-xs bg-surface-2 px-1 py-0.5 rounded">.env</code> file first.
               </div>
             )}
             <button
@@ -155,7 +156,7 @@ export default function Settings() {
               disabled={!clientId}
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                   fill="#4285F4"
@@ -180,11 +181,11 @@ export default function Settings() {
       </div>
 
       {/* Report Spreadsheet URL */}
-      <div className="card p-6 space-y-4">
-        <h2 className="text-base font-semibold text-gray-900 leading-tight">
+      <div className="card p-5 space-y-4">
+        <h2 className="font-heading text-base font-semibold text-ink">
           Report Spreadsheet URL
         </h2>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted">
           Paste the URL of the Google Spreadsheet where reports will be written.
         </p>
         <form onSubmit={handleSheetsUrl} className="flex gap-3">
@@ -195,25 +196,25 @@ export default function Settings() {
             value={sheetsInput}
             onChange={(e) => setSheetsInput(e.target.value)}
           />
-          <button type="submit" className="btn-primary flex-shrink-0">
+          <button type="submit" className="btn-primary">
             Save
           </button>
         </form>
         {sheetsUrl && (
-          <div className="text-xs text-success flex items-center gap-1">
-            <span>✓</span> Saved
+          <div className="text-xs text-ok flex items-center gap-1 font-mono">
+            <span className="dot-ok">●</span> Saved
           </div>
         )}
       </div>
 
       {/* Report Sheet Tabs */}
-      <div className="card p-6 space-y-4">
-        <h2 className="text-base font-semibold text-gray-900 leading-tight">
+      <div className="card p-5 space-y-4">
+        <h2 className="font-heading text-base font-semibold text-ink">
           Report Sheet Tabs
         </h2>
-        <p className="text-sm text-gray-600">
-          Each flow writes to a specific tab in your spreadsheet. These tabs
-          will be created automatically if they don't exist yet.
+        <p className="text-sm text-muted">
+          Each flow writes to a specific tab. Tabs are created automatically if
+          they don't exist yet.
         </p>
         <div className="space-y-2">
           {[
@@ -224,8 +225,8 @@ export default function Settings() {
             { flow: "Flow 3 — Blog", tab: "Blog Leads Summary" },
           ].map(({ flow, tab }) => (
             <div key={flow} className="flex items-center gap-3 text-sm">
-              <span className="text-gray-500 w-36 flex-shrink-0">{flow}</span>
-              <code className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-mono">
+              <span className="text-muted w-36 flex-shrink-0">{flow}</span>
+              <code className="bg-surface-2 text-ink px-2 py-0.5 rounded text-xs font-mono border border-border">
                 {tab}
               </code>
             </div>
@@ -234,12 +235,12 @@ export default function Settings() {
       </div>
 
       {/* Flow 1 Rolling Window */}
-      <div className="card p-6 space-y-4">
+      <div className="card p-5 space-y-4">
         <div>
-          <h2 className="text-base font-semibold text-gray-900 leading-tight">
-            Flow 1 — Rolling Window (6 months)
+          <h2 className="font-heading text-base font-semibold text-ink">
+            Flow 1 — Rolling Window
           </h2>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-muted mt-1">
             Set the first month of the 6-month window for Traffic Import.
           </p>
         </div>
@@ -262,12 +263,12 @@ export default function Settings() {
       </div>
 
       {/* Flow 2 Rolling Window */}
-      <div className="card p-6 space-y-4">
+      <div className="card p-5 space-y-4">
         <div>
-          <h2 className="text-base font-semibold text-gray-900 leading-tight">
-            Flow 2 — Rolling Window (6 months)
+          <h2 className="font-heading text-base font-semibold text-ink">
+            Flow 2 — Rolling Window
           </h2>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-muted mt-1">
             Set the first month of the 6-month window for Traffic Overview.
           </p>
         </div>
@@ -290,12 +291,12 @@ export default function Settings() {
       </div>
 
       {/* Data Management */}
-      <div className="card p-6 space-y-4">
+      <div className="card p-5 space-y-4">
         <div>
-          <h2 className="text-base font-semibold text-gray-900 leading-tight">
+          <h2 className="font-heading text-base font-semibold text-ink">
             Data Management
           </h2>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-muted mt-1">
             Clear imported data from localStorage. This cannot be undone.
           </p>
         </div>
@@ -308,7 +309,9 @@ export default function Settings() {
             <button
               key={key}
               onClick={() => handleClearData(key)}
-              className={`btn-secondary ${danger ? "text-danger border-danger/30 hover:bg-danger/5" : "text-gray-700"}`}
+              className={`btn-secondary ${
+                danger ? "text-danger border-danger/30 hover:bg-danger/5" : ""
+              }`}
             >
               {clearConfirm === key ? `Confirm: ${label}?` : label}
             </button>
@@ -316,7 +319,7 @@ export default function Settings() {
           {clearConfirm && (
             <button
               onClick={() => setClearConfirm(null)}
-              className="btn-ghost text-gray-500"
+              className="btn-ghost"
             >
               Cancel
             </button>
@@ -330,11 +333,15 @@ export default function Settings() {
 function SlotPreview({ window, count }) {
   const slots = getMonthSlots(window, count);
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {slots.map((s, i) => (
         <span
           key={s.key}
-          className={`px-3 py-1 rounded-full text-xs font-medium ${i === count - 1 ? "bg-accent/10 text-accent" : "bg-gray-100 text-gray-600"}`}
+          className={`px-2.5 py-1 rounded-full text-xs font-mono ${
+            i === count - 1
+              ? "bg-accent-subtle text-accent border border-accent/20"
+              : "bg-surface-2 text-muted border border-border"
+          }`}
         >
           {s.label}
         </span>
@@ -346,7 +353,6 @@ function SlotPreview({ window, count }) {
 function buildMonthOptions() {
   const options = [];
   const now = new Date();
-  // Go back 24 months from current month
   for (let i = 24; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
