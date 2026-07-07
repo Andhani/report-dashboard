@@ -256,7 +256,7 @@ export default function Flow2() {
       {/* What-to-upload guide */}
       <div className="card p-4">
         <div className="text-sm font-semibold text-ink mb-2">
-          What to upload — 3 file kinds per month (different from Flow 1)
+          What to upload — 3 file kinds per month (different from Traffic (Optimized))
         </div>
         <ul className="space-y-1.5">
           <li className="flex items-start gap-2 text-sm text-ink">
@@ -427,7 +427,7 @@ function DropZone({
         <>
           <Upload size={22} className="text-muted mb-3" strokeWidth={1.5} />
           <div className="text-sm font-semibold text-ink mb-1">
-            {dragging ? "Drop files here" : "Drag & drop Flow 2 files"}
+            {dragging ? "Drop files here" : "Drag & drop Traffic Overview files"}
           </div>
           <p className="text-xs text-muted mb-4">
             GSC Chart export (.xlsx) · GA4 Free-form export (.csv) · GA4 Leads export (.csv)

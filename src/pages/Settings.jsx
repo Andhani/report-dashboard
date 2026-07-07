@@ -213,28 +213,64 @@ export default function Settings() {
           Report Sheet Tabs
         </h2>
         <p className="text-sm text-muted">
-          Each flow writes to a specific tab. Tabs are created automatically if
+          Each report writes to a specific tab. Tabs are created automatically if
           they don't exist yet.
         </p>
-        <div className="space-y-2">
-          {[
-            { flow: "Traffic (Optimized) — BC", tab: "BC Traffic (Optimized)" },
-            { flow: "Traffic (Optimized) — Blog", tab: "Blog Traffic (Optimized)" },
-            { flow: "Traffic Overview", tab: "Traffic Overview (BC & Blog)" },
-            { flow: "Leads Summary — BC", tab: "BC Leads Summary" },
-            { flow: "Leads Summary — Blog", tab: "Blog Leads Summary" },
-          ].map(({ flow, tab }) => (
-            <div key={flow} className="flex items-center gap-3 text-sm">
-              <span className="text-muted w-36 flex-shrink-0">{flow}</span>
-              <code className="bg-surface-2 text-ink px-2 py-0.5 rounded text-xs font-mono border border-border">
-                {tab}
-              </code>
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: "38%" }} />
+              <col style={{ width: "31%" }} />
+              <col style={{ width: "31%" }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="text-left text-muted font-medium pb-2.5 pr-4">Report</th>
+                <th className="text-left text-muted font-medium pb-2.5 pr-4">BC tab</th>
+                <th className="text-left text-muted font-medium pb-2.5">Blog tab</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <tr>
+                <td className="py-2 pr-4 text-muted align-middle">Traffic (Optimized)</td>
+                <td className="py-2 pr-4 align-middle">
+                  <code className="bg-surface-2 text-ink px-2 py-0.5 rounded text-xs font-mono border border-border">
+                    BC Traffic (Optimized)
+                  </code>
+                </td>
+                <td className="py-2 align-middle">
+                  <code className="bg-surface-2 text-ink px-2 py-0.5 rounded text-xs font-mono border border-border">
+                    Blog Traffic (Optimized)
+                  </code>
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 text-muted align-middle">Leads Summary</td>
+                <td className="py-2 pr-4 align-middle">
+                  <code className="bg-surface-2 text-ink px-2 py-0.5 rounded text-xs font-mono border border-border">
+                    BC Leads Summary
+                  </code>
+                </td>
+                <td className="py-2 align-middle">
+                  <code className="bg-surface-2 text-ink px-2 py-0.5 rounded text-xs font-mono border border-border">
+                    Blog Leads Summary
+                  </code>
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 text-muted align-middle">Traffic Overview</td>
+                <td className="py-2 align-middle" colSpan={2}>
+                  <code className="bg-surface-2 text-ink px-2 py-0.5 rounded text-xs font-mono border border-border">
+                    Traffic Overview (BC and Blog)
+                  </code>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Flow 1 Rolling Window */}
+      {/* Traffic (Optimized) Rolling Window */}
       <div className="card p-5 space-y-4">
         <div>
           <h2 className="font-heading text-base font-semibold text-ink">
@@ -244,8 +280,8 @@ export default function Settings() {
             Set the first month of the 6-month window for Traffic Import.
           </p>
         </div>
-        <div>
-          <label className="label">Start Month</label>
+        <div className="flex items-center gap-3">
+          <label className="label mb-0 whitespace-nowrap">Start Month</label>
           <select
             className="input w-48"
             value={flow1Window || ""}
@@ -262,7 +298,7 @@ export default function Settings() {
         {flow1Window && <SlotPreview window={flow1Window} count={6} />}
       </div>
 
-      {/* Flow 2 Rolling Window */}
+      {/* Traffic Overview Rolling Window */}
       <div className="card p-5 space-y-4">
         <div>
           <h2 className="font-heading text-base font-semibold text-ink">
@@ -272,8 +308,8 @@ export default function Settings() {
             Set the first month of the 6-month window for Traffic Overview.
           </p>
         </div>
-        <div>
-          <label className="label">Start Month</label>
+        <div className="flex items-center gap-3">
+          <label className="label mb-0 whitespace-nowrap">Start Month</label>
           <select
             className="input w-48"
             value={flow2Window || ""}
@@ -338,7 +374,7 @@ function SlotPreview({ window, count }) {
         <span
           key={s.key}
           className={`px-2.5 py-1 rounded-full text-xs font-mono ${
-            i === count - 1
+            i === 0
               ? "bg-accent-subtle text-accent border border-accent/20"
               : "bg-surface-2 text-muted border border-border"
           }`}
