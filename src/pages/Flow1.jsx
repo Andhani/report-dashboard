@@ -250,7 +250,7 @@ export default function Flow1() {
       <GatingState
         Icon={Settings}
         title="Rolling window not set"
-        desc="Set the Flow 1 start month in Settings before uploading files."
+        desc="Set the Traffic (Optimized) start month in Settings before uploading files."
         to="/settings"
         btnLabel="Go to Settings"
       />

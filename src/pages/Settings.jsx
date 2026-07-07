@@ -218,11 +218,11 @@ export default function Settings() {
         </p>
         <div className="space-y-2">
           {[
-            { flow: "Flow 1 — BC", tab: "BC Traffic (Optimized)" },
-            { flow: "Flow 1 — Blog", tab: "Blog Traffic (Optimized)" },
-            { flow: "Flow 2", tab: "Traffic Overview (BC & Blog)" },
-            { flow: "Flow 3 — BC", tab: "BC Leads Summary" },
-            { flow: "Flow 3 — Blog", tab: "Blog Leads Summary" },
+            { flow: "Traffic (Optimized) — BC", tab: "BC Traffic (Optimized)" },
+            { flow: "Traffic (Optimized) — Blog", tab: "Blog Traffic (Optimized)" },
+            { flow: "Traffic Overview", tab: "Traffic Overview (BC & Blog)" },
+            { flow: "Leads Summary — BC", tab: "BC Leads Summary" },
+            { flow: "Leads Summary — Blog", tab: "Blog Leads Summary" },
           ].map(({ flow, tab }) => (
             <div key={flow} className="flex items-center gap-3 text-sm">
               <span className="text-muted w-36 flex-shrink-0">{flow}</span>
@@ -238,7 +238,7 @@ export default function Settings() {
       <div className="card p-5 space-y-4">
         <div>
           <h2 className="font-heading text-base font-semibold text-ink">
-            Flow 1 — Rolling Window
+            Traffic (Optimized) — Rolling Window
           </h2>
           <p className="text-sm text-muted mt-1">
             Set the first month of the 6-month window for Traffic Import.
@@ -266,7 +266,7 @@ export default function Settings() {
       <div className="card p-5 space-y-4">
         <div>
           <h2 className="font-heading text-base font-semibold text-ink">
-            Flow 2 — Rolling Window
+            Traffic Overview — Rolling Window
           </h2>
           <p className="text-sm text-muted mt-1">
             Set the first month of the 6-month window for Traffic Overview.
@@ -302,8 +302,8 @@ export default function Settings() {
         </div>
         <div className="flex flex-wrap gap-3">
           {[
-            { key: "flow1", label: "Clear Flow 1 data" },
-            { key: "flow2", label: "Clear Flow 2 data" },
+            { key: "flow1", label: "Clear Traffic (Optimized) data" },
+            { key: "flow2", label: "Clear Traffic Overview data" },
             { key: "all", label: "Clear everything", danger: true },
           ].map(({ key, label, danger }) => (
             <button

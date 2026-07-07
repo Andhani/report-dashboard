@@ -236,7 +236,7 @@ export default function Flow2() {
         <Settings size={24} className="text-muted mb-3" strokeWidth={1.5} />
         <div className="text-sm font-semibold text-ink mb-1">Rolling window not set</div>
         <p className="text-xs text-muted mb-4">
-          Set the Flow 2 start month in Settings (6-month window).
+          Set the Traffic Overview start month in Settings (6-month window).
         </p>
         <Link to="/settings" className="btn-primary">
           Go to Settings

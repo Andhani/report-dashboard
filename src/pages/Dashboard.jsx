@@ -25,7 +25,7 @@ const FLOW_CARDS = [
     to: "/flow3",
     title: "Leads Summary",
     description:
-      "Computed automatically from Flow 1 + Flow 2. No uploads needed.",
+      "Computed automatically from Traffic (Optimized) + Traffic Overview. No uploads needed.",
     Icon: Users,
   },
 ];
@@ -143,8 +143,8 @@ function SetupStatus({ bcUrls, blogUrls, flow1Window, flow2Window }) {
   const steps = [
     { label: "BC URLs", done: bcUrls.length > 0, link: "/urls" },
     { label: "Blog URLs", done: blogUrls.length > 0, link: "/urls" },
-    { label: "Flow 1 window", done: !!flow1Window, link: "/settings" },
-    { label: "Flow 2 window", done: !!flow2Window, link: "/settings" },
+    { label: "Traffic window", done: !!flow1Window, link: "/settings" },
+    { label: "Overview window", done: !!flow2Window, link: "/settings" },
   ];
   const allDone = steps.every((s) => s.done);
 
