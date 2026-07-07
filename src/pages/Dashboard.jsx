@@ -7,7 +7,7 @@ const FLOW_CARDS = [
   {
     id: "flow1",
     to: "/flow1",
-    title: "Traffic Import",
+    title: "Traffic (Optimized)",
     description:
       "Upload GSC + GA4 per-URL files. Auto-detect, merge by slug, push to Sheets.",
     Icon: Upload,
@@ -93,7 +93,7 @@ export default function Dashboard() {
       {/* Slot grids */}
       {flow1Window && (
         <SlotGrid
-          title="Flow 1 — Slot Status"
+          title="Traffic (Optimized) — Slot Status"
           slots={flow1Slots}
           data={flow1Data}
           type="flow1"
@@ -101,7 +101,7 @@ export default function Dashboard() {
       )}
       {flow2Window && (
         <SlotGrid
-          title="Flow 2 — Slot Status"
+          title="Traffic Overview — Slot Status"
           slots={flow2Slots}
           data={flow2Data}
           type="flow2"

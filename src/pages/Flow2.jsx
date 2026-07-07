@@ -38,6 +38,7 @@ import {
   MinusCircle,
   X,
 } from "lucide-react";
+import SheetPushModal from "../components/SheetPushModal";
 
 export default function Flow2() {
   const [flow2Data, setFlow2Data] = useStorage("flow2_data", {});
@@ -48,6 +49,7 @@ export default function Flow2() {
   const [processing, setProcessing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [pushStatus, setPushStatus] = useState(null);
+  const [pushModal, setPushModal] = useState(false);
   const [importMode, setImportMode] = useState("sheets");
   const [sheetUrl, setSheetUrl] = useState("");
   const [sheetLoading, setSheetLoading] = useState(false);
@@ -210,8 +212,8 @@ export default function Flow2() {
       const output = computeFlow2Output(flow2Data, slots);
       const csv = buildFlow2CSV(output, slots);
       await pushFlow2ToSheets(ssId, csv);
-      setPushStatus("ok");
-      setTimeout(() => setPushStatus(null), 4000);
+      setPushStatus(null);
+      setPushModal(true);
     } catch (err) {
       setPushStatus("error:" + err.message);
     }
@@ -246,6 +248,10 @@ export default function Flow2() {
   const output = anyData ? computeFlow2Output(flow2Data, slots) : null;
 
   return (
+    <>
+      {pushModal && (
+        <SheetPushModal sheetsUrl={sheetsUrl} onClose={() => setPushModal(false)} />
+      )}
     <div className="space-y-5">
       {/* What-to-upload guide */}
       <div className="card p-4">
@@ -386,6 +392,7 @@ export default function Flow2() {
         />
       )}
     </div>
+    </>
   );
 }
 
@@ -592,11 +599,7 @@ function OverviewSection({
           disabled={pushStatus === "pushing" || !sheetsUrl}
           className={`btn ${sheetsUrl ? "btn-primary" : "btn-secondary opacity-50 cursor-not-allowed"}`}
         >
-          {pushStatus === "pushing"
-            ? "Pushing…"
-            : pushStatus === "ok"
-              ? "✓ Pushed!"
-              : "Push to Sheets"}
+          {pushStatus === "pushing" ? "Pushing…" : "Push to Sheets"}
         </button>
         {typeof pushStatus === "string" && pushStatus.startsWith("error:") && (
           <span className="text-xs text-danger">{pushStatus.slice(6)}</span>

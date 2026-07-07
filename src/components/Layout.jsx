@@ -20,7 +20,7 @@ const navItems = [
   },
   {
     to: "/flow1",
-    label: "Traffic Import",
+    label: "Traffic (Optimized)",
     icon: Upload,
   },
   {
@@ -215,7 +215,7 @@ function PageTitle({ pathname }) {
       sub: "Overview of all flows and slot status",
     },
     "/flow1": {
-      title: "Traffic Import",
+      title: "Traffic (Optimized)",
       sub: "Upload GSC + GA4 exports, merge by slug, push to Sheets",
     },
     "/flow2": {

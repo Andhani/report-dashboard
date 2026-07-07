@@ -26,6 +26,7 @@ import {
   buildWorkbookFromSheet,
 } from "../utils/sheetsApi";
 import SheetLinkImport from "../components/SheetLinkImport";
+import SheetPushModal from "../components/SheetPushModal";
 import PaginationControls from "../components/PaginationControls";
 import {
   Upload,
@@ -55,6 +56,7 @@ export default function Flow1() {
   const [dragging, setDragging] = useState(false);
   const [previewTab, setPreviewTab] = useState("bc");
   const [pushStatus, setPushStatus] = useState({});
+  const [pushModal, setPushModal] = useState(false);
   const fileRef = useRef();
 
   const slots = flow1Window ? getMonthSlots(flow1Window, 6) : [];
@@ -203,8 +205,8 @@ export default function Flow1() {
       const output = computeFlow1Output(project, urlList, flow1Data, slots);
       const values = buildSheetsValues(output);
       await pushFlow1ToSheets(ssId, project, values);
-      setPushStatus((p) => ({ ...p, [project]: "ok" }));
-      setTimeout(() => setPushStatus((p) => ({ ...p, [project]: null })), 4000);
+      setPushStatus((p) => ({ ...p, [project]: null }));
+      setPushModal(true);
     } catch (err) {
       setPushStatus((p) => ({ ...p, [project]: "error:" + err.message }));
     }
@@ -268,6 +270,10 @@ export default function Flow1() {
   }
 
   return (
+    <>
+      {pushModal && (
+        <SheetPushModal sheetsUrl={sheetsUrl} onClose={() => setPushModal(false)} />
+      )}
     <div className="space-y-5">
       {/* What-to-upload guide */}
       <UploadGuide />
@@ -332,6 +338,7 @@ export default function Flow1() {
         />
       )}
     </div>
+    </>
   );
 }
 
@@ -648,9 +655,7 @@ function PreviewSection({
               >
                 {ps === "pushing"
                   ? "Pushing…"
-                  : ps === "ok"
-                    ? "✓ Pushed!"
-                    : `Push ${proj === "bc" ? "BC" : "Blog"} to Sheets`}
+                  : `Push ${proj === "bc" ? "BC" : "Blog"} to Sheets`}
               </button>
               {ps?.startsWith("error:") && (
                 <span className="text-xs text-danger">{ps.slice(6)}</span>

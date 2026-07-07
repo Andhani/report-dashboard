@@ -16,6 +16,7 @@ import {
   fmtEst,
 } from "../utils/computeFlow3";
 import { Settings, Database, AlertTriangle } from "lucide-react";
+import SheetPushModal from "../components/SheetPushModal";
 
 export default function Flow3() {
   const [flow1Data] = useStorage("flow1_data", {});
@@ -27,6 +28,7 @@ export default function Flow3() {
 
   const [activeTab, setActiveTab] = useState("bc");
   const [pushStatus, setPushStatus] = useState(null);
+  const [pushModal, setPushModal] = useState(false);
   const [selectedSlotIdx, setSelectedSlotIdx] = useState(null);
 
   const slots = flow1Window ? getMonthSlots(flow1Window, 6) : [];
@@ -92,8 +94,8 @@ export default function Flow3() {
       const rows =
         project === "bc" ? buildBCLeadsCSV(block) : buildBlogLeadsCSV(block);
       await pushFlow3ToSheets(ssId, project, rows);
-      setPushStatus(project + "_ok");
-      setTimeout(() => setPushStatus(null), 4000);
+      setPushStatus(null);
+      setPushModal(true);
     } catch (err) {
       setPushStatus(project + "_error:" + err.message);
     }
@@ -102,6 +104,10 @@ export default function Flow3() {
   const isLastSlot = currentSlot?.key === defaultSlot?.key;
 
   return (
+    <>
+      {pushModal && (
+        <SheetPushModal sheetsUrl={sheetsUrl} onClose={() => setPushModal(false)} />
+      )}
     <div className="space-y-5">
       {/* Dependency status */}
       <DependencyBanner hasFlow1={hasFlow1} hasFlow2={hasFlow2} />
@@ -162,7 +168,6 @@ export default function Flow3() {
             const proj = activeTab;
             const ps = pushStatus;
             const pushing = ps === proj + "_pushing";
-            const ok = ps === proj + "_ok";
             const err = ps?.startsWith(proj + "_error:")
               ? ps.slice(proj.length + 7)
               : null;
@@ -179,11 +184,7 @@ export default function Flow3() {
                   disabled={pushing || !sheetsUrl}
                   className={`btn ${sheetsUrl ? "btn-primary" : "btn-secondary opacity-50 cursor-not-allowed"}`}
                 >
-                  {pushing
-                    ? "Pushing…"
-                    : ok
-                      ? "✓ Pushed!"
-                      : `Push ${proj === "bc" ? "BC" : "Blog"} to Sheets`}
+                  {pushing ? "Pushing…" : `Push ${proj === "bc" ? "BC" : "Blog"} to Sheets`}
                 </button>
                 {err && <span className="text-xs text-danger">{err}</span>}
               </div>
@@ -210,6 +211,7 @@ export default function Flow3() {
         </div>
       )}
     </div>
+    </>
   );
 }
 
