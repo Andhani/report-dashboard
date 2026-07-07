@@ -38,40 +38,38 @@ export default function SheetLinkImport({
   }
 
   return (
-    <div className="flex items-start gap-2 p-3 bg-stone-50 border border-stone-200 rounded-card w-full max-w-xl">
-      <div className="flex-1 space-y-2">
-        <input
-          type="url"
-          className="input text-sm"
-          placeholder="https://docs.google.com/spreadsheets/d/..."
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          autoFocus
-        />
-        <p className="text-xs text-gray-500">
-          ⚠️ The sheet must be shared with{" "}
-          <strong>"Anyone with the link can view"</strong> access.
-          {hint ? ` ${hint}` : ""}
-        </p>
-        {error && <div className="text-xs text-danger">{error}</div>}
-        <div className="flex gap-2">
-          <button
-            onClick={handleImport}
-            disabled={!url || loading}
-            className="btn-primary py-1.5 disabled:opacity-50"
-          >
-            {loading ? "Importing…" : "Import"}
-          </button>
-          <button
-            onClick={() => {
-              setOpen(false);
-              setError(null);
-            }}
-            className="btn-ghost py-1.5"
-          >
-            Cancel
-          </button>
-        </div>
+    <div className="card p-3 w-full max-w-xl space-y-2.5">
+      <input
+        type="url"
+        className="input"
+        placeholder="https://docs.google.com/spreadsheets/d/..."
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        autoFocus
+      />
+      <p className="text-xs text-muted">
+        The sheet must be shared with{" "}
+        <strong>"Anyone with the link can view"</strong> access.
+        {hint ? ` ${hint}` : ""}
+      </p>
+      {error && <div className="text-xs text-danger">{error}</div>}
+      <div className="flex gap-2">
+        <button
+          onClick={handleImport}
+          disabled={!url || loading}
+          className="btn-primary disabled:opacity-50"
+        >
+          {loading ? "Importing…" : "Import"}
+        </button>
+        <button
+          onClick={() => {
+            setOpen(false);
+            setError(null);
+          }}
+          className="btn-ghost"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );

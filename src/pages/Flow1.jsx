@@ -26,7 +26,18 @@ import {
   buildWorkbookFromSheet,
 } from "../utils/sheetsApi";
 import SheetLinkImport from "../components/SheetLinkImport";
+import SheetPushModal from "../components/SheetPushModal";
 import PaginationControls from "../components/PaginationControls";
+import {
+  Upload,
+  Settings,
+  Link2,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  MinusCircle,
+  X,
+} from "lucide-react";
 
 const PERIOD_LABEL = (slots) =>
   slots.length
@@ -45,6 +56,7 @@ export default function Flow1() {
   const [dragging, setDragging] = useState(false);
   const [previewTab, setPreviewTab] = useState("bc");
   const [pushStatus, setPushStatus] = useState({});
+  const [pushModal, setPushModal] = useState(false);
   const fileRef = useRef();
 
   const slots = flow1Window ? getMonthSlots(flow1Window, 6) : [];
@@ -120,8 +132,6 @@ export default function Flow1() {
   }
 
   // ─── Import from a Google Sheet link ────────────────────────────────────────
-  // Reuses the exact same detection/parsing as an uploaded .xlsx by
-  // reassembling a workbook from the sheet's tabs (see buildWorkbookFromSheet).
 
   async function importFromSheetLink(url) {
     let wb = await buildWorkbookFromSheet(url, ["filters", "pages"]);
@@ -195,8 +205,8 @@ export default function Flow1() {
       const output = computeFlow1Output(project, urlList, flow1Data, slots);
       const values = buildSheetsValues(output);
       await pushFlow1ToSheets(ssId, project, values);
-      setPushStatus((p) => ({ ...p, [project]: "ok" }));
-      setTimeout(() => setPushStatus((p) => ({ ...p, [project]: null })), 4000);
+      setPushStatus((p) => ({ ...p, [project]: null }));
+      setPushModal(true);
     } catch (err) {
       setPushStatus((p) => ({ ...p, [project]: "error:" + err.message }));
     }
@@ -208,11 +218,11 @@ export default function Flow1() {
     if (row === "bc_gsc") {
       const d = !!flow1Data[`bc_gsc_dijual_${slotKey}`];
       const s = !!flow1Data[`bc_gsc_disewa_${slotKey}`];
-      if (d && s) return "green";
-      if (d || s) return "yellow";
-      return "gray";
+      if (d && s) return "ok";
+      if (d || s) return "pending";
+      return "empty";
     }
-    return flow1Data[`${row}_${slotKey}`] ? "green" : "gray";
+    return flow1Data[`${row}_${slotKey}`] ? "ok" : "empty";
   }
 
   function slotTooltip(row, slotKey) {
@@ -237,68 +247,34 @@ export default function Flow1() {
 
   if (!flow1Window) {
     return (
-      <div className="max-w-lg mx-auto mt-8 border-2 border-dashed border-stone-200 rounded-card py-12 px-8 flex flex-col items-center text-center">
-        <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center text-accent mb-4">
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
-            />
-          </svg>
-        </div>
-        <div className="text-sm font-semibold text-stone-800 mb-1">
-          Rolling window not set
-        </div>
-        <p className="text-xs text-stone-500 mb-4">
-          Set the Flow 1 start month in Settings before uploading files.
-        </p>
-        <Link to="/settings" className="btn-primary">
-          Go to Settings
-        </Link>
-      </div>
+      <GatingState
+        Icon={Settings}
+        title="Rolling window not set"
+        desc="Set the Flow 1 start month in Settings before uploading files."
+        to="/settings"
+        btnLabel="Go to Settings"
+      />
     );
   }
 
   if (bcUrls.length === 0 && blogUrls.length === 0) {
     return (
-      <div className="max-w-lg mx-auto mt-8 border-2 border-dashed border-stone-200 rounded-card py-12 px-8 flex flex-col items-center text-center">
-        <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center text-accent mb-4">
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
-            />
-          </svg>
-        </div>
-        <div className="text-sm font-semibold text-stone-800 mb-1">
-          URL lists are empty
-        </div>
-        <p className="text-xs text-stone-500 mb-4">
-          Add BC and Blog URL lists before running VLOOKUP.
-        </p>
-        <Link to="/urls" className="btn-primary">
-          Go to URL Manager
-        </Link>
-      </div>
+      <GatingState
+        Icon={Link2}
+        title="URL lists are empty"
+        desc="Add BC and Blog URL lists before running VLOOKUP."
+        to="/urls"
+        btnLabel="Go to URL Manager"
+      />
     );
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      {pushModal && (
+        <SheetPushModal sheetsUrl={sheetsUrl} onClose={() => setPushModal(false)} />
+      )}
+    <div className="space-y-5">
       {/* What-to-upload guide */}
       <UploadGuide />
 
@@ -329,8 +305,8 @@ export default function Flow1() {
       {/* Or import straight from a Google Sheet link */}
       <SheetLinkImport
         onImport={importFromSheetLink}
-        label="🔗 Or import from a Sheet link instead"
-        hint="Its tabs must be named like the original export (Filters + Pages, or Free-form)."
+        label="Or import from a Sheet link instead"
+        hint="Tabs must be named like the original export (Filters + Pages, or Free-form)."
       />
 
       {/* Detection log */}
@@ -362,20 +338,32 @@ export default function Flow1() {
         />
       )}
     </div>
+    </>
+  );
+}
+
+// ─── Gating state ─────────────────────────────────────────────────────────────
+
+function GatingState({ Icon, title, desc, to, btnLabel }) {
+  return (
+    <div className="max-w-md mx-auto mt-10 card py-10 px-8 flex flex-col items-center text-center border-dashed">
+      <Icon size={24} className="text-muted mb-3" strokeWidth={1.5} />
+      <div className="text-sm font-semibold text-ink mb-1">{title}</div>
+      <p className="text-xs text-muted mb-4">{desc}</p>
+      <Link to={to} className="btn-primary">
+        {btnLabel}
+      </Link>
+    </div>
   );
 }
 
 // ─── Upload Guide ─────────────────────────────────────────────────────────────
-// Explains exactly which file goes where — Flow 1 needs 4 file *kinds* per
-// month (BC GSC ×2 segments, BC GA4, Blog GSC, Blog GA4), which is easy to
-// get lost in without this breakdown.
 
 function UploadGuide() {
   const rows = [
     {
       label: "BC — GSC export",
-      detail:
-        ".xlsx with Filters + Pages tabs, one file per segment (dijual, disewa)",
+      detail: ".xlsx with Filters + Pages tabs, one file per segment (dijual, disewa)",
     },
     {
       label: "BC — GA4 export",
@@ -383,8 +371,7 @@ function UploadGuide() {
     },
     {
       label: "Blog — GSC export",
-      detail:
-        ".xlsx with Filters + Pages tabs, Page filter set to /articles-all/",
+      detail: ".xlsx with Filters + Pages tabs, Page filter set to /articles-all/",
     },
     {
       label: "Blog — GA4 export",
@@ -392,16 +379,17 @@ function UploadGuide() {
     },
   ];
   return (
-    <div className="card p-4 bg-accent/10 border-accent/20">
+    <div className="card p-4">
       <div className="text-sm font-semibold text-ink mb-2">
         What to upload — 4 file kinds per month
       </div>
       <ul className="space-y-1.5">
         {rows.map((r) => (
           <li key={r.label} className="flex items-start gap-2 text-sm text-ink">
-            <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-accent" />
+            <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
             <span>
-              <strong>{r.label}:</strong> {r.detail}
+              <strong>{r.label}:</strong>{" "}
+              <span className="text-muted">{r.detail}</span>
             </span>
           </li>
         ))}
@@ -430,42 +418,27 @@ function DropZone({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onClick={onClick}
-      className={`border-2 border-dashed rounded-card transition-colors cursor-pointer select-none py-12 px-8 flex flex-col items-center text-center ${
+      className={`border-2 border-dashed rounded-card transition-colors cursor-pointer select-none py-10 px-8 flex flex-col items-center text-center ${
         dragging
-          ? "border-accent bg-accent/5"
-          : "border-stone-200 hover:border-accent/40 hover:bg-stone-50"
+          ? "border-accent bg-accent-subtle"
+          : "border-border hover:border-muted hover:bg-surface-2/40"
       }`}
     >
       {processing ? (
         <>
-          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-3" />
-          <div className="text-xs font-medium text-stone-600">
+          <div className="w-7 h-7 border-2 border-accent border-t-transparent rounded-full animate-spin mb-3" />
+          <div className="text-xs font-medium text-muted">
             Processing files…
           </div>
         </>
       ) : (
         <>
-          <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center text-accent mb-4">
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-              />
-            </svg>
-          </div>
-          <div className="text-sm font-semibold text-stone-800 mb-1">
+          <Upload size={22} className="text-muted mb-3" strokeWidth={1.5} />
+          <div className="text-sm font-semibold text-ink mb-1">
             {dragging ? "Drop files here" : "Drag & drop .xlsx files"}
           </div>
-          <div className="text-xs text-stone-500 mb-4">
-            GSC exports (Pages + Filters sheets) · GA4 exports (Free-form 1
-            sheet)
+          <div className="text-xs text-muted mb-4">
+            GSC exports (Pages + Filters sheets) · GA4 exports (Free-form 1 sheet)
           </div>
           <div className="btn-secondary pointer-events-none">Browse files</div>
         </>
@@ -476,35 +449,43 @@ function DropZone({
 
 // ─── Detection Log ────────────────────────────────────────────────────────────
 
+const LOG_ICONS = {
+  ok:    <CheckCircle2 size={13} className="text-ok flex-shrink-0 mt-0.5" strokeWidth={2} />,
+  warn:  <AlertTriangle size={13} className="text-pending flex-shrink-0 mt-0.5" strokeWidth={2} />,
+  error: <XCircle size={13} className="text-danger flex-shrink-0 mt-0.5" strokeWidth={2} />,
+  skip:  <MinusCircle size={13} className="text-empty flex-shrink-0 mt-0.5" strokeWidth={2} />,
+};
+
 function DetectionLog({ log, onClear }) {
-  const icons = { ok: "✅", warn: "⚠️", error: "❌", skip: "⏭️" };
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-base font-semibold text-gray-800 leading-tight">
-          Detection Log
-        </h3>
+        <h3 className="text-sm font-semibold text-ink">Detection Log</h3>
         <button
           onClick={onClear}
-          className="text-xs text-gray-400 hover:text-gray-600"
+          className="text-xs text-muted hover:text-ink"
         >
           Clear
         </button>
       </div>
-      <div className="space-y-1 max-h-48 overflow-y-auto">
+      <div className="space-y-1.5 max-h-48 overflow-y-auto">
         {log.map((entry, i) => (
-          <div key={i} className="flex items-start gap-2 text-sm">
-            <span className="flex-shrink-0 leading-5">
-              {icons[entry.status]}
-            </span>
+          <div key={i} className="flex items-start gap-2 text-xs">
+            {LOG_ICONS[entry.status]}
             <span
-              className="font-mono text-gray-500 text-xs truncate max-w-[200px]"
+              className="font-mono text-muted truncate max-w-[200px]"
               title={entry.file}
             >
               {entry.file}
             </span>
             <span
-              className={`text-xs ${entry.status === "error" ? "text-danger" : entry.status === "warn" ? "text-warning" : "text-gray-700"}`}
+              className={
+                entry.status === "error"
+                  ? "text-danger"
+                  : entry.status === "warn"
+                    ? "text-warning"
+                    : "text-ink"
+              }
             >
               {entry.message}
             </span>
@@ -526,46 +507,47 @@ const SLOT_ROWS = [
 
 function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
   const filled = slots.filter(
-    (s) => slotStatus("bc_gsc", s.key) === "green",
+    (s) => slotStatus("bc_gsc", s.key) === "ok",
   ).length;
   const total = slots.length;
 
   return (
-    <div className="card p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-semibold text-gray-900 leading-tight">
-          Slot Status
-        </h2>
-        <span className="text-xs text-gray-500">
-          {filled}/{total} filled
-        </span>
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-heading text-base font-semibold text-ink">Slot Status</h2>
+        <div className="flex items-center gap-4 text-xs font-mono text-muted">
+          <span><span className="dot-ok">●</span> filled</span>
+          <span><span className="dot-pending">●</span> partial</span>
+          <span><span className="dot-empty">●</span> empty</span>
+          <span className="text-muted">{filled}/{total}</span>
+        </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="text-sm w-full">
+        <table className="w-full text-sm">
           <thead>
             <tr>
-              <th className="text-left text-gray-500 font-medium pb-3 pr-4 w-32">
+              <th className="text-left font-mono text-xs uppercase tracking-wider text-muted pb-2 pr-4 w-32">
                 Source
               </th>
               {slots.map((s) => (
                 <th
                   key={s.key}
-                  className="text-center text-gray-500 font-medium pb-3 px-3 min-w-[80px]"
+                  className="text-center font-mono text-xs uppercase tracking-wider text-muted pb-2 px-3 min-w-[76px]"
                 >
                   {s.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
-            {SLOT_ROWS.map((row) => (
-              <tr key={row.id}>
+          <tbody className="divide-y divide-border">
+            {SLOT_ROWS.map((row, ri) => (
+              <tr key={row.id} className={ri % 2 === 1 ? "bg-surface-2/40" : ""}>
                 <td className="py-2.5 pr-4">
-                  <div className="font-medium text-gray-700 text-sm">
+                  <div className="font-medium text-ink text-sm">
                     {row.label}
                   </div>
                   {row.note && (
-                    <div className="text-xs text-gray-400">{row.note}</div>
+                    <div className="text-xs text-muted font-mono">{row.note}</div>
                   )}
                 </td>
                 {slots.map((s) => {
@@ -588,17 +570,6 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
           </tbody>
         </table>
       </div>
-      <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <span className="badge-green">●</span> Complete
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="badge-yellow">◐</span> Partial
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="badge-gray">○</span> Empty
-        </span>
-      </div>
     </div>
   );
 }
@@ -606,7 +577,6 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
 function SlotCell({ status, tooltip, rowId, slotKey, flow1Data, onClear }) {
   const [hover, setHover] = useState(false);
 
-  // Keys to clear for this cell
   function handleClear(e) {
     e.stopPropagation();
     if (rowId === "bc_gsc") {
@@ -619,39 +589,21 @@ function SlotCell({ status, tooltip, rowId, slotKey, flow1Data, onClear }) {
     }
   }
 
-  const chip = {
-    green: <span className="badge-green text-xs">●</span>,
-    yellow: <span className="badge-yellow text-xs">◐</span>,
-    gray: <span className="badge-gray text-xs">○</span>,
-  }[status];
-
   return (
     <div
-      className="relative inline-flex items-center gap-1"
+      className="inline-flex items-center gap-1"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       title={tooltip}
     >
-      {chip}
-      {hover && status !== "gray" && (
+      <span className={`dot-${status} font-mono text-base`}>●</span>
+      {hover && status !== "empty" && (
         <button
           onClick={handleClear}
-          className="text-gray-400 hover:text-danger transition-colors"
+          className="text-muted hover:text-danger transition-colors"
           title="Clear this slot"
         >
-          <svg
-            className="w-3 h-3"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <X size={11} strokeWidth={2.5} />
         </button>
       )}
     </div>
@@ -683,7 +635,7 @@ function PreviewSection({
   return (
     <div className="space-y-4">
       {/* Export bar */}
-      <div className="card p-4 flex flex-wrap items-center gap-3">
+      <div className="card p-3 flex flex-wrap items-center gap-3">
         {(() => {
           const proj = previewTab;
           const ps = pushStatus[proj];
@@ -698,16 +650,12 @@ function PreviewSection({
               <button
                 onClick={() => onPushSheets(proj)}
                 disabled={ps === "pushing" || !sheetsUrl}
-                className={`btn ${sheetsUrl ? "btn-primary" : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"}`}
-                title={
-                  !sheetsUrl ? "Configure spreadsheet URL in Settings" : ""
-                }
+                className={`btn ${sheetsUrl ? "btn-primary" : "btn-secondary opacity-50 cursor-not-allowed"}`}
+                title={!sheetsUrl ? "Configure spreadsheet URL in Settings" : ""}
               >
                 {ps === "pushing"
-                  ? "…"
-                  : ps === "ok"
-                    ? "✓ Pushed!"
-                    : `Push ${proj === "bc" ? "BC" : "Blog"} to Sheets`}
+                  ? "Pushing…"
+                  : `Push ${proj === "bc" ? "BC" : "Blog"} to Sheets`}
               </button>
               {ps?.startsWith("error:") && (
                 <span className="text-xs text-danger">{ps.slice(6)}</span>
@@ -716,7 +664,7 @@ function PreviewSection({
           );
         })()}
         {!sheetsUrl && (
-          <Link to="/settings" className="text-xs text-gray-400 underline">
+          <Link to="/settings" className="text-xs text-muted underline">
             Configure Sheets URL
           </Link>
         )}
@@ -724,24 +672,24 @@ function PreviewSection({
 
       {/* Preview table */}
       <div className="card">
-        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-200">
-          <div className="inline-flex bg-stone-100 rounded-btn p-1">
+        <div className="flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-border">
+          <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5">
             {["bc", "blog"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setPreviewTab(tab)}
-                className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${
+                className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-colors ${
                   previewTab === tab
-                    ? "bg-white text-stone-900 shadow-card"
-                    : "text-stone-500 hover:text-stone-700"
+                    ? "bg-surface text-ink shadow-card"
+                    : "text-muted hover:text-ink"
                 }`}
               >
                 {tab === "bc" ? "BC" : "Blog"}
               </button>
             ))}
           </div>
-          <span className="text-xs text-gray-500">
-            {matchCount}/{urlList.length} URLs matched
+          <span className="text-xs text-muted font-mono">
+            {matchCount}/{urlList.length} matched
           </span>
         </div>
         <PreviewTable
@@ -749,7 +697,7 @@ function PreviewSection({
           output={pagination.pageItems}
           slots={slots}
         />
-        <div className="px-5 border-t border-gray-100">
+        <div className="px-4 border-t border-border">
           <PaginationControls
             page={pagination.page}
             pageCount={pagination.pageCount}
@@ -767,7 +715,6 @@ function PreviewSection({
   );
 }
 
-// Ordered GSC-first then GA4, matching the report template column layout.
 const PREVIEW_METRICS = [
   { key: "rank", label: "Rank", fmt: (v) => (v ? v.toFixed(1) : null) },
   {
@@ -796,9 +743,7 @@ const PREVIEW_METRICS = [
 function PreviewTable({ project, output, slots }) {
   if (output.length === 0) {
     return (
-      <div className="p-8 text-center text-sm text-gray-400">
-        No URLs in list
-      </div>
+      <div className="p-8 text-center text-sm text-muted">No URLs in list</div>
     );
   }
 
@@ -807,37 +752,33 @@ function PreviewTable({ project, output, slots }) {
   return (
     <div className="overflow-x-auto">
       <table className="text-xs w-full">
-        <thead className="bg-gray-50 sticky top-0">
+        <thead className="bg-surface-2 sticky top-0">
           <tr>
-            <th className="text-left py-2 px-3 font-medium text-gray-500 sticky left-0 bg-gray-50 z-10 min-w-[140px]">
+            <th className="text-left py-2 px-3 font-mono text-2xs uppercase tracking-wider text-muted sticky left-0 bg-surface-2 z-10 min-w-[140px]">
               Keyword
             </th>
-            <th className="text-left py-2 px-2 font-medium text-gray-500 min-w-[120px]">
+            <th className="text-left py-2 px-2 font-mono text-2xs uppercase tracking-wider text-muted min-w-[120px]">
               Slug
             </th>
-            {PREVIEW_METRICS.map((m, mi) => (
+            {PREVIEW_METRICS.map((m) => (
               <th
                 key={m.key}
                 colSpan={slots.length}
-                className={`text-center py-2 px-2 font-medium text-gray-500 border-l border-gray-200${mi === 0 ? "" : ""}`}
+                className="text-center py-2 px-2 font-mono text-2xs uppercase tracking-wider text-muted border-l border-border"
               >
                 {m.label}
               </th>
             ))}
           </tr>
-          <tr className="bg-gray-50">
-            <th className="sticky left-0 bg-gray-50 z-10" />
+          <tr className="bg-surface-2">
+            <th className="sticky left-0 bg-surface-2 z-10" />
             <th />
-            {PREVIEW_METRICS.flatMap((m, mi) =>
+            {PREVIEW_METRICS.flatMap((m) =>
               slots.map((s, si) => (
                 <th
                   key={`${m.key}_${s.key}`}
-                  className={`text-center py-1 px-1.5 font-medium text-gray-400 border-l ${
-                    mi === 0 && si === 0
-                      ? "border-gray-200"
-                      : si === 0
-                        ? "border-gray-200"
-                        : "border-gray-100"
+                  className={`text-center py-1 px-1.5 font-mono text-2xs text-muted border-l ${
+                    si === 0 ? "border-border" : "border-border/50"
                   }`}
                 >
                   {s.label.split(" ")[0]}
@@ -846,7 +787,7 @@ function PreviewTable({ project, output, slots }) {
             )}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-50">
+        <tbody className="divide-y divide-border">
           {output.map(({ urlRow, metrics }, i) => {
             const hasData =
               metrics.clicks.some((v) => v > 0) ||
@@ -854,26 +795,26 @@ function PreviewTable({ project, output, slots }) {
             return (
               <tr
                 key={i}
-                className={`hover:bg-gray-50 ${!hasData ? "opacity-50" : ""}`}
+                className={`hover:bg-surface-2/50 ${!hasData ? "opacity-40" : ""}`}
               >
                 <td
-                  className="py-1.5 px-3 sticky left-0 bg-white group-hover:bg-gray-50 z-10 max-w-[140px] truncate"
+                  className="py-1.5 px-3 sticky left-0 bg-surface z-10 max-w-[140px] truncate text-ink"
                   title={urlRow[labelCol]}
                 >
                   {urlRow[labelCol] || "—"}
                 </td>
                 <td
-                  className="py-1.5 px-2 font-mono text-gray-400 max-w-[120px] truncate"
+                  className="py-1.5 px-2 font-mono text-muted max-w-[120px] truncate"
                   title={urlRow.slug}
                 >
                   {urlRow.slug || "—"}
                 </td>
-                {PREVIEW_METRICS.flatMap((m, mi) =>
+                {PREVIEW_METRICS.flatMap((m) =>
                   metrics[m.key].map((v, si) => (
                     <td
                       key={`${m.key}_${si}`}
-                      className={`py-1.5 px-1.5 text-center ${m.dim ? "text-gray-500" : ""} border-l ${
-                        si === 0 ? "border-gray-200" : "border-gray-100"
+                      className={`py-1.5 px-1.5 text-center font-mono ${m.dim ? "text-muted" : "text-ink"} border-l ${
+                        si === 0 ? "border-border" : "border-border/50"
                       }`}
                     >
                       {m.fmt(v) ?? <Dash />}
@@ -890,5 +831,5 @@ function PreviewTable({ project, output, slots }) {
 }
 
 function Dash() {
-  return <span className="text-gray-300">—</span>;
+  return <span className="text-empty">—</span>;
 }

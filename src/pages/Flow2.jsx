@@ -28,6 +28,17 @@ import {
   buildWorkbookFromSheet,
   fetchFirstTabAsCSV,
 } from "../utils/sheetsApi";
+import {
+  Upload,
+  Link2,
+  Settings,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  MinusCircle,
+  X,
+} from "lucide-react";
+import SheetPushModal from "../components/SheetPushModal";
 
 export default function Flow2() {
   const [flow2Data, setFlow2Data] = useStorage("flow2_data", {});
@@ -38,6 +49,7 @@ export default function Flow2() {
   const [processing, setProcessing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [pushStatus, setPushStatus] = useState(null);
+  const [pushModal, setPushModal] = useState(false);
   const [importMode, setImportMode] = useState("sheets");
   const [sheetUrl, setSheetUrl] = useState("");
   const [sheetLoading, setSheetLoading] = useState(false);
@@ -90,7 +102,6 @@ export default function Flow2() {
         const mk = formatMonthKey(result.month.year, result.month.month);
         const inWindow = slotKeys.has(mk);
 
-        // Store the full result object (not just rows — Flow 2 stores aggregated values)
         newEntries[key] = result;
 
         newLog.push({
@@ -138,9 +149,6 @@ export default function Flow2() {
   }
 
   // ─── Import from a Google Sheet link ────────────────────────────────────────
-  // GSC Chart exports reuse the workbook-based parser (same as .xlsx upload).
-  // GA4 Free-form/Leads sheets are single-tab, so they're read back as CSV
-  // text and run through the same CSV parsers used for uploaded .csv files.
 
   async function importFromSheetLink(url) {
     let wb = await buildWorkbookFromSheet(url, ["chart", "filters"]);
@@ -204,8 +212,8 @@ export default function Flow2() {
       const output = computeFlow2Output(flow2Data, slots);
       const csv = buildFlow2CSV(output, slots);
       await pushFlow2ToSheets(ssId, csv);
-      setPushStatus("ok");
-      setTimeout(() => setPushStatus(null), 4000);
+      setPushStatus(null);
+      setPushModal(true);
     } catch (err) {
       setPushStatus("error:" + err.message);
     }
@@ -214,37 +222,20 @@ export default function Flow2() {
   // ─── Slot helpers ────────────────────────────────────────────────────────────
 
   function getSlotStatus(type, segOrAll, slotKey) {
-    // type = 'gsc' | 'ga4_free' | 'ga4_leads'
     let key;
     if (type === "gsc") key = `gsc_${segOrAll}_${slotKey}`;
     else key = `${type}_${slotKey}`;
-    return !!flow2Data[key] ? "green" : "gray";
+    return !!flow2Data[key] ? "ok" : "empty";
   }
 
   const anyData = Object.keys(flow2Data).length > 0;
 
   if (!flow2Window) {
     return (
-      <div className="max-w-lg mx-auto mt-8 border-2 border-dashed border-stone-200 rounded-card py-12 px-8 flex flex-col items-center text-center">
-        <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center text-accent mb-4">
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
-            />
-          </svg>
-        </div>
-        <div className="text-sm font-semibold text-stone-800 mb-1">
-          Rolling window not set
-        </div>
-        <p className="text-xs text-stone-500 mb-4">
+      <div className="max-w-md mx-auto mt-10 card py-10 px-8 flex flex-col items-center text-center border-dashed">
+        <Settings size={24} className="text-muted mb-3" strokeWidth={1.5} />
+        <div className="text-sm font-semibold text-ink mb-1">Rolling window not set</div>
+        <p className="text-xs text-muted mb-4">
           Set the Flow 2 start month in Settings (6-month window).
         </p>
         <Link to="/settings" className="btn-primary">
@@ -257,33 +248,42 @@ export default function Flow2() {
   const output = anyData ? computeFlow2Output(flow2Data, slots) : null;
 
   return (
-    <div className="space-y-6">
+    <>
+      {pushModal && (
+        <SheetPushModal sheetsUrl={sheetsUrl} onClose={() => setPushModal(false)} />
+      )}
+    <div className="space-y-5">
       {/* What-to-upload guide */}
-      <div className="card p-4 bg-accent/10 border-accent/20">
+      <div className="card p-4">
         <div className="text-sm font-semibold text-ink mb-2">
           What to upload — 3 file kinds per month (different from Flow 1)
         </div>
         <ul className="space-y-1.5">
           <li className="flex items-start gap-2 text-sm text-ink">
-            <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-accent" />
+            <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
             <span>
-              <strong>GSC Chart export (.xlsx):</strong> one file per segment
-              (All Organic, /dijual/, /disewa/, Blog) — site-wide totals, not
-              per-URL
+              <strong>GSC Chart export (.xlsx):</strong>{" "}
+              <span className="text-muted">
+                one file per segment (All Organic, /dijual/, /disewa/, Blog) — site-wide totals, not per-URL
+              </span>
             </span>
           </li>
           <li className="flex items-start gap-2 text-sm text-ink">
-            <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-accent" />
+            <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
             <span>
-              <strong>GA4 Free-form export (.csv):</strong> a single file that
-              covers every segment automatically
+              <strong>GA4 Free-form export (.csv):</strong>{" "}
+              <span className="text-muted">
+                a single file that covers every segment automatically
+              </span>
             </span>
           </li>
           <li className="flex items-start gap-2 text-sm text-ink">
-            <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-accent" />
+            <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
             <span>
-              <strong>GA4 Leads export (.csv):</strong> Click_Contact_Agent
-              event count, one file per month
+              <strong>GA4 Leads export (.csv):</strong>{" "}
+              <span className="text-muted">
+                Click_Contact_Agent event count, one file per month
+              </span>
             </span>
           </li>
         </ul>
@@ -291,31 +291,31 @@ export default function Flow2() {
 
       {/* Import section with mode toggle */}
       <div className="space-y-3">
-        <div className="inline-flex bg-stone-100 rounded-btn p-1 gap-0.5">
+        <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5 gap-0.5">
           <button
             onClick={() => setImportMode("sheets")}
-            className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-all ${
+            className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-all ${
               importMode === "sheets"
-                ? "bg-white text-stone-900 shadow-card"
-                : "text-stone-500 hover:text-stone-700"
+                ? "bg-surface text-ink shadow-card"
+                : "text-muted hover:text-ink"
             }`}
           >
-            🔗 From Sheets
+            From Sheets
           </button>
           <button
             onClick={() => setImportMode("file")}
-            className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-all ${
+            className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-all ${
               importMode === "file"
-                ? "bg-white text-stone-900 shadow-card"
-                : "text-stone-500 hover:text-stone-700"
+                ? "bg-surface text-ink shadow-card"
+                : "text-muted hover:text-ink"
             }`}
           >
-            📂 Upload File
+            Upload File
           </button>
         </div>
 
         {importMode === "sheets" ? (
-          <div className="card p-5 space-y-3">
+          <div className="card p-4 space-y-3">
             <input
               type="url"
               className="input"
@@ -323,8 +323,8 @@ export default function Flow2() {
               value={sheetUrl}
               onChange={(e) => setSheetUrl(e.target.value)}
             />
-            <p className="text-xs text-gray-500">
-              ⚠️ The sheet must be shared with{" "}
+            <p className="text-xs text-muted">
+              The sheet must be shared with{" "}
               <strong>"Anyone with the link can view"</strong> access. For GSC
               Chart, tabs must be named like the original export (Chart +
               Filters). GA4 sheets need a single tab with the Free-form or Leads
@@ -392,6 +392,7 @@ export default function Flow2() {
         />
       )}
     </div>
+    </>
   );
 }
 
@@ -411,48 +412,29 @@ function DropZone({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onClick={onClick}
-      className={`card border-2 border-dashed transition-colors cursor-pointer select-none py-12 px-8 flex flex-col items-center text-center ${
+      className={`border-2 border-dashed rounded-card transition-colors cursor-pointer select-none py-10 px-8 flex flex-col items-center text-center ${
         dragging
-          ? "border-accent bg-accent/5"
-          : "border-stone-200 hover:border-accent/40 hover:bg-stone-50"
+          ? "border-accent bg-accent-subtle"
+          : "border-border hover:border-muted hover:bg-surface-2/40"
       }`}
     >
       {processing ? (
         <>
-          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-3" />
-          <div className="text-sm font-semibold text-stone-700">
-            Processing files…
-          </div>
+          <div className="w-7 h-7 border-2 border-accent border-t-transparent rounded-full animate-spin mb-3" />
+          <div className="text-xs font-medium text-muted">Processing files…</div>
         </>
       ) : (
         <>
-          <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center text-accent mb-4">
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-              />
-            </svg>
-          </div>
-          <div className="text-sm font-semibold text-stone-800 mb-1">
+          <Upload size={22} className="text-muted mb-3" strokeWidth={1.5} />
+          <div className="text-sm font-semibold text-ink mb-1">
             {dragging ? "Drop files here" : "Drag & drop Flow 2 files"}
           </div>
-          <p className="text-xs text-stone-500 mb-4">
-            GSC Chart export (.xlsx) · GA4 Free-form export (.csv) · GA4 Leads
-            export (.csv)
+          <p className="text-xs text-muted mb-4">
+            GSC Chart export (.xlsx) · GA4 Free-form export (.csv) · GA4 Leads export (.csv)
             <br />
             Up to 6 months × 3 files = 18 files at once
           </p>
-          <span className="btn btn-secondary pointer-events-none">
-            Browse files
-          </span>
+          <span className="btn-secondary pointer-events-none">Browse files</span>
         </>
       )}
     </div>
@@ -461,35 +443,40 @@ function DropZone({
 
 // ─── Detection Log ────────────────────────────────────────────────────────────
 
+const LOG_ICONS = {
+  ok:    <CheckCircle2 size={13} className="text-ok flex-shrink-0 mt-0.5" strokeWidth={2} />,
+  warn:  <AlertTriangle size={13} className="text-pending flex-shrink-0 mt-0.5" strokeWidth={2} />,
+  error: <XCircle size={13} className="text-danger flex-shrink-0 mt-0.5" strokeWidth={2} />,
+  skip:  <MinusCircle size={13} className="text-empty flex-shrink-0 mt-0.5" strokeWidth={2} />,
+};
+
 function DetectionLog({ log, onClear }) {
-  const icons = { ok: "✅", warn: "⚠️", error: "❌", skip: "⏭️" };
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-base font-semibold text-gray-800 leading-tight">
-          Detection Log
-        </h3>
-        <button
-          onClick={onClear}
-          className="text-xs text-gray-400 hover:text-gray-600"
-        >
+        <h3 className="text-sm font-semibold text-ink">Detection Log</h3>
+        <button onClick={onClear} className="text-xs text-muted hover:text-ink">
           Clear
         </button>
       </div>
-      <div className="space-y-1 max-h-48 overflow-y-auto">
+      <div className="space-y-1.5 max-h-48 overflow-y-auto">
         {log.map((entry, i) => (
-          <div key={i} className="flex items-start gap-2 text-sm">
-            <span className="flex-shrink-0 leading-5">
-              {icons[entry.status]}
-            </span>
+          <div key={i} className="flex items-start gap-2 text-xs">
+            {LOG_ICONS[entry.status]}
             <span
-              className="font-mono text-gray-500 text-xs truncate max-w-[200px]"
+              className="font-mono text-muted truncate max-w-[200px]"
               title={entry.file}
             >
               {entry.file}
             </span>
             <span
-              className={`text-xs ${entry.status === "error" ? "text-danger" : entry.status === "warn" ? "text-warning" : "text-gray-700"}`}
+              className={
+                entry.status === "error"
+                  ? "text-danger"
+                  : entry.status === "warn"
+                    ? "text-warning"
+                    : "text-ink"
+              }
             >
               {entry.message}
             </span>
@@ -503,77 +490,53 @@ function DetectionLog({ log, onClear }) {
 // ─── Slot Grid ────────────────────────────────────────────────────────────────
 
 const SLOT_ROWS_F2 = [
-  {
-    id: "gsc_all_organic",
-    label: "GSC Chart",
-    sub: "All Organic",
-    type: "gsc",
-    seg: "all_organic",
-  },
-  {
-    id: "gsc_dijual",
-    label: "GSC Chart",
-    sub: "/dijual/",
-    type: "gsc",
-    seg: "dijual",
-  },
-  {
-    id: "gsc_disewa",
-    label: "GSC Chart",
-    sub: "/disewa/",
-    type: "gsc",
-    seg: "disewa",
-  },
-  { id: "gsc_blog", label: "GSC Chart", sub: "Blog", type: "gsc", seg: "blog" },
-  {
-    id: "ga4_free",
-    label: "GA4 Free-form",
-    sub: "(all segs)",
-    type: "ga4_free",
-    seg: null,
-  },
-  {
-    id: "ga4_leads",
-    label: "GA4 Leads",
-    sub: "Click_Contact",
-    type: "ga4_leads",
-    seg: null,
-  },
+  { id: "gsc_all_organic", label: "GSC Chart", sub: "All Organic", type: "gsc", seg: "all_organic" },
+  { id: "gsc_dijual",      label: "GSC Chart", sub: "/dijual/",    type: "gsc", seg: "dijual" },
+  { id: "gsc_disewa",      label: "GSC Chart", sub: "/disewa/",    type: "gsc", seg: "disewa" },
+  { id: "gsc_blog",        label: "GSC Chart", sub: "Blog",        type: "gsc", seg: "blog" },
+  { id: "ga4_free",        label: "GA4 Free-form", sub: "(all segs)", type: "ga4_free",  seg: null },
+  { id: "ga4_leads",       label: "GA4 Leads",     sub: "Click_Contact", type: "ga4_leads", seg: null },
 ];
 
 function SlotGrid({ slots, flow2Data, getSlotStatus, onClear }) {
   return (
-    <div className="card p-5">
-      <h2 className="text-base font-semibold text-gray-900 leading-tight mb-4">
-        Slot Status (6-month window)
-      </h2>
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-heading text-base font-semibold text-ink">
+          Slot Status
+        </h2>
+        <div className="flex items-center gap-4 text-xs font-mono text-muted">
+          <span><span className="dot-ok">●</span> filled</span>
+          <span><span className="dot-empty">●</span> empty</span>
+        </div>
+      </div>
       <div className="overflow-x-auto">
-        <table className="text-sm w-full">
+        <table className="w-full text-sm">
           <thead>
             <tr>
-              <th className="text-left text-gray-500 font-medium pb-3 pr-4 w-36">
+              <th className="text-left font-mono text-xs uppercase tracking-wider text-muted pb-2 pr-4 w-36">
                 File Type
               </th>
-              <th className="text-left text-gray-500 font-medium pb-3 pr-4 w-28">
+              <th className="text-left font-mono text-xs uppercase tracking-wider text-muted pb-2 pr-4 w-28">
                 Segment
               </th>
               {slots.map((s) => (
                 <th
                   key={s.key}
-                  className="text-center text-gray-500 font-medium pb-3 px-2 min-w-[70px]"
+                  className="text-center font-mono text-xs uppercase tracking-wider text-muted pb-2 px-2 min-w-[64px]"
                 >
                   {s.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
-            {SLOT_ROWS_F2.map((row) => (
-              <tr key={row.id}>
-                <td className="py-2 pr-4 font-medium text-gray-700 text-sm">
+          <tbody className="divide-y divide-border">
+            {SLOT_ROWS_F2.map((row, ri) => (
+              <tr key={row.id} className={ri % 2 === 1 ? "bg-surface-2/40" : ""}>
+                <td className="py-2 pr-4 font-medium text-ink text-sm">
                   {row.label}
                 </td>
-                <td className="py-2 pr-4 text-gray-500 text-xs">{row.sub}</td>
+                <td className="py-2 pr-4 text-muted text-xs font-mono">{row.sub}</td>
                 {slots.map((s) => {
                   const key = row.seg
                     ? `gsc_${row.seg}_${s.key}`
@@ -590,14 +553,6 @@ function SlotGrid({ slots, flow2Data, getSlotStatus, onClear }) {
           </tbody>
         </table>
       </div>
-      <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <span className="badge-green">●</span> Filled
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="badge-gray">○</span> Empty
-        </span>
-      </div>
     </div>
   );
 }
@@ -610,26 +565,10 @@ function SlotDot({ filled, onClear }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      {filled ? (
-        <span className="badge-green text-xs">●</span>
-      ) : (
-        <span className="badge-gray text-xs">○</span>
-      )}
+      <span className={`${filled ? "dot-ok" : "dot-empty"} font-mono text-base`}>●</span>
       {hover && filled && (
-        <button onClick={onClear} className="text-gray-400 hover:text-danger">
-          <svg
-            className="w-3 h-3"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+        <button onClick={onClear} className="text-muted hover:text-danger transition-colors">
+          <X size={11} strokeWidth={2.5} />
         </button>
       )}
     </div>
@@ -651,26 +590,22 @@ function OverviewSection({
   return (
     <div className="space-y-4">
       {/* Export bar */}
-      <div className="card p-4 flex flex-wrap items-center gap-3">
+      <div className="card p-3 flex flex-wrap items-center gap-3">
         <button onClick={onDownloadCSV} className="btn-secondary">
           Export CSV
         </button>
         <button
           onClick={onPushSheets}
           disabled={pushStatus === "pushing" || !sheetsUrl}
-          className={`btn ${sheetsUrl ? "btn-primary" : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"}`}
+          className={`btn ${sheetsUrl ? "btn-primary" : "btn-secondary opacity-50 cursor-not-allowed"}`}
         >
-          {pushStatus === "pushing"
-            ? "…"
-            : pushStatus === "ok"
-              ? "✓ Pushed!"
-              : "Push to Sheets"}
+          {pushStatus === "pushing" ? "Pushing…" : "Push to Sheets"}
         </button>
         {typeof pushStatus === "string" && pushStatus.startsWith("error:") && (
           <span className="text-xs text-danger">{pushStatus.slice(6)}</span>
         )}
         {!sheetsUrl && (
-          <Link to="/settings" className="text-xs text-gray-400 underline">
+          <Link to="/settings" className="text-xs text-muted underline">
             Configure Sheets URL
           </Link>
         )}
@@ -678,16 +613,16 @@ function OverviewSection({
 
       {/* Segment tabs + metrics table */}
       <div className="card">
-        <div className="flex px-5 pt-4 pb-3 border-b border-gray-100 overflow-x-auto">
-          <div className="inline-flex bg-stone-100 rounded-btn p-1 gap-0.5">
+        <div className="flex px-4 pt-3 pb-2.5 border-b border-border overflow-x-auto">
+          <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5 gap-0.5">
             {SEGMENTS.map((seg) => (
               <button
                 key={seg.id}
                 onClick={() => setActiveSeg(seg.id)}
-                className={`px-3 py-1.5 rounded-btn text-sm font-medium whitespace-nowrap transition-all ${
+                className={`px-3 py-1 rounded-[5px] text-xs font-medium whitespace-nowrap transition-all ${
                   activeSeg === seg.id
-                    ? "bg-white text-stone-900 shadow-card"
-                    : "text-stone-500 hover:text-stone-700"
+                    ? "bg-surface text-ink shadow-card"
+                    : "text-muted hover:text-ink"
                 }`}
               >
                 {seg.label}
@@ -707,26 +642,26 @@ function SegmentTable({ segId, output, slots }) {
   return (
     <div className="overflow-x-auto">
       <table className="text-sm w-full">
-        <thead className="bg-gray-50">
+        <thead className="bg-surface-2">
           <tr>
-            <th className="text-left py-3 px-4 font-medium text-gray-500 w-48 sticky left-0 bg-gray-50">
+            <th className="text-left py-2.5 px-4 font-mono text-xs uppercase tracking-wider text-muted w-48 sticky left-0 bg-surface-2">
               Metric
             </th>
             {slots.map((s) => (
               <th
                 key={s.key}
-                className="text-center py-3 px-3 font-medium text-gray-500 min-w-[90px]"
+                className="text-center py-2.5 px-3 font-mono text-xs uppercase tracking-wider text-muted min-w-[90px]"
               >
                 {s.label}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-border">
           {METRICS.filter((m) => !m.allOnly || segId === "all_organic").map(
-            (metric) => (
-              <tr key={metric.id} className="hover:bg-gray-50">
-                <td className="py-2.5 px-4 text-gray-700 text-sm sticky left-0 bg-white">
+            (metric, mi) => (
+              <tr key={metric.id} className={`hover:bg-surface-2/50 ${mi % 2 === 1 ? "bg-surface-2/25" : ""}`}>
+                <td className="py-2.5 px-4 text-ink text-sm sticky left-0 bg-surface">
                   {metric.label}
                 </td>
                 {slots.map((s) => {
@@ -736,7 +671,7 @@ function SegmentTable({ segId, output, slots }) {
                   return (
                     <td
                       key={s.key}
-                      className={`py-2.5 px-3 text-center text-sm ${hasData ? "text-gray-900" : "text-gray-300"}`}
+                      className={`py-2.5 px-3 text-center font-mono text-sm ${hasData ? "text-ink" : "text-empty"}`}
                     >
                       {hasData ? formatMetricValue(metric.id, val) : "—"}
                     </td>

@@ -1,31 +1,32 @@
 import { Link } from "react-router-dom";
 import { useStorage } from "../hooks/useStorage";
 import { getMonthSlots } from "../utils/dateUtils";
+import { Upload, BarChart2, Users, Link2, Settings, AlertTriangle, ArrowRight } from "lucide-react";
 
 const FLOW_CARDS = [
   {
     id: "flow1",
     to: "/flow1",
-    title: "Flow 1 — Traffic Import",
+    title: "Traffic (Optimized)",
     description:
-      "Upload GSC + GA4 per-URL files. Auto-detect, merge, VLOOKUP, export.",
-    icon: "📥",
+      "Upload GSC + GA4 per-URL files. Auto-detect, merge by slug, push to Sheets.",
+    Icon: Upload,
   },
   {
     id: "flow2",
     to: "/flow2",
-    title: "Flow 2 — Traffic Overview",
+    title: "Traffic Overview",
     description:
       "Upload GSC Chart + GA4 summary files. Aggregate segment-level metrics.",
-    icon: "📊",
+    Icon: BarChart2,
   },
   {
     id: "flow3",
     to: "/flow3",
-    title: "Flow 3 — Leads Summary",
+    title: "Leads Summary",
     description:
       "Computed automatically from Flow 1 + Flow 2. No uploads needed.",
-    icon: "🎯",
+    Icon: Users,
   },
 ];
 
@@ -54,7 +55,7 @@ export default function Dashboard() {
   ).length;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Setup status bar */}
       <SetupStatus
         bcUrls={bcUrls}
@@ -64,48 +65,35 @@ export default function Dashboard() {
       />
 
       {/* Flow cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {FLOW_CARDS.map((card) => (
-          <div
-            key={card.id}
-            className="card p-6 border-l-[3px] border-l-accent"
-          >
-            <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center text-xl mb-4">
-              {card.icon}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {FLOW_CARDS.map((card) => {
+          const { Icon } = card;
+          return (
+            <div key={card.id} className="card p-4 flex flex-col gap-3">
+              <div className="flex items-center gap-2.5">
+                <Icon size={18} className="text-muted flex-shrink-0" strokeWidth={1.75} />
+                <h3 className="font-heading text-base font-semibold text-ink leading-tight">
+                  {card.title}
+                </h3>
+              </div>
+              <p className="text-sm text-muted leading-snug flex-1">
+                {card.description}
+              </p>
+              <div>
+                <Link to={card.to} className="btn-primary">
+                  Open
+                  <ArrowRight size={13} strokeWidth={2} />
+                </Link>
+              </div>
             </div>
-            <h3 className="text-base font-semibold text-gray-900 leading-tight mb-2">
-              {card.title}
-            </h3>
-            <p className="text-sm text-gray-600 mb-5 leading-relaxed">
-              {card.description}
-            </p>
-            <Link
-              to={card.to}
-              className="btn bg-accent text-white hover:bg-accent-dark shadow-card hover:shadow-card-hover"
-            >
-              Open
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Slot grids */}
       {flow1Window && (
         <SlotGrid
-          title="Flow 1 Slot Status"
+          title="Traffic (Optimized) — Slot Status"
           slots={flow1Slots}
           data={flow1Data}
           type="flow1"
@@ -113,7 +101,7 @@ export default function Dashboard() {
       )}
       {flow2Window && (
         <SlotGrid
-          title="Flow 2 Slot Status"
+          title="Traffic Overview — Slot Status"
           slots={flow2Slots}
           data={flow2Data}
           type="flow2"
@@ -121,31 +109,27 @@ export default function Dashboard() {
       )}
 
       {/* Quick links */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <Link
           to="/urls"
-          className="card p-4 flex items-center gap-4 hover:border-accent/30 transition-colors group"
+          className="card p-3 flex items-center gap-3 hover:border-border transition-colors group"
         >
-          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl group-hover:bg-accent/5">
-            🔗
-          </div>
-          <div>
-            <div className="font-medium text-sm text-gray-900">URL Lists</div>
-            <div className="text-xs text-gray-500">
+          <Link2 size={18} className="text-muted group-hover:text-ink flex-shrink-0" strokeWidth={1.75} />
+          <div className="min-w-0">
+            <div className="font-medium text-sm text-ink">URL Lists</div>
+            <div className="text-xs text-muted truncate">
               {bcUrls.length} BC · {blogUrls.length} Blog URLs stored
             </div>
           </div>
         </Link>
         <Link
           to="/settings"
-          className="card p-4 flex items-center gap-4 hover:border-accent/30 transition-colors group"
+          className="card p-3 flex items-center gap-3 hover:border-border transition-colors group"
         >
-          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl group-hover:bg-accent/5">
-            ⚙️
-          </div>
-          <div>
-            <div className="font-medium text-sm text-gray-900">Settings</div>
-            <div className="text-xs text-gray-500">
+          <Settings size={18} className="text-muted group-hover:text-ink flex-shrink-0" strokeWidth={1.75} />
+          <div className="min-w-0">
+            <div className="font-medium text-sm text-ink">Settings</div>
+            <div className="text-xs text-muted truncate">
               OAuth, rolling window, Sheets URL
             </div>
           </div>
@@ -157,8 +141,8 @@ export default function Dashboard() {
 
 function SetupStatus({ bcUrls, blogUrls, flow1Window, flow2Window }) {
   const steps = [
-    { label: "BC URL list", done: bcUrls.length > 0, link: "/urls" },
-    { label: "Blog URL list", done: blogUrls.length > 0, link: "/urls" },
+    { label: "BC URLs", done: bcUrls.length > 0, link: "/urls" },
+    { label: "Blog URLs", done: blogUrls.length > 0, link: "/urls" },
     { label: "Flow 1 window", done: !!flow1Window, link: "/settings" },
     { label: "Flow 2 window", done: !!flow2Window, link: "/settings" },
   ];
@@ -167,37 +151,23 @@ function SetupStatus({ bcUrls, blogUrls, flow1Window, flow2Window }) {
   if (allDone) return null;
 
   return (
-    <div className="card p-4 bg-warning/10 border-warning/30">
-      <div className="flex items-start gap-3">
-        <span className="text-warning text-sm mt-0.5">⚠️</span>
-        <div>
-          <div className="font-medium text-ink mb-2">
-            Complete setup to get started
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {steps.map((step) => (
-              <Link
-                key={step.label}
-                to={step.link}
-                className="flex items-center gap-1.5 text-sm"
-              >
-                {step.done ? (
-                  <span className="w-5 h-5 rounded-full bg-success flex items-center justify-center text-white text-xs">
-                    ✓
-                  </span>
-                ) : (
-                  <span className="w-5 h-5 rounded-full bg-warning/20 border-2 border-warning" />
-                )}
-                <span
-                  className={
-                    step.done ? "text-success line-through" : "text-ink"
-                  }
-                >
-                  {step.label}
-                </span>
-              </Link>
-            ))}
-          </div>
+    <div className="card p-3 border-warning/40 bg-warning/5">
+      <div className="flex items-center gap-3">
+        <AlertTriangle size={14} className="text-warning flex-shrink-0" strokeWidth={2} />
+        <span className="text-sm font-medium text-ink mr-2">Setup needed</span>
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {steps.map((step) => (
+            <Link
+              key={step.label}
+              to={step.link}
+              className="flex items-center gap-1.5 text-xs font-mono"
+            >
+              <span className={step.done ? "dot-ok" : "dot-empty"}>●</span>
+              <span className={step.done ? "text-muted line-through" : "text-ink"}>
+                {step.label}
+              </span>
+            </Link>
+          ))}
         </div>
       </div>
     </div>
@@ -205,7 +175,6 @@ function SetupStatus({ bcUrls, blogUrls, flow1Window, flow2Window }) {
 }
 
 function SlotGrid({ title, slots, data, type }) {
-  // Flow 1: BC GSC needs dijual+disewa keys; others are simple
   const ROWS =
     type === "flow1"
       ? [
@@ -214,82 +183,78 @@ function SlotGrid({ title, slots, data, type }) {
             status: (k) => {
               const d = !!data[`bc_gsc_dijual_${k}`];
               const s = !!data[`bc_gsc_disewa_${k}`];
-              if (d && s) return "green";
-              if (d || s) return "yellow";
-              return "gray";
+              if (d && s) return "ok";
+              if (d || s) return "pending";
+              return "empty";
             },
           },
           {
             label: "BC GA4",
-            status: (k) => (data[`bc_ga4_${k}`] ? "green" : "gray"),
+            status: (k) => (data[`bc_ga4_${k}`] ? "ok" : "empty"),
           },
           {
             label: "Blog GSC",
-            status: (k) => (data[`blog_gsc_${k}`] ? "green" : "gray"),
+            status: (k) => (data[`blog_gsc_${k}`] ? "ok" : "empty"),
           },
           {
             label: "Blog GA4",
-            status: (k) => (data[`blog_ga4_${k}`] ? "green" : "gray"),
+            status: (k) => (data[`blog_ga4_${k}`] ? "ok" : "empty"),
           },
         ]
       : [
           {
-            label: "GSC Chart (All)",
-            status: (k) => (data[`gsc_all_organic_${k}`] ? "green" : "gray"),
+            label: "GSC Chart",
+            status: (k) => (data[`gsc_all_organic_${k}`] ? "ok" : "empty"),
           },
           {
             label: "GA4 Free-form",
-            status: (k) => (data[`ga4_free_${k}`] ? "green" : "gray"),
+            status: (k) => (data[`ga4_free_${k}`] ? "ok" : "empty"),
           },
           {
             label: "GA4 Leads",
-            status: (k) => (data[`ga4_leads_${k}`] ? "green" : "gray"),
+            status: (k) => (data[`ga4_leads_${k}`] ? "ok" : "empty"),
           },
         ];
 
   return (
-    <div className="card p-6">
-      <h2 className="text-base font-semibold text-gray-900 leading-tight mb-4">
-        {title}
-      </h2>
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-heading text-base font-semibold text-ink">{title}</h2>
+        {/* Legend */}
+        <div className="flex items-center gap-4 text-xs font-mono text-muted">
+          <span><span className="dot-ok">●</span> filled</span>
+          {type === "flow1" && <span><span className="dot-pending">●</span> partial</span>}
+          <span><span className="dot-empty">●</span> empty</span>
+        </div>
+      </div>
       <div className="overflow-x-auto">
-        <table className="text-sm w-full">
+        <table className="w-full text-sm">
           <thead>
             <tr>
-              <th className="text-left text-gray-500 font-medium pb-3 pr-4 w-36">
+              <th className="text-left text-muted font-mono text-xs uppercase tracking-wider pb-2 pr-4 w-32">
                 Source
               </th>
               {slots.map((s) => (
                 <th
                   key={s.key}
-                  className="text-center text-gray-500 font-medium pb-3 px-2 min-w-[70px]"
+                  className="text-center text-muted font-mono text-xs uppercase tracking-wider pb-2 px-2 min-w-[64px]"
                 >
-                  {s.label}
+                  {s.label.replace(" ", " ")}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
-            {ROWS.map((row) => (
-              <tr key={row.label}>
-                <td className="py-2 pr-4 text-gray-700 font-medium text-sm">
+          <tbody className="divide-y divide-border">
+            {ROWS.map((row, ri) => (
+              <tr key={row.label} className={ri % 2 === 1 ? "bg-surface-2/40" : ""}>
+                <td className="py-2 pr-4 text-sm text-ink font-medium">
                   {row.label}
                 </td>
                 {slots.map((s) => {
                   const st = row.status(s.key);
                   return (
-                    <td key={s.key} className="py-2 px-2 text-center">
-                      <span
-                        className={
-                          st === "green"
-                            ? "badge-green"
-                            : st === "yellow"
-                              ? "badge-yellow"
-                              : "badge-gray"
-                        }
-                      >
-                        {st === "green" ? "●" : st === "yellow" ? "◐" : "○"}
-                      </span>
+                    <td key={s.key} className="py-2 px-2 text-center font-mono text-base">
+                      <span className={`dot-${st}`}>●</span>
                     </td>
                   );
                 })}
@@ -297,17 +262,6 @@ function SlotGrid({ title, slots, data, type }) {
             ))}
           </tbody>
         </table>
-      </div>
-      <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
-        <span className="flex items-center gap-1.5">
-          <span className="badge-green">●</span> Complete
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="badge-yellow">◐</span> Partial
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="badge-gray">○</span> Empty
-        </span>
       </div>
     </div>
   );
