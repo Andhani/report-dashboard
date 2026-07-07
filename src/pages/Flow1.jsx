@@ -264,7 +264,7 @@ export default function Flow1() {
         title="URL lists are empty"
         desc="Add BC and Blog URL lists before running VLOOKUP."
         to="/urls"
-        btnLabel="Go to URL Manager"
+        btnLabel="Go to URL Lists"
       />
     );
   }
