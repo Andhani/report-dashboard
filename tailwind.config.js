@@ -4,35 +4,38 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: ['attribute', '[data-theme="dark"]'],
   theme: {
     extend: {
       colors: {
-        // Semantic text / surface tokens
-        ink:     '#111827',
-        muted:   '#6B7280',
-        line:    '#E5E7EB',
-        surface: '#FFFFFF',
-        bg:      '#F9FAFB',
-        // Single brand accent — indigo. Use /opacity modifiers for tints.
+        bg:           'var(--bg)',
+        surface:      'var(--surface)',
+        'surface-2':  'var(--surface-2)',
+        line:         'var(--border)',
+        border:       'var(--border)',
+        ink:          'var(--text)',
+        muted:        'var(--text-muted)',
         accent: {
-          DEFAULT: '#4F46E5',
-          dark:    '#4338CA',
+          DEFAULT: 'var(--accent)',
+          text:    'var(--accent-text)',
+          subtle:  'var(--accent-subtle)',
+          dark:    'var(--accent)',
         },
-        // Semantic status colors ONLY — never used decoratively
-        success: '#16A34A',
-        warning: '#D97706',
-        danger:  '#DC2626',
+        success:  'var(--success)',
+        warning:  'var(--warning)',
+        danger:   'var(--danger)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', '"IBM Plex Mono"', 'monospace'],
       },
       borderRadius: {
-        btn:  '6px',
-        card: '10px',
+        btn:  '8px',
+        card: '12px',
       },
       boxShadow: {
-        card:         '0 1px 3px rgba(0,0,0,.08)',
-        'card-hover': '0 4px 16px rgba(0,0,0,.10)',
+        card:         '0 1px 3px rgba(0,0,0,0.06)',
+        'card-hover': '0 4px 16px rgba(0,0,0,0.10)',
       },
     },
   },

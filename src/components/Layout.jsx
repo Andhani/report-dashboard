@@ -130,10 +130,20 @@ const navItems = [
 export default function Layout() {
   const location = useLocation();
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    return (
+      localStorage.getItem("theme") ||
+      (window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light")
+    );
+  });
 
-  // The outer layout uses min-h-screen (not h-screen), so <main>'s
-  // overflow-auto never actually engages — the whole page grows past the
-  // viewport and the window/document scrolls instead. Track that.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
   useEffect(() => {
     function onScroll() {
       setShowBackToTop(window.scrollY > 400);
@@ -146,6 +156,10 @@ export default function Layout() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function toggleTheme() {
+    setTheme((t) => (t === "light" ? "dark" : "light"));
+  }
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -153,7 +167,7 @@ export default function Layout() {
         {/* Logo */}
         <div className="px-6 py-5 border-b border-line">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-white font-bold text-sm">
+            <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center font-bold text-sm" style={{ color: "var(--accent-text)" }}>
               RD
             </div>
             <div>
@@ -175,15 +189,15 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? "border-l-2 border-accent bg-accent/10 text-accent"
-                    : "text-muted hover:bg-gray-100 hover:text-ink"
+                    ? "border-l-2 border-accent bg-accent-subtle text-accent"
+                    : "text-muted hover:bg-surface-2 hover:text-ink"
                 }`
               }
             >
               <span className="flex-shrink-0">{item.icon}</span>
               <span className="flex-1 min-w-0 truncate">{item.label}</span>
               {item.badge && (
-                <span className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded bg-gray-100 text-muted">
+                <span className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded bg-surface-2 text-muted">
                   {item.badge}
                 </span>
               )}
@@ -200,8 +214,9 @@ export default function Layout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="bg-white border-b border-gray-200 px-8 py-4">
+        <header className="bg-surface border-b border-line px-8 py-4 flex items-center justify-between">
           <PageTitle pathname={location.pathname} />
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </header>
 
         {/* Page content */}
@@ -210,12 +225,13 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* Back to top — applies to every tab, since all pages share this scroll container */}
+      {/* Back to top */}
       {showBackToTop && (
         <button
           onClick={scrollToTop}
           title="Back to top"
-          className="fixed bottom-6 right-6 z-50 w-10 h-10 rounded-full bg-accent text-white shadow-lg hover:bg-accent-dark flex items-center justify-center transition-colors"
+          className="fixed bottom-6 right-6 z-50 w-10 h-10 rounded-full bg-accent shadow-lg flex items-center justify-center transition-opacity hover:opacity-90"
+          style={{ color: "var(--accent-text)" }}
         >
           <svg
             className="w-5 h-5"
@@ -233,6 +249,55 @@ export default function Layout() {
         </button>
       )}
     </div>
+  );
+}
+
+function ThemeToggle({ theme, onToggle }) {
+  const isDark = theme === "dark";
+  return (
+    <button
+      onClick={onToggle}
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        alignItems: "center",
+        width: "36px",
+        height: "20px",
+        borderRadius: "999px",
+        backgroundColor: "var(--surface-2)",
+        border: "1px solid var(--border)",
+        cursor: "pointer",
+        padding: 0,
+        flexShrink: 0,
+        transition: "background-color 0.2s ease",
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          left: isDark ? "18px" : "2px",
+          width: "16px",
+          height: "16px",
+          borderRadius: "50%",
+          backgroundColor: "var(--accent)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "left 0.2s ease",
+        }}
+      >
+        {isDark ? (
+          <svg width="9" height="9" fill="none" viewBox="0 0 24 24" stroke="var(--accent-text)" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        ) : (
+          <svg width="9" height="9" fill="none" viewBox="0 0 24 24" stroke="var(--accent-text)" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+        )}
+      </span>
+    </button>
   );
 }
 
@@ -276,7 +341,7 @@ function PageTitle({ pathname }) {
   };
   return (
     <div>
-      <h1 className="text-xl font-bold leading-tight">
+      <h1 className="text-xl font-semibold leading-tight">
         <span className="text-accent">{info.accent}</span>
         {info.rest && <span className="text-ink">{info.rest}</span>}
       </h1>
