@@ -83,7 +83,7 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-[220px] bg-bg border-r border-border flex flex-col flex-shrink-0">
         {/* Logo */}
-        <div className="px-5 py-4 border-b border-border">
+        <div className="px-5 h-[60px] flex items-center border-b border-border">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-accent rounded-md flex items-center justify-center text-[11px] font-bold text-white tracking-tight flex-shrink-0">
               RD
@@ -138,7 +138,7 @@ export default function Layout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="bg-surface border-b border-border px-7 py-3.5 flex items-center justify-between">
+        <header className="bg-surface border-b border-border px-7 h-[60px] flex items-center justify-between">
           <PageTitle pathname={location.pathname} />
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </header>
@@ -224,7 +224,7 @@ function PageTitle({ pathname }) {
     },
     "/flow3": {
       title: "Leads Summary",
-      sub: "Computed from Flow 1 + Flow 2 — no uploads needed",
+      sub: "Computed from Traffic (Optimized) + Traffic Overview — no uploads needed",
     },
     "/urls": {
       title: "URL Lists",

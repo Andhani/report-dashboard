@@ -43,8 +43,8 @@ export default function Flow3() {
     return (
       <GatingMessage
         Icon={Settings}
-        title="Flow 1 window not set"
-        desc="Set the Flow 1 rolling window in Settings first."
+        title="Traffic (Optimized) window not set"
+        desc="Set the Traffic (Optimized) rolling window in Settings first."
         to="/settings"
         btnLabel="Go to Settings"
       />
@@ -56,9 +56,9 @@ export default function Flow3() {
       <GatingMessage
         Icon={Database}
         title="No data available"
-        desc="Complete Flow 1 and Flow 2 data import before computing leads."
+        desc="Complete Traffic (Optimized) and Traffic Overview data import before computing leads."
         to="/flow1"
-        btnLabel="Go to Flow 1"
+        btnLabel="Go to Traffic (Optimized)"
       />
     );
   }
@@ -242,7 +242,7 @@ function DependencyBanner({ hasFlow1, hasFlow2 }) {
             <span>
               {" "}
               <Link to="/flow1" className="text-accent underline">
-                Flow 1 data missing
+                Traffic (Optimized) data missing
               </Link>
               .
             </span>
@@ -251,7 +251,7 @@ function DependencyBanner({ hasFlow1, hasFlow2 }) {
             <span>
               {" "}
               <Link to="/flow2" className="text-accent underline">
-                Flow 2 data missing
+                Traffic Overview data missing
               </Link>
               .
             </span>

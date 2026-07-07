@@ -246,7 +246,7 @@ export default function UrlManager() {
   return (
     <div className="space-y-5">
       {/* Tabs */}
-      <div className="inline-flex bg-stone-100 rounded-btn p-1">
+      <div className="inline-flex bg-surface-2 rounded-btn p-1">
         {TABS.map((tab) => {
           const count = tab.id === "bc" ? bcUrls.length : blogUrls.length;
           return (
@@ -255,8 +255,8 @@ export default function UrlManager() {
               onClick={() => setActiveTab(tab.id)}
               className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? "bg-white text-stone-900 shadow-card"
-                  : "text-stone-500 hover:text-stone-700"
+                  ? "bg-surface text-ink shadow-card"
+                  : "text-muted hover:text-ink"
               }`}
             >
               {tab.label}
@@ -274,23 +274,23 @@ export default function UrlManager() {
       <div className="card p-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {/* Import mode toggle */}
-          <div className="inline-flex bg-stone-100 rounded-btn p-0.5">
+          <div className="inline-flex bg-surface-2 rounded-btn p-0.5">
             <button
               onClick={() => setImportMode("sheets")}
-              className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${importMode === "sheets" ? "bg-white text-stone-900 shadow-card" : "text-stone-500 hover:text-stone-700"}`}
+              className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${importMode === "sheets" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
             >
               🔗 From Sheets
             </button>
             <button
               onClick={() => setImportMode("csv")}
-              className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${importMode === "csv" ? "bg-white text-stone-900 shadow-card" : "text-stone-500 hover:text-stone-700"}`}
+              className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${importMode === "csv" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
             >
               📂 Upload CSV
             </button>
           </div>
           {/* Replace/Append dropdown */}
           <select
-            className="text-sm border border-stone-200 rounded-btn px-2 py-1.5 bg-white text-stone-600 hover:border-stone-300 focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="text-sm border border-border rounded-btn px-2 py-1.5 bg-surface text-ink hover:border-border focus:outline-none focus:ring-2 focus:ring-accent/20"
             value={replaceMode}
             onChange={(e) => setReplaceMode(e.target.value)}
           >
@@ -430,15 +430,15 @@ function UrlTable({ rows, cols, onUpdate, onDelete, startIndex = 0 }) {
   return (
     <div className="card overflow-x-auto">
       <table className="text-sm w-full">
-        <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+        <thead className="bg-surface-2 border-b border-border sticky top-0 z-10">
           <tr>
-            <th className="text-left py-3 px-3 text-gray-500 font-medium w-8">
+            <th className="text-left py-3 px-3 text-muted font-medium w-8">
               #
             </th>
             {cols.map((col) => (
               <th
                 key={col.key}
-                className={`text-left py-3 px-2 text-gray-500 font-medium uppercase tracking-wide text-xs ${col.width}`}
+                className={`text-left py-3 px-2 text-muted font-medium uppercase tracking-wide text-xs ${col.width}`}
               >
                 {col.label}
               </th>
@@ -446,7 +446,7 @@ function UrlTable({ rows, cols, onUpdate, onDelete, startIndex = 0 }) {
             <th className="py-3 px-3 w-10" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-border">
           {rows.map((row, i) => (
             <TableRow
               key={row.id}
@@ -478,7 +478,7 @@ function TableRow({
 }) {
   return (
     <tr
-      className={`group transition-colors ${editing ? "bg-accent/5" : "even:bg-gray-50/40 hover:bg-accent/5 cursor-text"}`}
+      className={`group transition-colors ${editing ? "bg-accent/5" : "even:bg-surface-2/60 hover:bg-accent/5 cursor-text"}`}
       onClick={() => {
         if (!editing) onStartEdit();
       }}
@@ -487,7 +487,7 @@ function TableRow({
       }}
       title={editing ? "" : "Click to edit this row"}
     >
-      <td className="py-2 px-3 text-gray-400 text-xs">{index}</td>
+      <td className="py-2 px-3 text-muted text-xs">{index}</td>
       {cols.map((col) => (
         <td key={col.key} className="py-1.5 px-2">
           {editing || col.type === "readonly" ? (
@@ -532,10 +532,10 @@ function TableRow({
 function ReadOnlyCell({ value }) {
   return (
     <span
-      className="text-sm text-gray-700 truncate block max-w-[200px]"
+      className="text-sm text-ink truncate block max-w-[200px]"
       title={value || undefined}
     >
-      {value || <span className="text-gray-300">—</span>}
+      {value || <span className="text-muted">—</span>}
     </span>
   );
 }
@@ -554,7 +554,7 @@ function CellInput({ col, value, onChange }) {
   if (col.type === "readonly") {
     return (
       <span
-        className="text-xs text-gray-400 font-mono truncate block max-w-[180px]"
+        className="text-xs text-muted font-mono truncate block max-w-[180px]"
         title={value}
       >
         {value || "—"}
@@ -564,7 +564,7 @@ function CellInput({ col, value, onChange }) {
   if (col.type === "select") {
     return (
       <select
-        className="text-xs border border-transparent hover:border-stone-200 focus:border-accent rounded-btn px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none w-full"
+        className="text-xs border border-transparent hover:border-border focus:border-accent rounded-btn px-1 py-0.5 bg-transparent focus:bg-surface focus:outline-none w-full"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -580,7 +580,7 @@ function CellInput({ col, value, onChange }) {
     return (
       <input
         type="date"
-        className="text-xs border border-transparent hover:border-stone-200 focus:border-accent rounded-btn px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none"
+        className="text-xs border border-transparent hover:border-border focus:border-accent rounded-btn px-1 py-0.5 bg-transparent focus:bg-surface focus:outline-none"
         value={toISODate(value)}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -589,7 +589,7 @@ function CellInput({ col, value, onChange }) {
   return (
     <input
       type="text"
-      className="text-xs border border-transparent hover:border-stone-200 focus:border-accent rounded-btn px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none w-full min-w-[80px]"
+      className="text-xs border border-transparent hover:border-border focus:border-accent rounded-btn px-1 py-0.5 bg-transparent focus:bg-surface focus:outline-none w-full min-w-[80px]"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={col.label}
