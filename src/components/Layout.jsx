@@ -238,7 +238,7 @@ function PageTitle({ pathname }) {
   const info = pages[pathname] ?? { title: "Report Dashboard", sub: "" };
   return (
     <div>
-      <h1 className="font-heading text-2xl font-semibold leading-tight text-ink">
+      <h1 className="font-heading text-lg font-semibold leading-tight text-ink">
         {info.title}
       </h1>
       {info.sub && <p className="text-xs text-muted mt-0.5">{info.sub}</p>}
