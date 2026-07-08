@@ -25,7 +25,6 @@ import {
   extractSpreadsheetId,
   buildWorkbookFromSheet,
 } from "../utils/sheetsApi";
-import SheetLinkImport from "../components/SheetLinkImport";
 import SheetPushModal from "../components/SheetPushModal";
 import PaginationControls from "../components/PaginationControls";
 import {
@@ -57,6 +56,10 @@ export default function Flow1() {
   const [previewTab, setPreviewTab] = useState("bc");
   const [pushStatus, setPushStatus] = useState({});
   const [pushModal, setPushModal] = useState(false);
+  const [importMode, setImportMode] = useState("sheets");
+  const [sheetUrl, setSheetUrl] = useState("");
+  const [sheetLoading, setSheetLoading] = useState(false);
+  const [sheetError, setSheetError] = useState(null);
   const fileRef = useRef();
 
   const slots = flow1Window ? getMonthSlots(flow1Window, 6) : [];
@@ -172,6 +175,19 @@ export default function Flow1() {
     ]);
   }
 
+  async function handleSheetImport() {
+    setSheetError(null);
+    setSheetLoading(true);
+    try {
+      await importFromSheetLink(sheetUrl.trim());
+      setSheetUrl("");
+    } catch (err) {
+      setSheetError(err.message);
+    } finally {
+      setSheetLoading(false);
+    }
+  }
+
   function clearSlot(key) {
     setFlow1Data((prev) => {
       const next = { ...prev };
@@ -278,36 +294,83 @@ export default function Flow1() {
       {/* What-to-upload guide */}
       <UploadGuide />
 
-      {/* Drop zone */}
-      <DropZone
-        dragging={dragging}
-        processing={processing}
-        onDrop={onDrop}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onClick={() => fileRef.current.click()}
-      />
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".xlsx"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          processFiles(e.target.files);
-          e.target.value = "";
-        }}
-      />
+      {/* Import section with mode toggle */}
+      <div className="space-y-3">
+        <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5 gap-0.5">
+          <button
+            onClick={() => setImportMode("sheets")}
+            className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-all ${
+              importMode === "sheets"
+                ? "bg-surface text-ink shadow-card"
+                : "text-muted hover:text-ink"
+            }`}
+          >
+            From Sheets
+          </button>
+          <button
+            onClick={() => setImportMode("file")}
+            className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-all ${
+              importMode === "file"
+                ? "bg-surface text-ink shadow-card"
+                : "text-muted hover:text-ink"
+            }`}
+          >
+            Upload File
+          </button>
+        </div>
 
-      {/* Or import straight from a Google Sheet link */}
-      <SheetLinkImport
-        onImport={importFromSheetLink}
-        label="Or import from a Sheet link instead"
-        hint="Tabs must be named like the original export (Filters + Pages, or Free-form)."
-      />
+        {importMode === "sheets" ? (
+          <div className="card p-4 space-y-3">
+            <input
+              type="url"
+              className="input"
+              placeholder="https://docs.google.com/spreadsheets/d/..."
+              value={sheetUrl}
+              onChange={(e) => setSheetUrl(e.target.value)}
+            />
+            <p className="text-xs text-muted">
+              The sheet must be shared with{" "}
+              <strong>"Anyone with the link can view"</strong> access. Tabs must
+              be named like the original export (Filters + Pages, or Free-form).
+            </p>
+            {sheetError && (
+              <div className="text-xs text-danger">{sheetError}</div>
+            )}
+            <button
+              onClick={handleSheetImport}
+              disabled={!sheetUrl.trim() || sheetLoading}
+              className="btn-primary disabled:opacity-50"
+            >
+              {sheetLoading ? "Importing…" : "Import"}
+            </button>
+          </div>
+        ) : (
+          <>
+            <DropZone
+              dragging={dragging}
+              processing={processing}
+              onDrop={onDrop}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onClick={() => fileRef.current.click()}
+            />
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                processFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </>
+        )}
+      </div>
 
       {/* Detection log */}
       {log.length > 0 && <DetectionLog log={log} onClear={() => setLog([])} />}
