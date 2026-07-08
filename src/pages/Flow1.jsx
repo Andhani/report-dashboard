@@ -215,27 +215,10 @@ export default function Flow1() {
   // ─── Slot state helpers ──────────────────────────────────────────────────────
 
   function slotStatus(row, slotKey) {
-    if (row === "bc_gsc") {
-      const d = !!flow1Data[`bc_gsc_dijual_${slotKey}`];
-      const s = !!flow1Data[`bc_gsc_disewa_${slotKey}`];
-      if (d && s) return "ok";
-      if (d || s) return "pending";
-      return "empty";
-    }
     return flow1Data[`${row}_${slotKey}`] ? "ok" : "empty";
   }
 
   function slotTooltip(row, slotKey) {
-    if (row === "bc_gsc") {
-      const d = flow1Data[`bc_gsc_dijual_${slotKey}`];
-      const s = flow1Data[`bc_gsc_disewa_${slotKey}`];
-      const parts = [];
-      if (d) parts.push(`✓ dijual (${d.file})`);
-      if (s) parts.push(`✓ disewa (${s.file})`);
-      if (!d) parts.push("✗ dijual missing");
-      if (!s) parts.push("✗ disewa missing");
-      return parts.join("\n");
-    }
     const entry = flow1Data[`${row}_${slotKey}`];
     return entry ? `✓ ${entry.file}` : "Empty";
   }
@@ -499,27 +482,21 @@ function DetectionLog({ log, onClear }) {
 // ─── Slot Grid ────────────────────────────────────────────────────────────────
 
 const SLOT_ROWS = [
-  { id: "bc_gsc", label: "BC GSC", note: "dijual + disewa" },
-  { id: "bc_ga4", label: "BC GA4", note: "" },
-  { id: "blog_gsc", label: "Blog GSC", note: "" },
-  { id: "blog_ga4", label: "Blog GA4", note: "" },
+  { id: "bc_gsc_dijual", label: "BC GSC", note: "/dijual/" },
+  { id: "bc_gsc_disewa", label: "BC GSC", note: "/disewa/" },
+  { id: "bc_ga4",        label: "BC GA4", note: "" },
+  { id: "blog_gsc",      label: "Blog GSC", note: "" },
+  { id: "blog_ga4",      label: "Blog GA4", note: "" },
 ];
 
 function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
-  const filled = slots.filter(
-    (s) => slotStatus("bc_gsc", s.key) === "ok",
-  ).length;
-  const total = slots.length;
-
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-heading text-base font-semibold text-ink">Slot Status</h2>
         <div className="flex items-center gap-4 text-xs font-mono text-muted">
           <span><span className="dot-ok">●</span> filled</span>
-          <span><span className="dot-pending">●</span> partial</span>
           <span><span className="dot-empty">●</span> empty</span>
-          <span className="text-muted">{filled}/{total}</span>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -579,14 +556,7 @@ function SlotCell({ status, tooltip, rowId, slotKey, flow1Data, onClear }) {
 
   function handleClear(e) {
     e.stopPropagation();
-    if (rowId === "bc_gsc") {
-      if (confirm("Clear BC GSC data for this month?")) {
-        onClear(`bc_gsc_dijual_${slotKey}`);
-        onClear(`bc_gsc_disewa_${slotKey}`);
-      }
-    } else {
-      onClear(`${rowId}_${slotKey}`);
-    }
+    onClear(`${rowId}_${slotKey}`);
   }
 
   return (

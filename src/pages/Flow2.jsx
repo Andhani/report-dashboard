@@ -254,39 +254,50 @@ export default function Flow2() {
       )}
     <div className="space-y-5">
       {/* What-to-upload guide */}
-      <div className="card p-4">
-        <div className="text-sm font-semibold text-ink mb-2">
-          What to upload — 3 file kinds per month (different from Traffic (Optimized))
+      <div className="card p-4 space-y-3">
+        <div className="text-sm font-semibold text-ink">What to upload</div>
+
+        <div>
+          <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">
+            Upload fresh each month
+          </div>
+          <ul className="space-y-1.5">
+            {[
+              { label: "GSC Chart — All Organic (.xlsx)", desc: "site-wide totals, not per-URL" },
+              { label: "GA4 Free-form (.csv)", desc: "a single file covering every segment automatically" },
+              { label: "GA4 Leads (.csv)", desc: "Click_Contact_Agent event count" },
+            ].map((r) => (
+              <li key={r.label} className="flex items-start gap-2 text-sm text-ink">
+                <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
+                <span>
+                  <strong>{r.label}:</strong>{" "}
+                  <span className="text-muted">{r.desc}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="space-y-1.5">
-          <li className="flex items-start gap-2 text-sm text-ink">
-            <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
-            <span>
-              <strong>GSC Chart export (.xlsx):</strong>{" "}
-              <span className="text-muted">
-                one file per segment (All Organic, /dijual/, /disewa/, Blog) — site-wide totals, not per-URL
-              </span>
-            </span>
-          </li>
-          <li className="flex items-start gap-2 text-sm text-ink">
-            <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
-            <span>
-              <strong>GA4 Free-form export (.csv):</strong>{" "}
-              <span className="text-muted">
-                a single file that covers every segment automatically
-              </span>
-            </span>
-          </li>
-          <li className="flex items-start gap-2 text-sm text-ink">
-            <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
-            <span>
-              <strong>GA4 Leads export (.csv):</strong>{" "}
-              <span className="text-muted">
-                Click_Contact_Agent event count, one file per month
-              </span>
-            </span>
-          </li>
-        </ul>
+
+        <div>
+          <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">
+            Reuse same files from Traffic (Optimized)
+          </div>
+          <ul className="space-y-1.5">
+            {[
+              "GSC Chart — /dijual/ (.xlsx)",
+              "GSC Chart — /disewa/ (.xlsx)",
+              "GSC Chart — Blog (.xlsx)",
+            ].map((label) => (
+              <li key={label} className="flex items-start gap-2 text-sm text-ink">
+                <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-accent" />
+                <span>
+                  <strong>{label}</strong>
+                  <span className="text-muted"> — same file already exported for Traffic (Optimized), no new export needed</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       {/* Import section with mode toggle */}
