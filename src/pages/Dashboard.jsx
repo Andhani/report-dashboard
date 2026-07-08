@@ -250,13 +250,13 @@ function SlotGrid({ title, slots, data, extraData, type }) {
         <table className="w-full text-sm">
           <thead>
             <tr>
-              <th className="text-left text-muted font-mono text-xs uppercase tracking-wider pb-2 pr-4 w-40">
+              <th className="text-left text-muted font-medium text-xs uppercase tracking-wide pb-2 pr-4 w-40">
                 Source
               </th>
               {slots.map((s) => (
                 <th
                   key={s.key}
-                  className="text-center text-muted font-mono text-xs uppercase tracking-wider pb-2 px-2 min-w-[64px]"
+                  className="text-center text-muted font-medium text-xs uppercase tracking-wide pb-2 px-2 min-w-[64px]"
                 >
                   {s.label}
                 </th>
