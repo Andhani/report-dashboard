@@ -9,7 +9,7 @@ const FLOW_CARDS = [
     to: "/flow1",
     title: "Traffic (Optimized)",
     description:
-      "Upload GSC + GA4 per-URL files. Auto-detect, merge by slug, push to Sheets.",
+      "Upload GSC and GA4 Export per project segment to display data per URL. Auto-detected — no need to adjust the export file.",
     Icon: Upload,
   },
   {
@@ -17,7 +17,7 @@ const FLOW_CARDS = [
     to: "/flow2",
     title: "Traffic Overview",
     description:
-      "Upload GSC Chart + GA4 summary files. Aggregate segment-level metrics.",
+      "Upload GSC and GA4 Export per segment, plus overall site-wide data, to summarize traffic across all segments.",
     Icon: BarChart2,
   },
   {
@@ -93,7 +93,7 @@ export default function Dashboard() {
       {/* Slot grids */}
       {flow1Window && (
         <SlotGrid
-          title="Traffic (Optimized) — Slot Status"
+          title="Traffic (Optimized) — Slot Status Summary"
           slots={flow1Slots}
           data={flow1Data}
           type="flow1"
@@ -101,9 +101,10 @@ export default function Dashboard() {
       )}
       {flow2Window && (
         <SlotGrid
-          title="Traffic Overview — Slot Status"
+          title="Traffic Overview — Slot Status Summary"
           slots={flow2Slots}
           data={flow2Data}
+          extraData={flow1Data}
           type="flow2"
         />
       )}
@@ -174,45 +175,64 @@ function SetupStatus({ bcUrls, blogUrls, flow1Window, flow2Window }) {
   );
 }
 
-function SlotGrid({ title, slots, data, type }) {
+function SlotGrid({ title, slots, data, extraData, type }) {
   const ROWS =
     type === "flow1"
       ? [
           {
-            label: "BC GSC",
+            label: "BC",
             status: (k) => {
-              const d = !!data[`bc_gsc_dijual_${k}`];
-              const s = !!data[`bc_gsc_disewa_${k}`];
-              if (d && s) return "ok";
-              if (d || s) return "pending";
+              const dijual = !!data[`bc_gsc_dijual_${k}`];
+              const disewa = !!data[`bc_gsc_disewa_${k}`];
+              const ga4 = !!data[`bc_ga4_${k}`];
+              if (dijual && disewa && ga4) return "ok";
+              if (dijual || disewa || ga4) return "pending";
               return "empty";
             },
           },
           {
-            label: "BC GA4",
-            status: (k) => (data[`bc_ga4_${k}`] ? "ok" : "empty"),
-          },
-          {
-            label: "Blog GSC",
-            status: (k) => (data[`blog_gsc_${k}`] ? "ok" : "empty"),
-          },
-          {
-            label: "Blog GA4",
-            status: (k) => (data[`blog_ga4_${k}`] ? "ok" : "empty"),
+            label: "Blog",
+            status: (k) => {
+              const gsc = !!data[`blog_gsc_${k}`];
+              const ga4 = !!data[`blog_ga4_${k}`];
+              if (gsc && ga4) return "ok";
+              if (gsc || ga4) return "pending";
+              return "empty";
+            },
           },
         ]
       : [
           {
-            label: "GSC Chart",
-            status: (k) => (data[`gsc_all_organic_${k}`] ? "ok" : "empty"),
+            label: "BC",
+            status: (k) => {
+              const dijual = !!extraData?.[`bc_gsc_dijual_${k}`];
+              const disewa = !!extraData?.[`bc_gsc_disewa_${k}`];
+              const ga4 = !!extraData?.[`bc_ga4_${k}`];
+              if (dijual && disewa && ga4) return "ok";
+              if (dijual || disewa || ga4) return "pending";
+              return "empty";
+            },
           },
           {
-            label: "GA4 Free-form",
-            status: (k) => (data[`ga4_free_${k}`] ? "ok" : "empty"),
+            label: "Blog",
+            status: (k) => {
+              const gsc = !!extraData?.[`blog_gsc_${k}`];
+              const ga4 = !!extraData?.[`blog_ga4_${k}`];
+              if (gsc && ga4) return "ok";
+              if (gsc || ga4) return "pending";
+              return "empty";
+            },
           },
           {
-            label: "GA4 Leads",
-            status: (k) => (data[`ga4_leads_${k}`] ? "ok" : "empty"),
+            label: "All Organic Traffic",
+            status: (k) => {
+              const gsc = !!data[`gsc_all_organic_${k}`];
+              const ga4Free = !!data[`ga4_free_${k}`];
+              const leads = !!data[`ga4_leads_${k}`];
+              if (gsc && ga4Free && leads) return "ok";
+              if (gsc || ga4Free || leads) return "pending";
+              return "empty";
+            },
           },
         ];
 
@@ -220,10 +240,9 @@ function SlotGrid({ title, slots, data, type }) {
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-heading text-base font-semibold text-ink">{title}</h2>
-        {/* Legend */}
         <div className="flex items-center gap-4 text-xs font-mono text-muted">
           <span><span className="dot-ok">●</span> filled</span>
-          {type === "flow1" && <span><span className="dot-pending">●</span> partial</span>}
+          <span><span className="dot-pending">●</span> partial</span>
           <span><span className="dot-empty">●</span> empty</span>
         </div>
       </div>
@@ -231,7 +250,7 @@ function SlotGrid({ title, slots, data, type }) {
         <table className="w-full text-sm">
           <thead>
             <tr>
-              <th className="text-left text-muted font-mono text-xs uppercase tracking-wider pb-2 pr-4 w-32">
+              <th className="text-left text-muted font-mono text-xs uppercase tracking-wider pb-2 pr-4 w-40">
                 Source
               </th>
               {slots.map((s) => (
@@ -239,7 +258,7 @@ function SlotGrid({ title, slots, data, type }) {
                   key={s.key}
                   className="text-center text-muted font-mono text-xs uppercase tracking-wider pb-2 px-2 min-w-[64px]"
                 >
-                  {s.label.replace(" ", " ")}
+                  {s.label}
                 </th>
               ))}
             </tr>

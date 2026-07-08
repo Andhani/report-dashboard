@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useStorage } from "../hooks/useStorage";
 import {
@@ -42,8 +42,19 @@ import SheetPushModal from "../components/SheetPushModal";
 
 export default function Flow2() {
   const [flow2Data, setFlow2Data] = useStorage("flow2_data", {});
+  const [flow1Data] = useStorage("flow1_data", {});
   const [flow2Window] = useStorage("flow2_window", null);
   const [sheetsUrl] = useStorage("sheets_report_url", "");
+
+  const mergedForCompute = useMemo(() => {
+    const merged = { ...flow2Data };
+    for (const [k, v] of Object.entries(flow1Data)) {
+      if (k.startsWith("bc_gsc_dijual_")) merged[`gsc_dijual_${k.slice(14)}`] = v;
+      else if (k.startsWith("bc_gsc_disewa_")) merged[`gsc_disewa_${k.slice(14)}`] = v;
+      else if (k.startsWith("blog_gsc_")) merged[`gsc_blog_${k.slice(9)}`] = v;
+    }
+    return merged;
+  }, [flow1Data, flow2Data]);
 
   const [log, setLog] = useState([]);
   const [processing, setProcessing] = useState(false);
@@ -193,7 +204,7 @@ export default function Flow2() {
   // ─── Export ─────────────────────────────────────────────────────────────────
 
   function handleDownloadCSV() {
-    const output = computeFlow2Output(flow2Data, slots);
+    const output = computeFlow2Output(mergedForCompute, slots);
     const csv = buildFlow2CSV(output, slots);
     const period = slots.length
       ? `${slots[0].label.replace(" ", "")}–${slots[slots.length - 1].label.replace(" ", "")}`
@@ -209,7 +220,7 @@ export default function Flow2() {
     }
     setPushStatus("pushing");
     try {
-      const output = computeFlow2Output(flow2Data, slots);
+      const output = computeFlow2Output(mergedForCompute, slots);
       const csv = buildFlow2CSV(output, slots);
       await pushFlow2ToSheets(ssId, csv);
       setPushStatus(null);
@@ -220,13 +231,6 @@ export default function Flow2() {
   }
 
   // ─── Slot helpers ────────────────────────────────────────────────────────────
-
-  function getSlotStatus(type, segOrAll, slotKey) {
-    let key;
-    if (type === "gsc") key = `gsc_${segOrAll}_${slotKey}`;
-    else key = `${type}_${slotKey}`;
-    return !!flow2Data[key] ? "ok" : "empty";
-  }
 
   const anyData = Object.keys(flow2Data).length > 0;
 
@@ -245,7 +249,7 @@ export default function Flow2() {
     );
   }
 
-  const output = anyData ? computeFlow2Output(flow2Data, slots) : null;
+  const output = anyData ? computeFlow2Output(mergedForCompute, slots) : null;
 
   return (
     <>
@@ -263,9 +267,9 @@ export default function Flow2() {
           </div>
           <ul className="space-y-1.5">
             {[
-              { label: "GSC Chart — All Organic (.xlsx)", desc: "site-wide totals, not per-URL" },
-              { label: "GA4 Free-form (.csv)", desc: "a single file covering every segment automatically" },
-              { label: "GA4 Leads (.csv)", desc: "Click_Contact_Agent event count" },
+              { label: "GSC Export — All Segments",  desc: "site-wide totals, not per-URL" },
+              { label: "GA4 Export — All Segments",  desc: "a single file covering every segment automatically" },
+              { label: "Event GA4 Export",           desc: "Click_Contact_Agent event count" },
             ].map((r) => (
               <li key={r.label} className="flex items-start gap-2 text-sm text-ink">
                 <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
@@ -280,22 +284,17 @@ export default function Flow2() {
 
         <div>
           <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">
-            Reuse same files from Traffic (Optimized)
+            Reuse from Traffic (Optimized) — no need to upload here
           </div>
           <ul className="space-y-1.5">
-            {[
-              "GSC Chart — /dijual/ (.xlsx)",
-              "GSC Chart — /disewa/ (.xlsx)",
-              "GSC Chart — Blog (.xlsx)",
-            ].map((label) => (
-              <li key={label} className="flex items-start gap-2 text-sm text-ink">
-                <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-accent" />
-                <span>
-                  <strong>{label}</strong>
-                  <span className="text-muted"> — same file already exported for Traffic (Optimized), no new export needed</span>
-                </span>
-              </li>
-            ))}
+            {["BC GSC Export", "Blog GSC Export", "Blog GA4 Export", "BC GA4 Export"].map(
+              (label) => (
+                <li key={label} className="flex items-start gap-2 text-sm text-ink">
+                  <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-accent" />
+                  <span className="font-medium">{label}</span>
+                </li>
+              ),
+            )}
           </ul>
         </div>
       </div>
@@ -335,11 +334,9 @@ export default function Flow2() {
               onChange={(e) => setSheetUrl(e.target.value)}
             />
             <p className="text-xs text-muted">
-              The sheet must be shared with{" "}
-              <strong>"Anyone with the link can view"</strong> access. For GSC
-              Chart, tabs must be named like the original export (Chart +
-              Filters). GA4 sheets need a single tab with the Free-form or Leads
-              layout.
+              Share with{" "}
+              <strong>"Anyone with the link can view."</strong> Keep original
+              export as-is, no restructure. Sheets auto-detected.
             </p>
             {sheetError && (
               <div className="text-xs text-danger">{sheetError}</div>
@@ -386,8 +383,8 @@ export default function Flow2() {
       {/* Slot grid */}
       <SlotGrid
         slots={slots}
+        flow1Data={flow1Data}
         flow2Data={flow2Data}
-        getSlotStatus={getSlotStatus}
         onClear={clearSlot}
       />
 
@@ -441,9 +438,7 @@ function DropZone({
             {dragging ? "Drop files here" : "Drag & drop Traffic Overview files"}
           </div>
           <p className="text-xs text-muted mb-4">
-            GSC Chart export (.xlsx) · GA4 Free-form export (.csv) · GA4 Leads export (.csv)
-            <br />
-            Up to 6 months × 3 files = 18 files at once
+            Original GSC or GA4 export, no restructure. Sheets auto-detected.
           </p>
           <span className="btn-secondary pointer-events-none">Browse files</span>
         </>
@@ -501,15 +496,19 @@ function DetectionLog({ log, onClear }) {
 // ─── Slot Grid ────────────────────────────────────────────────────────────────
 
 const SLOT_ROWS_F2 = [
-  { id: "gsc_all_organic", label: "GSC Chart", sub: "All Organic", type: "gsc", seg: "all_organic" },
-  { id: "gsc_dijual",      label: "GSC Chart", sub: "/dijual/",    type: "gsc", seg: "dijual" },
-  { id: "gsc_disewa",      label: "GSC Chart", sub: "/disewa/",    type: "gsc", seg: "disewa" },
-  { id: "gsc_blog",        label: "GSC Chart", sub: "Blog",        type: "gsc", seg: "blog" },
-  { id: "ga4_free",        label: "GA4 Free-form", sub: "(all segs)", type: "ga4_free",  seg: null },
-  { id: "ga4_leads",       label: "GA4 Leads",     sub: "Click_Contact", type: "ga4_leads", seg: null },
+  { id: "gsc_all_organic", source: "GSC Export",       segment: "All Segments",        store: "flow2", prefix: "gsc_all_organic" },
+  { id: "gsc_dijual",      source: "BC GSC Export",    segment: "/dijual/",             store: "flow1", prefix: "bc_gsc_dijual" },
+  { id: "gsc_disewa",      source: "BC GSC Export",    segment: "/disewa/",             store: "flow1", prefix: "bc_gsc_disewa" },
+  { id: "gsc_blog",        source: "Blog GSC Export",  segment: "/articles-all/",       store: "flow1", prefix: "blog_gsc" },
+  { divider: "Organic Google" },
+  { id: "ga4_free",        source: "GA4 Export",       segment: "All Segments",        store: "flow2", prefix: "ga4_free" },
+  { id: "ga4_leads",       source: "Event GA4 Export", segment: "click_contact_agent",  store: "flow2", prefix: "ga4_leads" },
+  { id: "blog_ga4",        source: "Blog GA4 Export",  segment: "/articles-all/",       store: "flow1", prefix: "blog_ga4" },
+  { id: "bc_ga4",          source: "BC GA4 Export",    segment: "dijual + disewa",     store: "flow1", prefix: "bc_ga4" },
 ];
 
-function SlotGrid({ slots, flow2Data, getSlotStatus, onClear }) {
+function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
+  let dataRowCount = 0;
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
@@ -526,9 +525,9 @@ function SlotGrid({ slots, flow2Data, getSlotStatus, onClear }) {
           <thead>
             <tr>
               <th className="text-left font-mono text-xs uppercase tracking-wider text-muted pb-2 pr-4 w-36">
-                File Type
+                Source
               </th>
-              <th className="text-left font-mono text-xs uppercase tracking-wider text-muted pb-2 pr-4 w-28">
+              <th className="text-left font-mono text-xs uppercase tracking-wider text-muted pb-2 pr-4 w-32">
                 Segment
               </th>
               {slots.map((s) => (
@@ -542,25 +541,40 @@ function SlotGrid({ slots, flow2Data, getSlotStatus, onClear }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {SLOT_ROWS_F2.map((row, ri) => (
-              <tr key={row.id} className={ri % 2 === 1 ? "bg-surface-2/40" : ""}>
-                <td className="py-2 pr-4 font-medium text-ink text-sm">
-                  {row.label}
-                </td>
-                <td className="py-2 pr-4 text-muted text-xs font-mono">{row.sub}</td>
-                {slots.map((s) => {
-                  const key = row.seg
-                    ? `gsc_${row.seg}_${s.key}`
-                    : `${row.type}_${s.key}`;
-                  const filled = !!flow2Data[key];
-                  return (
-                    <td key={s.key} className="py-2 px-2 text-center">
-                      <SlotDot filled={filled} onClear={() => onClear(key)} />
+            {SLOT_ROWS_F2.map((row, ri) => {
+              if (row.divider) {
+                return (
+                  <tr key={`divider-${ri}`}>
+                    <td colSpan={slots.length + 2} className="pt-3 pb-1 px-0">
+                      <span className="text-xs font-mono uppercase tracking-wider text-muted/70">
+                        {row.divider}
+                      </span>
                     </td>
-                  );
-                })}
-              </tr>
-            ))}
+                  </tr>
+                );
+              }
+              const idx = dataRowCount++;
+              const storeData = row.store === "flow1" ? flow1Data : flow2Data;
+              const canClear = row.store === "flow2";
+              return (
+                <tr key={row.id} className={idx % 2 === 1 ? "bg-surface-2/40" : ""}>
+                  <td className="py-2 pr-4 font-medium text-ink text-sm">{row.source}</td>
+                  <td className="py-2 pr-4 text-muted text-xs font-mono">{row.segment}</td>
+                  {slots.map((s) => {
+                    const key = `${row.prefix}_${s.key}`;
+                    const filled = !!storeData[key];
+                    return (
+                      <td key={s.key} className="py-2 px-2 text-center">
+                        <SlotDot
+                          filled={filled}
+                          onClear={canClear ? () => onClear(key) : null}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -577,7 +591,7 @@ function SlotDot({ filled, onClear }) {
       onMouseLeave={() => setHover(false)}
     >
       <span className={`${filled ? "dot-ok" : "dot-empty"} font-mono text-base`}>●</span>
-      {hover && filled && (
+      {hover && filled && onClear && (
         <button onClick={onClear} className="text-muted hover:text-danger transition-colors">
           <X size={11} strokeWidth={2.5} />
         </button>
