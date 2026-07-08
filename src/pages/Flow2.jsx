@@ -259,23 +259,21 @@ export default function Flow2() {
     <div className="space-y-5">
       {/* What-to-upload guide */}
       <div className="card p-4 space-y-3">
-        <div className="text-sm font-semibold text-ink">What to upload</div>
+        <div className="text-base font-semibold text-ink">What to upload</div>
 
         <div>
-          <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">
-            Upload fresh each month
-          </div>
+          <p className="text-sm text-muted mb-1.5">Upload fresh each month</p>
           <ul className="space-y-1.5">
             {[
-              { label: "GSC Export — All Segments",  desc: "site-wide totals, not per-URL" },
-              { label: "GA4 Export — All Segments",  desc: "a single file covering every segment automatically" },
+              { label: "GSC Export (All Segments)",  desc: "Site-wide totals, not per-URL" },
+              { label: "GA4 Export (All Segments)",  desc: "A single file covering every segment automatically" },
               { label: "Event GA4 Export",           desc: "Click_Contact_Agent event count" },
             ].map((r) => (
               <li key={r.label} className="flex items-start gap-2 text-sm text-ink">
                 <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
                 <span>
-                  <strong>{r.label}:</strong>{" "}
-                  <span className="text-muted">{r.desc}</span>
+                  {r.label}{" "}
+                  <span className="text-muted">— {r.desc}</span>
                 </span>
               </li>
             ))}
@@ -283,15 +281,13 @@ export default function Flow2() {
         </div>
 
         <div>
-          <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">
-            Reuse from Traffic (Optimized) — no need to upload here
-          </div>
+          <p className="text-sm text-muted mb-1.5">Reuse from Traffic (Optimized) — no need to upload here</p>
           <ul className="space-y-1.5">
             {["BC GSC Export", "Blog GSC Export", "Blog GA4 Export", "BC GA4 Export"].map(
               (label) => (
                 <li key={label} className="flex items-start gap-2 text-sm text-ink">
                   <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-accent" />
-                  <span className="font-medium">{label}</span>
+                  <span>{label}</span>
                 </li>
               ),
             )}
@@ -524,16 +520,16 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
         <table className="w-full text-sm">
           <thead>
             <tr>
-              <th className="text-left font-mono text-xs uppercase tracking-wider text-muted pb-2 pr-4 w-36">
+              <th className="text-left text-xs uppercase tracking-wide text-muted font-medium pb-2 pr-4 w-36">
                 Source
               </th>
-              <th className="text-left font-mono text-xs uppercase tracking-wider text-muted pb-2 pr-4 w-32">
+              <th className="text-left text-xs uppercase tracking-wide text-muted font-medium pb-2 pr-4 w-32 whitespace-nowrap">
                 Segment
               </th>
               {slots.map((s) => (
                 <th
                   key={s.key}
-                  className="text-center font-mono text-xs uppercase tracking-wider text-muted pb-2 px-2 min-w-[64px]"
+                  className="text-center text-xs uppercase tracking-wide text-muted font-medium pb-2 px-2 min-w-[64px]"
                 >
                   {s.label}
                 </th>
@@ -559,7 +555,7 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
               return (
                 <tr key={row.id} className={idx % 2 === 1 ? "bg-surface-2/40" : ""}>
                   <td className="py-2 pr-4 font-medium text-ink text-sm">{row.source}</td>
-                  <td className="py-2 pr-4 text-muted text-xs font-mono">{row.segment}</td>
+                  <td className="py-2 pr-4 text-muted text-xs font-mono whitespace-nowrap">{row.segment}</td>
                   {slots.map((s) => {
                     const key = `${row.prefix}_${s.key}`;
                     const filled = !!storeData[key];
