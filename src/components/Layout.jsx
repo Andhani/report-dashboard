@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -48,6 +48,7 @@ const navItems = [
 export default function Layout() {
   const location = useLocation();
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const mainRef = useRef(null);
   const [theme, setTheme] = useState(() => {
     return (
       localStorage.getItem("theme") ||
@@ -63,15 +64,17 @@ export default function Layout() {
   }, [theme]);
 
   useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
     function onScroll() {
-      setShowBackToTop(window.scrollY > 400);
+      setShowBackToTop(el.scrollTop > 400);
     }
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
+    el.addEventListener("scroll", onScroll);
+    return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
   function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function toggleTheme() {
@@ -79,7 +82,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <aside className="w-[220px] bg-bg border-r border-border flex flex-col flex-shrink-0">
         {/* Logo */}
@@ -136,15 +139,15 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Top bar */}
-        <header className="bg-surface border-b border-border px-7 h-[60px] flex items-center justify-between">
+        <header className="flex-shrink-0 bg-surface border-b border-border px-7 h-[60px] flex items-center justify-between">
           <PageTitle pathname={location.pathname} />
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </header>
 
         {/* Page content */}
-        <main className="flex-1 px-7 py-5 overflow-auto">
+        <main ref={mainRef} className="flex-1 px-7 py-5 overflow-auto min-h-0">
           <Outlet />
         </main>
       </div>
