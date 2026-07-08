@@ -312,9 +312,9 @@ export default function Flow1() {
               onChange={(e) => setSheetUrl(e.target.value)}
             />
             <p className="text-xs text-muted">
-              The sheet must be shared with{" "}
-              <strong>"Anyone with the link can view"</strong> access. Tabs must
-              be named like the original export (Filters + Pages, or Free-form).
+              Share with{" "}
+              <strong>"Anyone with the link can view."</strong> Keep original
+              export as-is, no restructure. Sheets auto-detected.
             </p>
             {sheetError && (
               <div className="text-xs text-danger">{sheetError}</div>
@@ -407,42 +407,32 @@ function GatingState({ Icon, title, desc, to, btnLabel }) {
 
 function UploadGuide() {
   const rows = [
-    {
-      label: "BC — GSC export",
-      detail: ".xlsx with Filters + Pages tabs, one file per segment (dijual, disewa)",
-    },
-    {
-      label: "BC — GA4 export",
-      detail: ".xlsx with a Free-form tab, covers both BC segments in one file",
-    },
-    {
-      label: "Blog — GSC export",
-      detail: ".xlsx with Filters + Pages tabs, Page filter set to /articles-all/",
-    },
-    {
-      label: "Blog — GA4 export",
-      detail: ".xlsx with a Free-form tab for the blog project",
-    },
+    { label: "BC GSC Export",   detail: "one file per segment: dijual, disewa" },
+    { label: "Blog GSC Export", detail: "Page filter set to /articles-all/" },
+    { label: "Blog GA4 Export", detail: "Query string set to /articles-all/" },
+    { label: "BC GA4 Export",   detail: "covers both dijual and disewa in one file" },
   ];
   return (
     <div className="card p-4">
-      <div className="text-sm font-semibold text-ink mb-2">
-        What to upload — 4 file kinds per month
-      </div>
+      <div className="text-sm font-semibold text-ink mb-1">What to upload</div>
+      <p className="text-xs text-muted mb-2">
+        Upload either the original export file or a sheet URL. Just drop the
+        file as-is, it auto-detects the right sheet.
+      </p>
       <ul className="space-y-1.5">
         {rows.map((r) => (
           <li key={r.label} className="flex items-start gap-2 text-sm text-ink">
             <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
             <span>
-              <strong>{r.label}:</strong>{" "}
-              <span className="text-muted">{r.detail}</span>
+              <strong>{r.label}</strong>{" "}
+              <span className="text-muted">— {r.detail}</span>
             </span>
           </li>
         ))}
       </ul>
       <p className="text-xs text-muted mt-2">
-        Drop all files at once — each one is auto-detected and slotted into the
-        correct month/segment below.
+        Drop all files or paste URLs at once — each one gets auto-detected and
+        slotted into the right month and segment below.
       </p>
     </div>
   );
@@ -484,7 +474,7 @@ function DropZone({
             {dragging ? "Drop files here" : "Drag & drop .xlsx files"}
           </div>
           <div className="text-xs text-muted mb-4">
-            GSC exports (Pages + Filters sheets) · GA4 exports (Free-form 1 sheet)
+            Original GSC or GA4 export, no restructure. Sheets auto-detected.
           </div>
           <div className="btn-secondary pointer-events-none">Browse files</div>
         </>
@@ -545,14 +535,16 @@ function DetectionLog({ log, onClear }) {
 // ─── Slot Grid ────────────────────────────────────────────────────────────────
 
 const SLOT_ROWS = [
-  { id: "bc_gsc_dijual", label: "BC GSC", note: "/dijual/" },
-  { id: "bc_gsc_disewa", label: "BC GSC", note: "/disewa/" },
-  { id: "bc_ga4",        label: "BC GA4", note: "" },
-  { id: "blog_gsc",      label: "Blog GSC", note: "" },
-  { id: "blog_ga4",      label: "Blog GA4", note: "" },
+  { id: "bc_gsc_dijual", source: "BC GSC Export",   segment: "/dijual/" },
+  { id: "bc_gsc_disewa", source: "BC GSC Export",   segment: "/disewa/" },
+  { id: "blog_gsc",      source: "Blog GSC Export", segment: "/articles-all/" },
+  { divider: "Organic Google" },
+  { id: "blog_ga4",      source: "Blog GA4 Export", segment: "/articles-all/" },
+  { id: "bc_ga4",        source: "BC GA4 Export",   segment: "dijual + disewa" },
 ];
 
 function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
+  let dataRowCount = 0;
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
@@ -566,8 +558,11 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
         <table className="w-full text-sm">
           <thead>
             <tr>
-              <th className="text-left font-mono text-xs uppercase tracking-wider text-muted pb-2 pr-4 w-32">
+              <th className="text-left font-mono text-xs uppercase tracking-wider text-muted pb-2 pr-4 w-36">
                 Source
+              </th>
+              <th className="text-left font-mono text-xs uppercase tracking-wider text-muted pb-2 pr-4 w-28">
+                Segment
               </th>
               {slots.map((s) => (
                 <th
@@ -580,33 +575,43 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {SLOT_ROWS.map((row, ri) => (
-              <tr key={row.id} className={ri % 2 === 1 ? "bg-surface-2/40" : ""}>
-                <td className="py-2.5 pr-4">
-                  <div className="font-medium text-ink text-sm">
-                    {row.label}
-                  </div>
-                  {row.note && (
-                    <div className="text-xs text-muted font-mono">{row.note}</div>
-                  )}
-                </td>
-                {slots.map((s) => {
-                  const st = slotStatus(row.id, s.key);
-                  return (
-                    <td key={s.key} className="py-2.5 px-3 text-center">
-                      <SlotCell
-                        status={st}
-                        tooltip={slotTooltip(row.id, s.key)}
-                        rowId={row.id}
-                        slotKey={s.key}
-                        flow1Data={flow1Data}
-                        onClear={onClearSlot}
-                      />
+            {SLOT_ROWS.map((row, ri) => {
+              if (row.divider) {
+                return (
+                  <tr key={`divider-${ri}`}>
+                    <td colSpan={slots.length + 2} className="pt-3 pb-1 px-0">
+                      <span className="text-xs font-mono uppercase tracking-wider text-muted/70">
+                        {row.divider}
+                      </span>
                     </td>
-                  );
-                })}
-              </tr>
-            ))}
+                  </tr>
+                );
+              }
+              const idx = dataRowCount++;
+              return (
+                <tr key={row.id} className={idx % 2 === 1 ? "bg-surface-2/40" : ""}>
+                  <td className="py-2.5 pr-4">
+                    <div className="font-medium text-ink text-sm">{row.source}</div>
+                  </td>
+                  <td className="py-2.5 pr-4 text-xs text-muted font-mono">{row.segment}</td>
+                  {slots.map((s) => {
+                    const st = slotStatus(row.id, s.key);
+                    return (
+                      <td key={s.key} className="py-2.5 px-3 text-center">
+                        <SlotCell
+                          status={st}
+                          tooltip={slotTooltip(row.id, s.key)}
+                          rowId={row.id}
+                          slotKey={s.key}
+                          flow1Data={flow1Data}
+                          onClear={onClearSlot}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
