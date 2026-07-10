@@ -1,7 +1,15 @@
 import { Link } from "react-router-dom";
-import { useStorage } from "../hooks/useStorage";
+import { useChunkedStorage, useStorage } from "../hooks/useStorage";
 import { getMonthSlots } from "../utils/dateUtils";
-import { Upload, BarChart2, Users, Link2, Settings, AlertTriangle, ArrowRight } from "lucide-react";
+import {
+  Upload,
+  BarChart2,
+  Users,
+  Link2,
+  Settings,
+  AlertTriangle,
+  ArrowRight,
+} from "lucide-react";
 
 const FLOW_CARDS = [
   {
@@ -31,8 +39,8 @@ const FLOW_CARDS = [
 ];
 
 export default function Dashboard() {
-  const [flow1Data] = useStorage("flow1_data", {});
-  const [flow2Data] = useStorage("flow2_data", {});
+  const [flow1Data] = useChunkedStorage("flow1_data", {});
+  const [flow2Data] = useChunkedStorage("flow2_data", {});
   const [flow1Window] = useStorage("flow1_window", null);
   const [flow2Window] = useStorage("flow2_window", null);
   const [bcUrls] = useStorage("bc_urls", []);
@@ -71,7 +79,11 @@ export default function Dashboard() {
           return (
             <div key={card.id} className="card p-4 flex flex-col gap-3">
               <div className="flex items-center gap-2.5">
-                <Icon size={18} className="text-muted flex-shrink-0" strokeWidth={1.75} />
+                <Icon
+                  size={18}
+                  className="text-muted flex-shrink-0"
+                  strokeWidth={1.75}
+                />
                 <h3 className="font-heading text-base font-semibold text-ink leading-tight">
                   {card.title}
                 </h3>
@@ -115,7 +127,11 @@ export default function Dashboard() {
           to="/urls"
           className="card p-3 flex items-center gap-3 hover:border-border transition-colors group"
         >
-          <Link2 size={18} className="text-muted group-hover:text-ink flex-shrink-0" strokeWidth={1.75} />
+          <Link2
+            size={18}
+            className="text-muted group-hover:text-ink flex-shrink-0"
+            strokeWidth={1.75}
+          />
           <div className="min-w-0">
             <div className="font-medium text-sm text-ink">URL Lists</div>
             <div className="text-xs text-muted truncate">
@@ -127,7 +143,11 @@ export default function Dashboard() {
           to="/settings"
           className="card p-3 flex items-center gap-3 hover:border-border transition-colors group"
         >
-          <Settings size={18} className="text-muted group-hover:text-ink flex-shrink-0" strokeWidth={1.75} />
+          <Settings
+            size={18}
+            className="text-muted group-hover:text-ink flex-shrink-0"
+            strokeWidth={1.75}
+          />
           <div className="min-w-0">
             <div className="font-medium text-sm text-ink">Settings</div>
             <div className="text-xs text-muted truncate">
@@ -154,7 +174,11 @@ function SetupStatus({ bcUrls, blogUrls, flow1Window, flow2Window }) {
   return (
     <div className="card p-3 border-warning/40 bg-warning/5">
       <div className="flex items-center gap-3">
-        <AlertTriangle size={14} className="text-warning flex-shrink-0" strokeWidth={2} />
+        <AlertTriangle
+          size={14}
+          className="text-warning flex-shrink-0"
+          strokeWidth={2}
+        />
         <span className="text-sm font-medium text-ink mr-2">Setup needed</span>
         <div className="flex flex-wrap gap-x-4 gap-y-1">
           {steps.map((step) => (
@@ -164,7 +188,9 @@ function SetupStatus({ bcUrls, blogUrls, flow1Window, flow2Window }) {
               className="flex items-center gap-1.5 text-xs font-mono"
             >
               <span className={step.done ? "dot-ok" : "dot-empty"}>●</span>
-              <span className={step.done ? "text-muted line-through" : "text-ink"}>
+              <span
+                className={step.done ? "text-muted line-through" : "text-ink"}
+              >
                 {step.label}
               </span>
             </Link>
@@ -265,14 +291,20 @@ function SlotGrid({ title, slots, data, extraData, type }) {
           </thead>
           <tbody className="divide-y divide-border">
             {ROWS.map((row, ri) => (
-              <tr key={row.label} className={ri % 2 === 1 ? "bg-surface-2/40" : ""}>
+              <tr
+                key={row.label}
+                className={ri % 2 === 1 ? "bg-surface-2/40" : ""}
+              >
                 <td className="py-2 pr-4 text-sm text-ink font-medium">
                   {row.label}
                 </td>
                 {slots.map((s) => {
                   const st = row.status(s.key);
                   return (
-                    <td key={s.key} className="py-2 px-2 text-center font-mono text-base">
+                    <td
+                      key={s.key}
+                      className="py-2 px-2 text-center font-mono text-base"
+                    >
                       <span className={`dot-${st}`}>●</span>
                     </td>
                   );

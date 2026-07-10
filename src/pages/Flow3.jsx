@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useStorage } from "../hooks/useStorage";
+import { useChunkedStorage, useStorage } from "../hooks/useStorage";
 import { getMonthSlots } from "../utils/dateUtils";
 import { downloadCSV } from "../utils/exportUtils";
 import { extractSpreadsheetId, pushFlow3ToSheets } from "../utils/sheetsApi";
@@ -19,8 +19,8 @@ import { Settings, Database, AlertTriangle } from "lucide-react";
 import SheetPushModal from "../components/SheetPushModal";
 
 export default function Flow3() {
-  const [flow1Data] = useStorage("flow1_data", {});
-  const [flow2Data] = useStorage("flow2_data", {});
+  const [flow1Data] = useChunkedStorage("flow1_data", {});
+  const [flow2Data] = useChunkedStorage("flow2_data", {});
   const [flow1Window] = useStorage("flow1_window", null);
   const [bcUrls] = useStorage("bc_urls", []);
   const [blogUrls] = useStorage("blog_urls", []);
@@ -70,34 +70,30 @@ export default function Flow3() {
     ? computeBlogLeads(blogUrls, flow1Data, flow2Data, currentSlot)
     : null;
 
-  function handleDownloadCSV(project) {
+  function handleDownloadCSV() {
     if (!currentSlot) return;
-    const block = project === "bc" ? bcBlock : blogBlock;
-    const rows =
-      project === "bc" ? buildBCLeadsCSV(block) : buildBlogLeadsCSV(block);
+    const rows = [...buildBCLeadsCSV(bcBlock), ...buildBlogLeadsCSV(blogBlock)];
     const label = currentSlot.label.replace(" ", "");
-    downloadCSV(
-      rows,
-      `${project === "bc" ? "BC" : "Blog"}_Leads_Summary_${label}.csv`,
-    );
+    downloadCSV(rows, `Leads_Summary_${label}.csv`);
   }
 
-  async function handlePushSheets(project) {
+  async function handlePushSheets() {
     const ssId = extractSpreadsheetId(sheetsUrl);
     if (!ssId) {
       alert("No spreadsheet URL in Settings.");
       return;
     }
-    setPushStatus(project + "_pushing");
+    setPushStatus("pushing");
     try {
-      const block = project === "bc" ? bcBlock : blogBlock;
-      const rows =
-        project === "bc" ? buildBCLeadsCSV(block) : buildBlogLeadsCSV(block);
-      await pushFlow3ToSheets(ssId, project, rows);
+      const rows = [
+        ...buildBCLeadsCSV(bcBlock),
+        ...buildBlogLeadsCSV(blogBlock),
+      ];
+      await pushFlow3ToSheets(ssId, rows);
       setPushStatus(null);
       setPushModal(true);
     } catch (err) {
-      setPushStatus(project + "_error:" + err.message);
+      setPushStatus("error:" + err.message);
     }
   }
 
@@ -106,111 +102,106 @@ export default function Flow3() {
   return (
     <>
       {pushModal && (
-        <SheetPushModal sheetsUrl={sheetsUrl} onClose={() => setPushModal(false)} />
+        <SheetPushModal
+          sheetsUrl={sheetsUrl}
+          onClose={() => setPushModal(false)}
+        />
       )}
-    <div className="space-y-5">
-      {/* Dependency status */}
-      <DependencyBanner hasFlow1={hasFlow1} hasFlow2={hasFlow2} />
+      <div className="space-y-5">
+        {/* Dependency status */}
+        <DependencyBanner hasFlow1={hasFlow1} hasFlow2={hasFlow2} />
 
-      {/* Month selector */}
-      {slots.length > 0 && (
-        <div className="card p-3 flex items-center gap-4">
-          <span className="text-xs font-mono uppercase tracking-wider text-muted flex-shrink-0">
-            Month
-          </span>
-          <div className="flex gap-1 flex-wrap">
-            {slots.map((s, i) => {
-              const isActive = currentSlot?.key === s.key;
-              const isDefault = s.key === defaultSlot?.key;
-              return (
-                <button
-                  key={s.key}
-                  onClick={() => setSelectedSlotIdx(i)}
-                  className={`px-3 py-1 rounded-full text-xs font-mono transition-colors ${
-                    isActive
-                      ? "bg-accent text-white"
-                      : "bg-surface-2 text-muted hover:text-ink"
-                  }`}
-                >
-                  {s.label}
-                  {isDefault ? " ★" : ""}
-                </button>
-              );
-            })}
+        {/* Month selector */}
+        {slots.length > 0 && (
+          <div className="card p-3 flex items-center gap-4">
+            <span className="text-xs font-mono uppercase tracking-wider text-muted flex-shrink-0">
+              Month
+            </span>
+            <div className="flex gap-1 flex-wrap">
+              {slots.map((s, i) => {
+                const isActive = currentSlot?.key === s.key;
+                const isDefault = s.key === defaultSlot?.key;
+                return (
+                  <button
+                    key={s.key}
+                    onClick={() => setSelectedSlotIdx(i)}
+                    className={`px-3 py-1 rounded-full text-xs font-mono transition-colors ${
+                      isActive
+                        ? "bg-accent text-white"
+                        : "bg-surface-2 text-muted hover:text-ink"
+                    }`}
+                  >
+                    {s.label}
+                    {isDefault ? " ★" : ""}
+                  </button>
+                );
+              })}
+            </div>
+            {!isLastSlot && (
+              <span className="text-xs text-muted font-mono">
+                ★ = most recent
+              </span>
+            )}
           </div>
-          {!isLastSlot && (
-            <span className="text-xs text-muted font-mono">★ = most recent</span>
-          )}
-        </div>
-      )}
+        )}
 
-      {/* Tabs */}
-      <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5 gap-0.5">
-        {["bc", "blog"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1 rounded-[5px] text-xs font-medium transition-all ${
-              activeTab === tab
-                ? "bg-surface text-ink shadow-card"
-                : "text-muted hover:text-ink"
-            }`}
-          >
-            {tab === "bc" ? "BC Leads" : "Blog Leads"}
-          </button>
-        ))}
+        {/* Tabs */}
+        <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5 gap-0.5">
+          {["bc", "blog"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-1 rounded-[5px] text-xs font-medium transition-all ${
+                activeTab === tab
+                  ? "bg-surface text-ink shadow-card"
+                  : "text-muted hover:text-ink"
+              }`}
+            >
+              {tab === "bc" ? "BC Leads" : "Blog Leads"}
+            </button>
+          ))}
+        </div>
+
+        {/* Export bar */}
+        {currentSlot && (
+          <div className="card p-3 flex flex-wrap items-center gap-3">
+            <button onClick={handleDownloadCSV} className="btn-secondary">
+              Export CSV
+            </button>
+            <button
+              onClick={handlePushSheets}
+              disabled={pushStatus === "pushing" || !sheetsUrl}
+              className={`btn ${sheetsUrl ? "btn-primary" : "btn-secondary opacity-50 cursor-not-allowed"}`}
+            >
+              {pushStatus === "pushing" ? "Pushing…" : "Push to Sheets"}
+            </button>
+            {typeof pushStatus === "string" &&
+              pushStatus.startsWith("error:") && (
+                <span className="text-xs text-danger">
+                  {pushStatus.slice(6)}
+                </span>
+              )}
+            {!sheetsUrl && (
+              <Link to="/settings" className="text-xs text-muted underline">
+                Configure Sheets URL
+              </Link>
+            )}
+          </div>
+        )}
+
+        {/* Block content */}
+        {activeTab === "bc" && currentSlot && bcBlock && (
+          <BCLeadsBlock block={bcBlock} />
+        )}
+        {activeTab === "blog" && currentSlot && blogBlock && (
+          <BlogLeadsBlock block={blogBlock} />
+        )}
+        {!currentSlot && (
+          <div className="card p-8 text-center text-muted text-sm">
+            No slots defined in the current window.
+          </div>
+        )}
       </div>
-
-      {/* Export bar */}
-      {currentSlot && (
-        <div className="card p-3 flex flex-wrap items-center gap-3">
-          {(() => {
-            const proj = activeTab;
-            const ps = pushStatus;
-            const pushing = ps === proj + "_pushing";
-            const err = ps?.startsWith(proj + "_error:")
-              ? ps.slice(proj.length + 7)
-              : null;
-            return (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleDownloadCSV(proj)}
-                  className="btn-secondary"
-                >
-                  Export {proj === "bc" ? "BC" : "Blog"} CSV
-                </button>
-                <button
-                  onClick={() => handlePushSheets(proj)}
-                  disabled={pushing || !sheetsUrl}
-                  className={`btn ${sheetsUrl ? "btn-primary" : "btn-secondary opacity-50 cursor-not-allowed"}`}
-                >
-                  {pushing ? "Pushing…" : `Push ${proj === "bc" ? "BC" : "Blog"} to Sheets`}
-                </button>
-                {err && <span className="text-xs text-danger">{err}</span>}
-              </div>
-            );
-          })()}
-          {!sheetsUrl && (
-            <Link to="/settings" className="text-xs text-muted underline">
-              Configure Sheets URL
-            </Link>
-          )}
-        </div>
-      )}
-
-      {/* Block content */}
-      {activeTab === "bc" && currentSlot && bcBlock && (
-        <BCLeadsBlock block={bcBlock} />
-      )}
-      {activeTab === "blog" && currentSlot && blogBlock && (
-        <BlogLeadsBlock block={blogBlock} />
-      )}
-      {!currentSlot && (
-        <div className="card p-8 text-center text-muted text-sm">
-          No slots defined in the current window.
-        </div>
-      )}
-    </div>
     </>
   );
 }
@@ -235,7 +226,11 @@ function DependencyBanner({ hasFlow1, hasFlow2 }) {
   return (
     <div className="card p-3 border-warning/40 bg-warning/5">
       <div className="flex items-center gap-2.5">
-        <AlertTriangle size={14} className="text-warning flex-shrink-0" strokeWidth={2} />
+        <AlertTriangle
+          size={14}
+          className="text-warning flex-shrink-0"
+          strokeWidth={2}
+        />
         <div className="text-sm text-ink">
           <strong>Partial data</strong> — some rates will show as 0.
           {!hasFlow1 && (
@@ -270,7 +265,9 @@ function BCLeadsBlock({ block }) {
   return (
     <div className="card p-4">
       <div className="flex items-baseline gap-3 mb-4">
-        <div className="font-heading text-base font-semibold text-ink">{monthLabel}</div>
+        <div className="font-heading text-base font-semibold text-ink">
+          {monthLabel}
+        </div>
         <div className="text-xs text-muted font-mono">GA4</div>
       </div>
 
@@ -286,9 +283,21 @@ function BCLeadsBlock({ block }) {
         </MetricBlock>
 
         <MetricBlock title="Estimated Leads">
-          <MetricRow label="Views-based" value={fmtEst(estimated.views)} highlight />
-          <MetricRow label="Users-based" value={fmtEst(estimated.users)} highlight />
-          <MetricRow label="Sessions-based" value={fmtEst(estimated.sessions)} highlight />
+          <MetricRow
+            label="Views-based"
+            value={fmtEst(estimated.views)}
+            highlight
+          />
+          <MetricRow
+            label="Users-based"
+            value={fmtEst(estimated.users)}
+            highlight
+          />
+          <MetricRow
+            label="Sessions-based"
+            value={fmtEst(estimated.sessions)}
+            highlight
+          />
         </MetricBlock>
 
         <div className="space-y-3">
@@ -327,7 +336,9 @@ function BlogLeadsBlock({ block }) {
   return (
     <div className="card p-4">
       <div className="flex items-baseline gap-3 mb-4">
-        <div className="font-heading text-base font-semibold text-ink">{monthLabel}</div>
+        <div className="font-heading text-base font-semibold text-ink">
+          {monthLabel}
+        </div>
         <div className="text-xs text-muted font-mono">GA4</div>
       </div>
 
@@ -339,8 +350,14 @@ function BlogLeadsBlock({ block }) {
             </div>
             <MetricRow label="Views" value={fmtNum(creates.traffic.views)} />
             <MetricRow label="Users" value={fmtNum(creates.traffic.users)} />
-            <MetricRow label="Sessions" value={fmtNum(creates.traffic.sessions)} />
-            <MetricRow label="Avg AET" value={fmtAET(creates.traffic.aet_seconds)} />
+            <MetricRow
+              label="Sessions"
+              value={fmtNum(creates.traffic.sessions)}
+            />
+            <MetricRow
+              label="Avg AET"
+              value={fmtAET(creates.traffic.aet_seconds)}
+            />
           </div>
           <div>
             <div className="text-xs font-mono uppercase tracking-wider text-muted mb-1.5">
@@ -348,8 +365,14 @@ function BlogLeadsBlock({ block }) {
             </div>
             <MetricRow label="Views" value={fmtNum(updates.traffic.views)} />
             <MetricRow label="Users" value={fmtNum(updates.traffic.users)} />
-            <MetricRow label="Sessions" value={fmtNum(updates.traffic.sessions)} />
-            <MetricRow label="Avg AET" value={fmtAET(updates.traffic.aet_seconds)} />
+            <MetricRow
+              label="Sessions"
+              value={fmtNum(updates.traffic.sessions)}
+            />
+            <MetricRow
+              label="Avg AET"
+              value={fmtAET(updates.traffic.aet_seconds)}
+            />
           </div>
           <div className="border-t border-border pt-2">
             <div className="text-xs font-mono text-muted">
@@ -363,17 +386,41 @@ function BlogLeadsBlock({ block }) {
             <div className="text-xs font-mono uppercase tracking-wider text-muted mb-1.5">
               Est. Leads (Create)
             </div>
-            <MetricRow label="Views-based" value={fmtEst(creates.estimated.views)} highlight />
-            <MetricRow label="Users-based" value={fmtEst(creates.estimated.users)} highlight />
-            <MetricRow label="Sessions-based" value={fmtEst(creates.estimated.sessions)} highlight />
+            <MetricRow
+              label="Views-based"
+              value={fmtEst(creates.estimated.views)}
+              highlight
+            />
+            <MetricRow
+              label="Users-based"
+              value={fmtEst(creates.estimated.users)}
+              highlight
+            />
+            <MetricRow
+              label="Sessions-based"
+              value={fmtEst(creates.estimated.sessions)}
+              highlight
+            />
           </div>
           <div>
             <div className="text-xs font-mono uppercase tracking-wider text-muted mb-1.5">
               Est. Leads (Update)
             </div>
-            <MetricRow label="Views-based" value={fmtEst(updates.estimated.views)} highlight />
-            <MetricRow label="Users-based" value={fmtEst(updates.estimated.users)} highlight />
-            <MetricRow label="Sessions-based" value={fmtEst(updates.estimated.sessions)} highlight />
+            <MetricRow
+              label="Views-based"
+              value={fmtEst(updates.estimated.views)}
+              highlight
+            />
+            <MetricRow
+              label="Users-based"
+              value={fmtEst(updates.estimated.users)}
+              highlight
+            />
+            <MetricRow
+              label="Sessions-based"
+              value={fmtEst(updates.estimated.sessions)}
+              highlight
+            />
           </div>
         </div>
 
@@ -437,7 +484,9 @@ function MetricRow({ label, value, highlight }) {
 function RateBlock({ title, totalLabel, total, contact, rate }) {
   return (
     <div className="bg-surface-2 rounded-lg p-3">
-      <div className="text-xs font-mono uppercase tracking-wider text-muted mb-2">{title}</div>
+      <div className="text-xs font-mono uppercase tracking-wider text-muted mb-2">
+        {title}
+      </div>
       <div className="space-y-1">
         <div className="flex justify-between text-xs text-muted">
           <span>{totalLabel}</span>

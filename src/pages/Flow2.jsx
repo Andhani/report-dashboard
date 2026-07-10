@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useStorage } from "../hooks/useStorage";
+import { useStorage, useChunkedStorage } from "../hooks/useStorage";
 import {
   getMonthSlots,
   formatMonthKey,
@@ -41,8 +41,8 @@ import {
 import SheetPushModal from "../components/SheetPushModal";
 
 export default function Flow2() {
-  const [flow2Data, setFlow2Data] = useStorage("flow2_data", {});
-  const [flow1Data] = useStorage("flow1_data", {});
+  const [flow2Data, setFlow2Data] = useChunkedStorage("flow2_data", {});
+  const [flow1Data] = useChunkedStorage("flow1_data", {});
   const [flow2Window] = useStorage("flow2_window", null);
   const [sheetsUrl] = useStorage("sheets_report_url", "");
 
@@ -95,7 +95,7 @@ export default function Flow2() {
             file: file.name,
             status: "error",
             message:
-              "Could not detect file — check it is a GSC Chart export (.xlsx) or GA4 Free-form / Leads export (.csv)",
+              "Could not detect file — check it is a GSC Export (.xlsx) or GA4 / Event GA4 Export (.csv)",
           });
           continue;
         }
@@ -178,7 +178,7 @@ export default function Flow2() {
 
     if (!result) {
       throw new Error(
-        "Could not find a GSC Chart tab or a GA4 Free-form/Leads layout in that sheet.",
+        "Could not find a GSC Export tab (Chart + Filters) or a GA4/Event GA4 Export layout in that sheet.",
       );
     }
 
@@ -238,7 +238,9 @@ export default function Flow2() {
     return (
       <div className="max-w-md mx-auto mt-10 card py-10 px-8 flex flex-col items-center text-center border-dashed">
         <Settings size={24} className="text-muted mb-3" strokeWidth={1.5} />
-        <div className="text-sm font-semibold text-ink mb-1">Rolling window not set</div>
+        <div className="text-sm font-semibold text-ink mb-1">
+          Rolling window not set
+        </div>
         <p className="text-xs text-muted mb-4">
           Set the Traffic Overview start month in Settings (6-month window).
         </p>
@@ -396,7 +398,7 @@ export default function Flow2() {
         />
       )}
     </div>
-    </>
+  </>
   );
 }
 
@@ -425,18 +427,24 @@ function DropZone({
       {processing ? (
         <>
           <div className="w-7 h-7 border-2 border-accent border-t-transparent rounded-full animate-spin mb-3" />
-          <div className="text-xs font-medium text-muted">Processing files…</div>
+          <div className="text-xs font-medium text-muted">
+            Processing files…
+          </div>
         </>
       ) : (
         <>
           <Upload size={22} className="text-muted mb-3" strokeWidth={1.5} />
           <div className="text-sm font-semibold text-ink mb-1">
-            {dragging ? "Drop files here" : "Drag & drop Traffic Overview files"}
+            {dragging
+              ? "Drop files here"
+              : "Drag & drop Traffic Overview files"}
           </div>
           <p className="text-xs text-muted mb-4">
             Original GSC or GA4 export, no restructure. Sheets auto-detected.
           </p>
-          <span className="btn-secondary pointer-events-none">Browse files</span>
+          <span className="btn-secondary pointer-events-none">
+            Browse files
+          </span>
         </>
       )}
     </div>
@@ -446,10 +454,34 @@ function DropZone({
 // ─── Detection Log ────────────────────────────────────────────────────────────
 
 const LOG_ICONS = {
-  ok:    <CheckCircle2 size={13} className="text-ok flex-shrink-0 mt-0.5" strokeWidth={2} />,
-  warn:  <AlertTriangle size={13} className="text-pending flex-shrink-0 mt-0.5" strokeWidth={2} />,
-  error: <XCircle size={13} className="text-danger flex-shrink-0 mt-0.5" strokeWidth={2} />,
-  skip:  <MinusCircle size={13} className="text-empty flex-shrink-0 mt-0.5" strokeWidth={2} />,
+  ok: (
+    <CheckCircle2
+      size={13}
+      className="text-ok flex-shrink-0 mt-0.5"
+      strokeWidth={2}
+    />
+  ),
+  warn: (
+    <AlertTriangle
+      size={13}
+      className="text-pending flex-shrink-0 mt-0.5"
+      strokeWidth={2}
+    />
+  ),
+  error: (
+    <XCircle
+      size={13}
+      className="text-danger flex-shrink-0 mt-0.5"
+      strokeWidth={2}
+    />
+  ),
+  skip: (
+    <MinusCircle
+      size={13}
+      className="text-empty flex-shrink-0 mt-0.5"
+      strokeWidth={2}
+    />
+  ),
 };
 
 function DetectionLog({ log, onClear }) {
@@ -512,8 +544,12 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
           Slot Status
         </h2>
         <div className="flex items-center gap-4 text-xs font-mono text-muted">
-          <span><span className="dot-ok">●</span> filled</span>
-          <span><span className="dot-empty">●</span> empty</span>
+          <span>
+            <span className="dot-ok">●</span> filled
+          </span>
+          <span>
+            <span className="dot-empty">●</span> empty
+          </span>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -554,7 +590,7 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
               const canClear = row.store === "flow2";
               return (
                 <tr key={row.id} className={idx % 2 === 1 ? "bg-surface-2/40" : ""}>
-                  <td className="py-2 pr-4 font-medium text-ink text-sm">{row.source}</td>
+                  <td className="py-2 pr-4 text-ink text-sm">{row.source}</td>
                   <td className="py-2 pr-4 text-muted text-xs font-mono whitespace-nowrap">{row.segment}</td>
                   {slots.map((s) => {
                     const key = `${row.prefix}_${s.key}`;
@@ -681,7 +717,10 @@ function SegmentTable({ segId, output, slots }) {
         <tbody className="divide-y divide-border">
           {METRICS.filter((m) => !m.allOnly || segId === "all_organic").map(
             (metric, mi) => (
-              <tr key={metric.id} className={`hover:bg-surface-2/50 ${mi % 2 === 1 ? "bg-surface-2/25" : ""}`}>
+              <tr
+                key={metric.id}
+                className={`hover:bg-surface-2/50 ${mi % 2 === 1 ? "bg-surface-2/25" : ""}`}
+              >
                 <td className="py-2.5 px-4 text-ink text-sm sticky left-0 bg-surface">
                   {metric.label}
                 </td>

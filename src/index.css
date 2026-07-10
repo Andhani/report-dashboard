@@ -14,10 +14,10 @@
   --accent: #5B5FEF;
   --accent-text: #FFFFFF;
   --accent-subtle: rgba(91, 95, 239, 0.08);
-  --ok: #2FA86E;
+  --ok: #1A7A4E;
   --pending: #E0964B;
   --empty: #B5B2AA;
-  --success: #2FA86E;
+  --success: #1A7A4E;
   --warning: #E0964B;
   --danger: #E5484D;
 }

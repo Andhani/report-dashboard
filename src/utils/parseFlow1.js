@@ -163,14 +163,14 @@ export function formatDetectionLabel(result) {
 
   if (result.type === "gsc") {
     const seg = {
-      bc_dijual: "BC GSC (dijual)",
-      bc_disewa: "BC GSC (disewa)",
-      blog: "Blog GSC",
-      unknown: "GSC (unknown segment)",
+      bc_dijual: "BC GSC Export (/dijual/)",
+      bc_disewa: "BC GSC Export (/disewa/)",
+      blog: "Blog GSC Export",
+      unknown: "GSC Export (unknown segment)",
     };
     return `${seg[result.segment] ?? result.segment} — ${month} (${result.rows.length} URLs)`;
   }
-  return `${result.project === "bc" ? "BC" : "Blog"} GA4 — ${month} (${result.rows.length} URLs)`;
+  return `${result.project === "bc" ? "BC" : "Blog"} GA4 Export — ${month} (${result.rows.length} URLs)`;
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────

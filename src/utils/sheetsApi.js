@@ -62,13 +62,12 @@ function colNum2Letter(n) {
  * Appends (prepends) a new month block to the BC/Blog Leads Summary tab.
  * Strategy: read existing data, prepend new rows, write back.
  */
-export async function pushFlow3ToSheets(spreadsheetId, project, csvRows) {
+export async function pushFlow3ToSheets(spreadsheetId, csvRows) {
   const token = await getValidToken();
   if (!token)
     throw new Error("Not connected to Google — go to Settings to connect.");
 
-  const sheetName =
-    project === "bc" ? "BC Leads Summary" : "Blog Leads Summary";
+  const sheetName = "Leads Summary";
   const nRows = csvRows.length;
   const nCols = Math.max(...csvRows.map((r) => r.length));
   const endCol = colNum2Letter(nCols);

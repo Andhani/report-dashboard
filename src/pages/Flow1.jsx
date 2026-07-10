@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { useStorage } from "../hooks/useStorage";
+import { useStorage, useChunkedStorage } from "../hooks/useStorage";
 import { usePagination } from "../hooks/usePagination";
 import {
   getMonthSlots,
@@ -44,7 +44,7 @@ const PERIOD_LABEL = (slots) =>
     : "";
 
 export default function Flow1() {
-  const [flow1Data, setFlow1Data] = useStorage("flow1_data", {});
+  const [flow1Data, setFlow1Data] = useChunkedStorage("flow1_data", {});
   const [flow1Window] = useStorage("flow1_window", null);
   const [bcUrls] = useStorage("bc_urls", []);
   const [blogUrls] = useStorage("blog_urls", []);
@@ -572,7 +572,7 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
             {SLOT_ROWS.map((row, ri) => (
               <tr key={row.id} className={ri % 2 === 1 ? "bg-surface-2/40" : ""}>
                 <td className="py-2.5 pr-4">
-                  <div className="font-medium text-ink text-sm">{row.source}</div>
+                  <div className="text-ink text-sm">{row.source}</div>
                   {row.subtitle && (
                     <div className="text-xs text-muted">{row.subtitle}</div>
                   )}
