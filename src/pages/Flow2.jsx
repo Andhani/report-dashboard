@@ -95,7 +95,7 @@ export default function Flow2() {
             file: file.name,
             status: "error",
             message:
-              "Could not detect file — check it is a GSC Chart export (.xlsx) or GA4 Free-form / Leads export (.csv)",
+              "Could not detect file — check it is a GSC Export (.xlsx) or GA4 / Event GA4 Export (.csv)",
           });
           continue;
         }
@@ -178,7 +178,7 @@ export default function Flow2() {
 
     if (!result) {
       throw new Error(
-        "Could not find a GSC Chart tab or a GA4 Free-form/Leads layout in that sheet.",
+        "Could not find a GSC Export tab (Chart + Filters) or a GA4/Event GA4 Export layout in that sheet.",
       );
     }
 
