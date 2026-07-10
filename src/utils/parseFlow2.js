@@ -292,20 +292,20 @@ export function formatFlow2DetectionLabel(result) {
   ).toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
   const segLabel = {
-    all_organic: "All Organic",
-    dijual: "/dijual/",
-    disewa: "/disewa/",
-    blog: "Blog",
+    all_organic: "GSC Export (All Segments)",
+    dijual: "BC GSC Export (/dijual/)",
+    disewa: "BC GSC Export (/disewa/)",
+    blog: "Blog GSC Export",
   };
 
   if (result.type === "gsc_chart") {
-    return `GSC Chart (${segLabel[result.segment] ?? result.segment}) — ${month} · ${result.clicks.toLocaleString()} clicks`;
+    return `${segLabel[result.segment] ?? result.segment} — ${month} · ${result.clicks.toLocaleString()} clicks`;
   }
   if (result.type === "ga4_free") {
-    return `GA4 Free-form — ${month} · ${result.all_organic.views.toLocaleString()} total views`;
+    return `GA4 Export (All Segments) — ${month} · ${result.all_organic.views.toLocaleString()} total views`;
   }
   if (result.type === "ga4_leads") {
-    return `GA4 Leads — ${month} · ${result.clickContactAgent.toLocaleString()} Click_Contact_Agent`;
+    return `Event GA4 Export — ${month} · ${result.clickContactAgent.toLocaleString()} Click_Contact_Agent`;
   }
   return "Unknown";
 }

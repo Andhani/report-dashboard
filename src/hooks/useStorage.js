@@ -1,5 +1,103 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
+const CHUNK_SEP = "::";
+
+/**
+ * Like useStorage, but stores each top-level key as a separate localStorage
+ * entry to avoid QuotaExceededError on large nested objects (e.g. flow1_data
+ * with thousands of parsed URL rows across 6 months).
+ *
+ * Storage layout:
+ *   localStorage[prefix]        → JSON array of entry keys (index)
+ *   localStorage[prefix::key]   → JSON value for that entry
+ *
+ * Reads either the new chunked format (index is an array) or falls back to
+ * the old single-key format (index is an object) for zero-migration compat.
+ */
+export function useChunkedStorage(prefix, defaultValue = {}) {
+  const [value, setValueState] = useState(() => {
+    try {
+      const indexRaw = localStorage.getItem(prefix);
+      if (indexRaw !== null) {
+        const parsed = JSON.parse(indexRaw);
+        if (Array.isArray(parsed)) {
+          // New chunked format
+          const result = {};
+          for (const k of parsed) {
+            try {
+              const raw = localStorage.getItem(prefix + CHUNK_SEP + k);
+              if (raw !== null) result[k] = JSON.parse(raw);
+            } catch {}
+          }
+          return result;
+        }
+        // Old format: value itself was the stored object
+        return parsed;
+      }
+      return defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  });
+
+  const setValue = useCallback(
+    (newValue) => {
+      setValueState((prev) => {
+        const next =
+          typeof newValue === "function" ? newValue(prev) : newValue;
+
+        if (next === null || next === undefined) {
+          try {
+            const indexRaw = localStorage.getItem(prefix);
+            if (indexRaw) {
+              const keys = JSON.parse(indexRaw);
+              if (Array.isArray(keys))
+                keys.forEach((k) =>
+                  localStorage.removeItem(prefix + CHUNK_SEP + k),
+                );
+            }
+            localStorage.removeItem(prefix);
+          } catch {}
+          return next;
+        }
+
+        const prevKeys = Object.keys(prev || {});
+        const nextKeys = Object.keys(next);
+
+        // Write new / changed entries individually
+        for (const [k, v] of Object.entries(next)) {
+          if ((prev || {})[k] !== v) {
+            try {
+              localStorage.setItem(prefix + CHUNK_SEP + k, JSON.stringify(v));
+            } catch (err) {
+              console.error(`useChunkedStorage: could not write "${k}":`, err);
+            }
+          }
+        }
+
+        // Remove deleted entries
+        for (const k of prevKeys) {
+          if (!Object.prototype.hasOwnProperty.call(next, k)) {
+            localStorage.removeItem(prefix + CHUNK_SEP + k);
+          }
+        }
+
+        // Update index (always array → new format)
+        try {
+          localStorage.setItem(prefix, JSON.stringify(nextKeys));
+        } catch (err) {
+          console.error(`useChunkedStorage: could not write index:`, err);
+        }
+
+        return next;
+      });
+    },
+    [prefix],
+  );
+
+  return [value, setValue];
+}
+
 const WRITE_DEBOUNCE_MS = 400;
 
 /**

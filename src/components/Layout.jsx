@@ -219,11 +219,11 @@ function PageTitle({ pathname }) {
     },
     "/flow1": {
       title: "Traffic (Optimized)",
-      sub: "Upload GSC + GA4 exports, merge by slug, push to Sheets",
+      sub: "Upload GSC and GA4 Export per project segment to display data per URL",
     },
     "/flow2": {
       title: "Traffic Overview",
-      sub: "Aggregate segment-level metrics across 6 months",
+      sub: "Upload GSC and GA4 Export to summarize traffic",
     },
     "/flow3": {
       title: "Leads Summary",
