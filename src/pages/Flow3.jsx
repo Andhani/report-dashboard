@@ -249,22 +249,45 @@ function BCSection({ block }) {
         <span className="text-xs font-semibold text-ink">{monthLabel}</span>
         <span className="text-2xs text-muted">GA4</span>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <MetricBlock
-          title="Traffic Summary"
-          subtitle={`${count} URLs (bottom content)`}
-        >
-          <MetricRow label="Views" value={fmtNum(traffic.views)} />
-          <MetricRow label="Active Users" value={fmtNum(traffic.users)} />
-          <MetricRow label="Sessions" value={fmtNum(traffic.sessions)} />
-          <MetricRow label="Avg AET" value={fmtAET(traffic.aet_seconds)} />
-        </MetricBlock>
-        <MetricBlock title="Estimated Leads">
-          <MetricRow label="Views-based" value={fmtEst(estimated.views)} highlight />
-          <MetricRow label="Users-based" value={fmtEst(estimated.users)} highlight />
-          <MetricRow label="Sessions-based" value={fmtEst(estimated.sessions)} highlight />
-        </MetricBlock>
-      </div>
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr>
+            <td colSpan={2} className="pb-2 w-1/2">
+              <div className="text-2xs uppercase tracking-wider text-muted">Traffic Summary</div>
+              <div className="text-2xs text-muted mt-0.5">{count} URLs (bottom content)</div>
+            </td>
+            <td colSpan={2} className="pb-2 w-1/2 pl-6">
+              <div className="text-2xs uppercase tracking-wider text-muted">Estimated Leads</div>
+            </td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="border-b border-border">
+            <td className="py-1.5 text-muted">Views</td>
+            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(traffic.views)}</td>
+            <td className="py-1.5 pl-6 text-muted">Views-based</td>
+            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(estimated.views)}</td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className="py-1.5 text-muted">Active Users</td>
+            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(traffic.users)}</td>
+            <td className="py-1.5 pl-6 text-muted">Users-based</td>
+            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(estimated.users)}</td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className="py-1.5 text-muted">Sessions</td>
+            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(traffic.sessions)}</td>
+            <td className="py-1.5 pl-6 text-muted">Sessions-based</td>
+            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(estimated.sessions)}</td>
+          </tr>
+          <tr>
+            <td className="py-1.5 text-muted">Avg AET</td>
+            <td className="py-1.5 text-right tabular-nums font-medium text-ink">{fmtAET(traffic.aet_seconds)}</td>
+            <td className="py-1.5 pl-6"></td>
+            <td className="py-1.5"></td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -280,51 +303,79 @@ function BlogSection({ block }) {
         <span className="text-xs font-semibold text-ink">{monthLabel}</span>
         <span className="text-2xs text-muted">GA4</span>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <div className="space-y-4">
-          <div>
-            <div className="text-2xs uppercase tracking-wider text-muted mb-1.5">
-              Create ({creates.count})
-            </div>
-            <MetricRow label="Views" value={fmtNum(creates.traffic.views)} />
-            <MetricRow label="Users" value={fmtNum(creates.traffic.users)} />
-            <MetricRow label="Sessions" value={fmtNum(creates.traffic.sessions)} />
-            <MetricRow label="Avg AET" value={fmtAET(creates.traffic.aet_seconds)} />
-          </div>
-          <div>
-            <div className="text-2xs uppercase tracking-wider text-muted mb-1.5">
-              Update ({updates.count})
-            </div>
-            <MetricRow label="Views" value={fmtNum(updates.traffic.views)} />
-            <MetricRow label="Users" value={fmtNum(updates.traffic.users)} />
-            <MetricRow label="Sessions" value={fmtNum(updates.traffic.sessions)} />
-            <MetricRow label="Avg AET" value={fmtAET(updates.traffic.aet_seconds)} />
-          </div>
-          <div className="border-t border-border pt-2">
-            <div className="text-2xs text-muted">
-              Grand Total: {grandTotal.count} URLs
-            </div>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <div className="text-2xs uppercase tracking-wider text-muted mb-1.5">
-              Est. Leads (Create)
-            </div>
-            <MetricRow label="Views-based" value={fmtEst(creates.estimated.views)} highlight />
-            <MetricRow label="Users-based" value={fmtEst(creates.estimated.users)} highlight />
-            <MetricRow label="Sessions-based" value={fmtEst(creates.estimated.sessions)} highlight />
-          </div>
-          <div>
-            <div className="text-2xs uppercase tracking-wider text-muted mb-1.5">
-              Est. Leads (Update)
-            </div>
-            <MetricRow label="Views-based" value={fmtEst(updates.estimated.views)} highlight />
-            <MetricRow label="Users-based" value={fmtEst(updates.estimated.users)} highlight />
-            <MetricRow label="Sessions-based" value={fmtEst(updates.estimated.sessions)} highlight />
-          </div>
-        </div>
-      </div>
+      <table className="w-full text-xs border-collapse">
+        <tbody>
+          <tr>
+            <td colSpan={2} className="pb-1.5 w-1/2">
+              <div className="text-2xs uppercase tracking-wider text-muted">Create ({creates.count})</div>
+            </td>
+            <td colSpan={2} className="pb-1.5 w-1/2 pl-6">
+              <div className="text-2xs uppercase tracking-wider text-muted">Estimated Leads (Create)</div>
+            </td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className="py-1.5 text-muted">Views</td>
+            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(creates.traffic.views)}</td>
+            <td className="py-1.5 pl-6 text-muted">Views-based</td>
+            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(creates.estimated.views)}</td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className="py-1.5 text-muted">Users</td>
+            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(creates.traffic.users)}</td>
+            <td className="py-1.5 pl-6 text-muted">Users-based</td>
+            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(creates.estimated.users)}</td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className="py-1.5 text-muted">Sessions</td>
+            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(creates.traffic.sessions)}</td>
+            <td className="py-1.5 pl-6 text-muted">Sessions-based</td>
+            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(creates.estimated.sessions)}</td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className="py-1.5 text-muted">Avg AET</td>
+            <td className="py-1.5 text-right tabular-nums font-medium text-ink">{fmtAET(creates.traffic.aet_seconds)}</td>
+            <td className="py-1.5 pl-6"></td>
+            <td className="py-1.5"></td>
+          </tr>
+          <tr>
+            <td colSpan={2} className="pt-4 pb-1.5 w-1/2">
+              <div className="text-2xs uppercase tracking-wider text-muted">Update ({updates.count})</div>
+            </td>
+            <td colSpan={2} className="pt-4 pb-1.5 w-1/2 pl-6">
+              <div className="text-2xs uppercase tracking-wider text-muted">Estimated Leads (Update)</div>
+            </td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className="py-1.5 text-muted">Views</td>
+            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(updates.traffic.views)}</td>
+            <td className="py-1.5 pl-6 text-muted">Views-based</td>
+            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(updates.estimated.views)}</td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className="py-1.5 text-muted">Users</td>
+            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(updates.traffic.users)}</td>
+            <td className="py-1.5 pl-6 text-muted">Users-based</td>
+            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(updates.estimated.users)}</td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className="py-1.5 text-muted">Sessions</td>
+            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(updates.traffic.sessions)}</td>
+            <td className="py-1.5 pl-6 text-muted">Sessions-based</td>
+            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(updates.estimated.sessions)}</td>
+          </tr>
+          <tr>
+            <td className="py-1.5 text-muted">Avg AET</td>
+            <td className="py-1.5 text-right tabular-nums font-medium text-ink">{fmtAET(updates.traffic.aet_seconds)}</td>
+            <td className="py-1.5 pl-6"></td>
+            <td className="py-1.5"></td>
+          </tr>
+          <tr>
+            <td colSpan={4} className="pt-3 border-t border-border">
+              <div className="text-2xs text-muted">Grand Total: {grandTotal.count} URLs</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -364,33 +415,6 @@ function RateSection({ block }) {
 }
 
 // ─── Shared UI blocks ─────────────────────────────────────────────────────────
-
-function MetricBlock({ title, subtitle, children }) {
-  return (
-    <div>
-      <div className="text-2xs uppercase tracking-wider text-muted mb-1">
-        {title}
-      </div>
-      {subtitle && <div className="text-xs text-muted mb-2">{subtitle}</div>}
-      <div className="space-y-0">{children}</div>
-    </div>
-  );
-}
-
-function MetricRow({ label, value, highlight }) {
-  return (
-    <div className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
-      <span className="text-xs text-muted">{label}</span>
-      <span
-        className={`text-xs font-medium tabular-nums ${
-          highlight ? "text-ok" : "text-ink"
-        }`}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
 
 function RateBlock({ title, totalLabel, total, contact, rate }) {
   return (
