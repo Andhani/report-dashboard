@@ -26,7 +26,6 @@ export default function Flow3() {
   const [blogUrls] = useStorage("blog_urls", []);
   const [sheetsUrl] = useStorage("sheets_report_url", "");
 
-  const [activeTab, setActiveTab] = useState("bc");
   const [pushStatus, setPushStatus] = useState(null);
   const [pushModal, setPushModal] = useState(false);
   const [selectedSlotIdx, setSelectedSlotIdx] = useState(null);
@@ -145,23 +144,6 @@ export default function Flow3() {
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5 gap-0.5">
-          {["bc", "blog"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-1 rounded-[5px] text-xs font-medium transition-all ${
-                activeTab === tab
-                  ? "bg-surface text-ink shadow-card"
-                  : "text-muted hover:text-ink"
-              }`}
-            >
-              {tab === "bc" ? "BC Leads" : "Blog Leads"}
-            </button>
-          ))}
-        </div>
-
         {/* Export bar */}
         {currentSlot && (
           <div className="card p-3 flex flex-wrap items-center gap-3">
@@ -189,12 +171,11 @@ export default function Flow3() {
           </div>
         )}
 
-        {/* Block content */}
-        {activeTab === "bc" && currentSlot && bcBlock && (
-          <BCLeadsBlock block={bcBlock} />
-        )}
-        {activeTab === "blog" && currentSlot && blogBlock && (
-          <BlogLeadsBlock block={blogBlock} />
+        {/* Merged output: BC → Blog → shared rates */}
+        {currentSlot && bcBlock && <BCSection block={bcBlock} />}
+        {currentSlot && blogBlock && <BlogSection block={blogBlock} />}
+        {currentSlot && (bcBlock || blogBlock) && (
+          <RateSection block={bcBlock ?? blogBlock} />
         )}
         {!currentSlot && (
           <div className="card p-8 text-center text-muted text-xs">
@@ -257,21 +238,18 @@ function DependencyBanner({ hasFlow1, hasFlow2 }) {
   );
 }
 
-// ─── BC Block ────────────────────────────────────────────────────────────────
+// ─── BC Section ───────────────────────────────────────────────────────────────
 
-function BCLeadsBlock({ block }) {
-  const { monthLabel, count, traffic, rates, siteWide, estimated } = block;
-
+function BCSection({ block }) {
+  const { monthLabel, count, traffic, estimated } = block;
   return (
     <div className="card p-4">
-      <div className="flex items-baseline gap-3 mb-4">
-        <div className="text-xs font-semibold text-ink">
-          {monthLabel}
-        </div>
-        <div className="text-2xs text-muted">GA4</div>
+      <div className="flex items-baseline gap-2 mb-4">
+        <span className="text-2xs uppercase tracking-wider text-muted">BC Leads</span>
+        <span className="text-xs font-semibold text-ink">{monthLabel}</span>
+        <span className="text-2xs text-muted">GA4</span>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <MetricBlock
           title="Traffic Summary"
           subtitle={`${count} URLs (bottom content)`}
@@ -281,68 +259,28 @@ function BCLeadsBlock({ block }) {
           <MetricRow label="Sessions" value={fmtNum(traffic.sessions)} />
           <MetricRow label="Avg AET" value={fmtAET(traffic.aet_seconds)} />
         </MetricBlock>
-
         <MetricBlock title="Estimated Leads">
-          <MetricRow
-            label="Views-based"
-            value={fmtEst(estimated.views)}
-            highlight
-          />
-          <MetricRow
-            label="Users-based"
-            value={fmtEst(estimated.users)}
-            highlight
-          />
-          <MetricRow
-            label="Sessions-based"
-            value={fmtEst(estimated.sessions)}
-            highlight
-          />
+          <MetricRow label="Views-based" value={fmtEst(estimated.views)} highlight />
+          <MetricRow label="Users-based" value={fmtEst(estimated.users)} highlight />
+          <MetricRow label="Sessions-based" value={fmtEst(estimated.sessions)} highlight />
         </MetricBlock>
-
-        <div className="space-y-3">
-          <RateBlock
-            title="Lead / Views"
-            totalLabel="Org Views"
-            total={fmtNum(siteWide.totalViews)}
-            contact={fmtNum(siteWide.clickContact)}
-            rate={fmtRate(rates.leadPerViews)}
-          />
-          <RateBlock
-            title="Lead / Users"
-            totalLabel="Org Users"
-            total={fmtNum(siteWide.totalUsers)}
-            contact={fmtNum(siteWide.clickContact)}
-            rate={fmtRate(rates.leadPerUsers)}
-          />
-          <RateBlock
-            title="Lead / Sessions"
-            totalLabel="Org Sessions"
-            total={fmtNum(siteWide.totalSessions)}
-            contact={fmtNum(siteWide.clickContact)}
-            rate={fmtRate(rates.leadPerSessions)}
-          />
-        </div>
       </div>
     </div>
   );
 }
 
-// ─── Blog Block ───────────────────────────────────────────────────────────────
+// ─── Blog Section ─────────────────────────────────────────────────────────────
 
-function BlogLeadsBlock({ block }) {
-  const { monthLabel, creates, updates, grandTotal, rates, siteWide } = block;
-
+function BlogSection({ block }) {
+  const { monthLabel, creates, updates, grandTotal } = block;
   return (
     <div className="card p-4">
-      <div className="flex items-baseline gap-3 mb-4">
-        <div className="text-xs font-semibold text-ink">
-          {monthLabel}
-        </div>
-        <div className="text-2xs text-muted">GA4</div>
+      <div className="flex items-baseline gap-2 mb-4">
+        <span className="text-2xs uppercase tracking-wider text-muted">Blog Leads</span>
+        <span className="text-xs font-semibold text-ink">{monthLabel}</span>
+        <span className="text-2xs text-muted">GA4</span>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div className="space-y-4">
           <div>
             <div className="text-2xs uppercase tracking-wider text-muted mb-1.5">
@@ -350,14 +288,8 @@ function BlogLeadsBlock({ block }) {
             </div>
             <MetricRow label="Views" value={fmtNum(creates.traffic.views)} />
             <MetricRow label="Users" value={fmtNum(creates.traffic.users)} />
-            <MetricRow
-              label="Sessions"
-              value={fmtNum(creates.traffic.sessions)}
-            />
-            <MetricRow
-              label="Avg AET"
-              value={fmtAET(creates.traffic.aet_seconds)}
-            />
+            <MetricRow label="Sessions" value={fmtNum(creates.traffic.sessions)} />
+            <MetricRow label="Avg AET" value={fmtAET(creates.traffic.aet_seconds)} />
           </div>
           <div>
             <div className="text-2xs uppercase tracking-wider text-muted mb-1.5">
@@ -365,14 +297,8 @@ function BlogLeadsBlock({ block }) {
             </div>
             <MetricRow label="Views" value={fmtNum(updates.traffic.views)} />
             <MetricRow label="Users" value={fmtNum(updates.traffic.users)} />
-            <MetricRow
-              label="Sessions"
-              value={fmtNum(updates.traffic.sessions)}
-            />
-            <MetricRow
-              label="Avg AET"
-              value={fmtAET(updates.traffic.aet_seconds)}
-            />
+            <MetricRow label="Sessions" value={fmtNum(updates.traffic.sessions)} />
+            <MetricRow label="Avg AET" value={fmtAET(updates.traffic.aet_seconds)} />
           </div>
           <div className="border-t border-border pt-2">
             <div className="text-2xs text-muted">
@@ -380,73 +306,58 @@ function BlogLeadsBlock({ block }) {
             </div>
           </div>
         </div>
-
         <div className="space-y-4">
           <div>
             <div className="text-2xs uppercase tracking-wider text-muted mb-1.5">
               Est. Leads (Create)
             </div>
-            <MetricRow
-              label="Views-based"
-              value={fmtEst(creates.estimated.views)}
-              highlight
-            />
-            <MetricRow
-              label="Users-based"
-              value={fmtEst(creates.estimated.users)}
-              highlight
-            />
-            <MetricRow
-              label="Sessions-based"
-              value={fmtEst(creates.estimated.sessions)}
-              highlight
-            />
+            <MetricRow label="Views-based" value={fmtEst(creates.estimated.views)} highlight />
+            <MetricRow label="Users-based" value={fmtEst(creates.estimated.users)} highlight />
+            <MetricRow label="Sessions-based" value={fmtEst(creates.estimated.sessions)} highlight />
           </div>
           <div>
             <div className="text-2xs uppercase tracking-wider text-muted mb-1.5">
               Est. Leads (Update)
             </div>
-            <MetricRow
-              label="Views-based"
-              value={fmtEst(updates.estimated.views)}
-              highlight
-            />
-            <MetricRow
-              label="Users-based"
-              value={fmtEst(updates.estimated.users)}
-              highlight
-            />
-            <MetricRow
-              label="Sessions-based"
-              value={fmtEst(updates.estimated.sessions)}
-              highlight
-            />
+            <MetricRow label="Views-based" value={fmtEst(updates.estimated.views)} highlight />
+            <MetricRow label="Users-based" value={fmtEst(updates.estimated.users)} highlight />
+            <MetricRow label="Sessions-based" value={fmtEst(updates.estimated.sessions)} highlight />
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
 
-        <div className="space-y-3">
-          <RateBlock
-            title="Lead / Views"
-            totalLabel="Org Views"
-            total={fmtNum(siteWide.totalViews)}
-            contact={fmtNum(siteWide.clickContact)}
-            rate={fmtRate(rates.leadPerViews)}
-          />
-          <RateBlock
-            title="Lead / Users"
-            totalLabel="Org Users"
-            total={fmtNum(siteWide.totalUsers)}
-            contact={fmtNum(siteWide.clickContact)}
-            rate={fmtRate(rates.leadPerUsers)}
-          />
-          <RateBlock
-            title="Lead / Sessions"
-            totalLabel="Org Sessions"
-            total={fmtNum(siteWide.totalSessions)}
-            contact={fmtNum(siteWide.clickContact)}
-            rate={fmtRate(rates.leadPerSessions)}
-          />
-        </div>
+// ─── Shared Rate Section ──────────────────────────────────────────────────────
+
+function RateSection({ block }) {
+  const { rates, siteWide } = block;
+  return (
+    <div className="card p-4">
+      <div className="text-2xs uppercase tracking-wider text-muted mb-3">Lead Rates</div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <RateBlock
+          title="Lead / Views"
+          totalLabel="Org Views"
+          total={fmtNum(siteWide.totalViews)}
+          contact={fmtNum(siteWide.clickContact)}
+          rate={fmtRate(rates.leadPerViews)}
+        />
+        <RateBlock
+          title="Lead / Users"
+          totalLabel="Org Users"
+          total={fmtNum(siteWide.totalUsers)}
+          contact={fmtNum(siteWide.clickContact)}
+          rate={fmtRate(rates.leadPerUsers)}
+        />
+        <RateBlock
+          title="Lead / Sessions"
+          totalLabel="Org Sessions"
+          total={fmtNum(siteWide.totalSessions)}
+          contact={fmtNum(siteWide.clickContact)}
+          rate={fmtRate(rates.leadPerSessions)}
+        />
       </div>
     </div>
   );
