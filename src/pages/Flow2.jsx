@@ -260,47 +260,41 @@ export default function Flow2() {
       )}
     <div className="space-y-5">
       {/* What-to-upload guide */}
-      <div className="card p-4 space-y-3">
-        <div className="text-xs font-semibold text-ink">What to upload</div>
-
-        <div>
-          <p className="text-xs text-muted mb-1.5">Upload fresh each month</p>
-          <ul className="space-y-1.5">
-            {[
-              { label: "GSC Export (All Segments)",  desc: "Site-wide totals, not per-URL" },
-              { label: "GA4 Export (All Segments)",  desc: "A single file covering every segment automatically" },
-              { label: "Event GA4 Export",           desc: "Click_Contact_Agent event count" },
-            ].map((r) => (
-              <li key={r.label} className="flex items-start gap-2 text-xs text-ink">
-                <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
-                <span>
-                  {r.label}{" "}
-                  <span className="text-muted">— {r.desc}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <p className="text-xs font-medium text-ink mb-1.5">Reuse from Traffic (Optimized)</p>
-          <ul className="space-y-1.5">
-            {[
-              "BC GSC Export",
-              "Blog GSC Export",
-              "Blog GA4 Export",
-              "BC GA4 Export",
-            ].map((label) => (
-              <li key={label} className="flex items-start gap-2 text-xs text-ink">
-                <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-accent" />
-                <span>
-                  {label}{" "}
-                  <span className="text-muted">— no need to upload</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <div className="card p-4">
+        <div className="text-xs font-semibold text-ink mb-1">What to upload</div>
+        <p className="text-xs text-muted mb-2">Upload fresh each month</p>
+        <ul className="space-y-1.5 mb-3">
+          {[
+            { label: "GSC Export (All Segments)",  desc: "Site-wide totals, not per-URL" },
+            { label: "GA4 Export (All Segments)",  desc: "A single file covering every segment automatically" },
+            { label: "Event GA4 Export",           desc: "Click_Contact_Agent event count" },
+          ].map((r) => (
+            <li key={r.label} className="flex items-start gap-2 text-xs text-ink">
+              <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
+              <span>
+                {r.label}{" "}
+                <span className="text-muted">— {r.desc}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-xs text-muted mb-1.5">Reuse from Traffic (Optimized)</p>
+        <ul className="space-y-1.5">
+          {[
+            "BC GSC Export",
+            "Blog GSC Export",
+            "Blog GA4 Export",
+            "BC GA4 Export",
+          ].map((label) => (
+            <li key={label} className="flex items-start gap-2 text-xs text-ink">
+              <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
+              <span>
+                {label}{" "}
+                <span className="text-muted">— no need to upload</span>
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* Import section with mode toggle */}
