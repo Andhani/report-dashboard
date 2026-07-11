@@ -17,7 +17,6 @@ import {
 import {
   computeFlow1Output,
   buildCSVData,
-  buildSheetsValues,
 } from "../utils/computeFlow1";
 import { downloadCSV, readFileAsArrayBuffer } from "../utils/exportUtils";
 import {
@@ -240,8 +239,8 @@ export default function Flow1() {
     try {
       const urlList = project === "bc" ? bcUrls : blogUrls;
       const output = computeFlow1Output(project, urlList, flow1Data, slots);
-      const values = buildSheetsValues(output);
-      await pushFlow1ToSheets(ssId, project, values);
+      const csvRows = buildCSVData(project, output, slots);
+      await pushFlow1ToSheets(ssId, project, csvRows);
       setPushStatus((p) => ({ ...p, [project]: null }));
       setPushModal(true);
     } catch (err) {
