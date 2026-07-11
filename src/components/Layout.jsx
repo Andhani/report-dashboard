@@ -88,11 +88,11 @@ export default function Layout() {
         {/* Logo */}
         <div className="px-5 h-[60px] flex items-center border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-accent rounded-md flex items-center justify-center text-[11px] font-bold text-white tracking-tight flex-shrink-0">
+            <div className="w-7 h-7 bg-accent rounded-md flex items-center justify-center text-[10px] font-bold text-white tracking-tight flex-shrink-0">
               RD
             </div>
             <div className="min-w-0">
-              <div className="font-heading font-semibold text-sm leading-tight text-ink truncate">
+              <div className="font-semibold text-xs leading-tight text-ink truncate">
                 Report Dashboard
               </div>
               <div className="text-[11px] text-muted truncate">BC & Blog SEO</div>
@@ -110,7 +110,7 @@ export default function Layout() {
                 to={item.to}
                 end={item.to === "/"}
                 className={({ isActive }) =>
-                  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors border-l-2 ${
+                  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors border-l-2 ${
                     isActive
                       ? "border-accent text-accent"
                       : "border-transparent text-muted hover:bg-surface-2 hover:text-ink"
@@ -241,10 +241,10 @@ function PageTitle({ pathname }) {
   const info = pages[pathname] ?? { title: "Report Dashboard", sub: "" };
   return (
     <div>
-      <h1 className="font-heading text-lg font-semibold leading-tight text-ink">
+      <h1 className="text-sm font-semibold leading-tight text-ink">
         {info.title}
       </h1>
-      {info.sub && <p className="text-xs text-muted mt-0.5">{info.sub}</p>}
+      {info.sub && <p className="text-2xs text-muted mt-0.5">{info.sub}</p>}
     </div>
   );
 }

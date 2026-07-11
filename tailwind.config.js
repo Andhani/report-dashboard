@@ -30,8 +30,8 @@ export default {
       },
       fontFamily: {
         sans:    ['Inter', 'system-ui', 'sans-serif'],
-        heading: ['"Inter Tight"', 'Inter', 'system-ui', 'sans-serif'],
-        mono:    ['"JetBrains Mono"', '"IBM Plex Mono"', 'monospace'],
+        heading: ['Inter', 'system-ui', 'sans-serif'],
+        mono:    ['ui-monospace', 'monospace'],
       },
       borderRadius: {
         btn:  '6px',

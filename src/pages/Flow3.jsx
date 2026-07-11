@@ -114,7 +114,7 @@ export default function Flow3() {
         {/* Month selector */}
         {slots.length > 0 && (
           <div className="card p-3 flex items-center gap-4">
-            <span className="text-xs font-mono uppercase tracking-wider text-muted flex-shrink-0">
+            <span className="text-2xs uppercase tracking-wider text-muted flex-shrink-0">
               Month
             </span>
             <div className="flex gap-1 flex-wrap">
@@ -125,7 +125,7 @@ export default function Flow3() {
                   <button
                     key={s.key}
                     onClick={() => setSelectedSlotIdx(i)}
-                    className={`px-3 py-1 rounded-full text-xs font-mono transition-colors ${
+                    className={`px-3 py-1 rounded-full text-xs transition-colors ${
                       isActive
                         ? "bg-accent text-white"
                         : "bg-surface-2 text-muted hover:text-ink"
@@ -138,7 +138,7 @@ export default function Flow3() {
               })}
             </div>
             {!isLastSlot && (
-              <span className="text-xs text-muted font-mono">
+              <span className="text-2xs text-muted">
                 ★ = most recent
               </span>
             )}
@@ -197,7 +197,7 @@ export default function Flow3() {
           <BlogLeadsBlock block={blogBlock} />
         )}
         {!currentSlot && (
-          <div className="card p-8 text-center text-muted text-sm">
+          <div className="card p-8 text-center text-muted text-xs">
             No slots defined in the current window.
           </div>
         )}
@@ -212,7 +212,7 @@ function GatingMessage({ Icon, title, desc, to, btnLabel }) {
   return (
     <div className="max-w-md mx-auto mt-10 card py-10 px-8 flex flex-col items-center text-center border-dashed">
       <Icon size={24} className="text-muted mb-3" strokeWidth={1.5} />
-      <div className="text-sm font-semibold text-ink mb-1">{title}</div>
+      <div className="text-xs font-semibold text-ink mb-1">{title}</div>
       <p className="text-xs text-muted mb-4">{desc}</p>
       <Link to={to} className="btn btn-primary">
         {btnLabel}
@@ -231,7 +231,7 @@ function DependencyBanner({ hasFlow1, hasFlow2 }) {
           className="text-warning flex-shrink-0"
           strokeWidth={2}
         />
-        <div className="text-sm text-ink">
+        <div className="text-xs text-ink">
           <strong>Partial data</strong> — some rates will show as 0.
           {!hasFlow1 && (
             <span>
@@ -265,10 +265,10 @@ function BCLeadsBlock({ block }) {
   return (
     <div className="card p-4">
       <div className="flex items-baseline gap-3 mb-4">
-        <div className="font-heading text-base font-semibold text-ink">
+        <div className="text-xs font-semibold text-ink">
           {monthLabel}
         </div>
-        <div className="text-xs text-muted font-mono">GA4</div>
+        <div className="text-2xs text-muted">GA4</div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -336,16 +336,16 @@ function BlogLeadsBlock({ block }) {
   return (
     <div className="card p-4">
       <div className="flex items-baseline gap-3 mb-4">
-        <div className="font-heading text-base font-semibold text-ink">
+        <div className="text-xs font-semibold text-ink">
           {monthLabel}
         </div>
-        <div className="text-xs text-muted font-mono">GA4</div>
+        <div className="text-2xs text-muted">GA4</div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="space-y-4">
           <div>
-            <div className="text-xs font-mono uppercase tracking-wider text-muted mb-1.5">
+            <div className="text-2xs uppercase tracking-wider text-muted mb-1.5">
               Create ({creates.count})
             </div>
             <MetricRow label="Views" value={fmtNum(creates.traffic.views)} />
@@ -360,7 +360,7 @@ function BlogLeadsBlock({ block }) {
             />
           </div>
           <div>
-            <div className="text-xs font-mono uppercase tracking-wider text-muted mb-1.5">
+            <div className="text-2xs uppercase tracking-wider text-muted mb-1.5">
               Update ({updates.count})
             </div>
             <MetricRow label="Views" value={fmtNum(updates.traffic.views)} />
@@ -375,7 +375,7 @@ function BlogLeadsBlock({ block }) {
             />
           </div>
           <div className="border-t border-border pt-2">
-            <div className="text-xs font-mono text-muted">
+            <div className="text-2xs text-muted">
               Grand Total: {grandTotal.count} URLs
             </div>
           </div>
@@ -383,7 +383,7 @@ function BlogLeadsBlock({ block }) {
 
         <div className="space-y-4">
           <div>
-            <div className="text-xs font-mono uppercase tracking-wider text-muted mb-1.5">
+            <div className="text-2xs uppercase tracking-wider text-muted mb-1.5">
               Est. Leads (Create)
             </div>
             <MetricRow
@@ -403,7 +403,7 @@ function BlogLeadsBlock({ block }) {
             />
           </div>
           <div>
-            <div className="text-xs font-mono uppercase tracking-wider text-muted mb-1.5">
+            <div className="text-2xs uppercase tracking-wider text-muted mb-1.5">
               Est. Leads (Update)
             </div>
             <MetricRow
@@ -457,7 +457,7 @@ function BlogLeadsBlock({ block }) {
 function MetricBlock({ title, subtitle, children }) {
   return (
     <div>
-      <div className="text-xs font-mono uppercase tracking-wider text-muted mb-1">
+      <div className="text-2xs uppercase tracking-wider text-muted mb-1">
         {title}
       </div>
       {subtitle && <div className="text-xs text-muted mb-2">{subtitle}</div>}
@@ -469,9 +469,9 @@ function MetricBlock({ title, subtitle, children }) {
 function MetricRow({ label, value, highlight }) {
   return (
     <div className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
-      <span className="text-sm text-muted">{label}</span>
+      <span className="text-xs text-muted">{label}</span>
       <span
-        className={`text-sm font-medium font-mono tabular-nums ${
+        className={`text-xs font-medium tabular-nums ${
           highlight ? "text-ok" : "text-ink"
         }`}
       >
@@ -484,21 +484,21 @@ function MetricRow({ label, value, highlight }) {
 function RateBlock({ title, totalLabel, total, contact, rate }) {
   return (
     <div className="bg-surface-2 rounded-lg p-3">
-      <div className="text-xs font-mono uppercase tracking-wider text-muted mb-2">
+      <div className="text-2xs uppercase tracking-wider text-muted mb-2">
         {title}
       </div>
       <div className="space-y-1">
-        <div className="flex justify-between text-xs text-muted">
+        <div className="flex justify-between text-2xs text-muted">
           <span>{totalLabel}</span>
-          <span className="font-mono tabular-nums">{total}</span>
+          <span className="tabular-nums">{total}</span>
         </div>
-        <div className="flex justify-between text-xs text-muted">
+        <div className="flex justify-between text-2xs text-muted">
           <span>Click_Contact</span>
-          <span className="font-mono tabular-nums">{contact}</span>
+          <span className="tabular-nums">{contact}</span>
         </div>
         <div className="flex justify-between text-xs font-semibold text-accent pt-1 border-t border-border">
           <span>Rate</span>
-          <span className="font-mono">{rate}</span>
+          <span>{rate}</span>
         </div>
       </div>
     </div>
