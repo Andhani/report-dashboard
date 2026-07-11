@@ -43,6 +43,27 @@ const PERIOD_LABEL = (slots) =>
     ? `${slots[0].label.replace(" ", "")}–${slots[slots.length - 1].label.replace(" ", "")}`
     : "";
 
+const BC_URL_COLS = [
+  { key: "main_keyword", label: "Main Keyword" },
+  { key: "offer",        label: "Offer" },
+  { key: "property",     label: "Property" },
+  { key: "url",          label: "URL" },
+  { key: "publish",      label: "Publish" },
+  { key: "status",       label: "Status" },
+  { key: "pic",          label: "PIC" },
+  { key: "slug",         label: "Slug" },
+];
+
+const BLOG_URL_COLS = [
+  { key: "keyword",      label: "Keyword" },
+  { key: "url",          label: "URL" },
+  { key: "status",       label: "Status" },
+  { key: "publish_date", label: "Publish Date" },
+  { key: "content_type", label: "Content Type" },
+  { key: "pic",          label: "PIC" },
+  { key: "slug",         label: "Slug" },
+];
+
 export default function Flow1() {
   const [flow1Data, setFlow1Data] = useChunkedStorage("flow1_data", {});
   const [flow1Window] = useStorage("flow1_window", null);
@@ -646,6 +667,7 @@ function PreviewSection({
   sheetsUrl,
 }) {
   const urlList = previewTab === "bc" ? bcUrls : blogUrls;
+  const urlCols = previewTab === "bc" ? BC_URL_COLS : BLOG_URL_COLS;
   const output = computeFlow1Output(previewTab, urlList, flow1Data, slots);
   const matchCount = output.filter(
     (r) =>
@@ -714,9 +736,9 @@ function PreviewSection({
           </span>
         </div>
         <PreviewTable
-          project={previewTab}
           output={pagination.pageItems}
           slots={slots}
+          urlCols={urlCols}
         />
         <div className="px-4 border-t border-border">
           <PaginationControls
@@ -737,63 +759,60 @@ function PreviewSection({
 }
 
 const PREVIEW_METRICS = [
-  { key: "rank", label: "Rank", fmt: (v) => (v ? v.toFixed(1) : null) },
-  {
-    key: "impressions",
-    label: "Impr",
-    fmt: (v) => (v ? String(Math.round(v)) : null),
-  },
-  { key: "clicks", label: "Clicks", fmt: (v) => v || null },
-  {
-    key: "ctr",
-    label: "CTR",
-    fmt: (v) => (v ? formatCTR(v) : null),
-    dim: true,
-  },
-  { key: "views", label: "Views", fmt: (v) => v || null },
-  { key: "users", label: "Users", fmt: (v) => v || null },
-  { key: "sessions", label: "Sessions", fmt: (v) => v || null },
-  {
-    key: "aet",
-    label: "AET",
-    fmt: (v) => (v ? secondsToHmmss(v) : null),
-    dim: true,
-  },
+  { key: "rank",        label: "Rank",         source: "GSC Web", fmt: (v) => (v ? v.toFixed(1) : null) },
+  { key: "impressions", label: "Impressions",   source: "GSC Web", fmt: (v) => (v ? String(Math.round(v)) : null) },
+  { key: "clicks",      label: "Clicks",        source: "GSC Web", fmt: (v) => v || null },
+  { key: "ctr",         label: "CTR",           source: "GSC Web", fmt: (v) => (v ? formatCTR(v) : null), dim: true },
+  { key: "views",       label: "Views",         source: "GA4",     fmt: (v) => v || null },
+  { key: "users",       label: "Active Users",  source: "GA4",     fmt: (v) => v || null },
+  { key: "sessions",    label: "Sessions",      source: "GA4",     fmt: (v) => v || null },
+  { key: "aet",         label: "AET",           source: "GA4",     fmt: (v) => (v ? secondsToHmmss(v) : null), dim: true },
 ];
 
-function PreviewTable({ project, output, slots }) {
+function PreviewTable({ output, slots, urlCols }) {
   if (output.length === 0) {
     return (
       <div className="p-8 text-center text-xs text-muted">No URLs in list</div>
     );
   }
 
-  const labelCol = project === "bc" ? "main_keyword" : "keyword";
-
   return (
     <div className="overflow-x-auto">
       <table className="text-xs w-full">
         <thead className="bg-surface-2 sticky top-0">
           <tr>
-            <th className="text-left py-2 px-3 text-2xs uppercase tracking-wider text-muted sticky left-0 bg-surface-2 z-10 min-w-[140px]">
-              Keyword
-            </th>
-            <th className="text-left py-2 px-2 text-2xs uppercase tracking-wider text-muted min-w-[120px]">
-              Slug
-            </th>
+            {urlCols.map((col, ci) => (
+              <th
+                key={col.key}
+                className={`text-center py-2 px-2 text-2xs uppercase tracking-wider text-muted ${
+                  ci === 0
+                    ? "sticky left-0 bg-surface-2 z-10 min-w-[140px]"
+                    : "min-w-[80px]"
+                }`}
+              >
+                {col.label}
+              </th>
+            ))}
             {PREVIEW_METRICS.map((m) => (
               <th
                 key={m.key}
                 colSpan={slots.length}
-                className="text-center py-2 px-2 text-2xs uppercase tracking-wider text-muted border-l border-border"
+                className="text-center py-1.5 px-2 text-2xs text-muted border-l border-border"
               >
-                {m.label}
+                <div className="uppercase tracking-wider">{m.label}</div>
+                <div className="text-[10px] text-muted/60 normal-case tracking-normal mt-0.5">
+                  {m.source}
+                </div>
               </th>
             ))}
           </tr>
           <tr className="bg-surface-2">
-            <th className="sticky left-0 bg-surface-2 z-10" />
-            <th />
+            {urlCols.map((col, ci) => (
+              <th
+                key={col.key}
+                className={ci === 0 ? "sticky left-0 bg-surface-2 z-10" : ""}
+              />
+            ))}
             {PREVIEW_METRICS.flatMap((m) =>
               slots.map((s, si) => (
                 <th
@@ -818,18 +837,19 @@ function PreviewTable({ project, output, slots }) {
                 key={i}
                 className={`hover:bg-surface-2/50 ${!hasData ? "opacity-40" : ""}`}
               >
-                <td
-                  className="py-1.5 px-3 sticky left-0 bg-surface z-10 max-w-[140px] truncate text-ink"
-                  title={urlRow[labelCol]}
-                >
-                  {urlRow[labelCol] || "—"}
-                </td>
-                <td
-                  className="py-1.5 px-2 text-muted max-w-[120px] truncate"
-                  title={urlRow.slug}
-                >
-                  {urlRow.slug || "—"}
-                </td>
+                {urlCols.map((col, ci) => (
+                  <td
+                    key={col.key}
+                    className={`py-1.5 px-2 truncate max-w-[160px] ${
+                      ci === 0
+                        ? "sticky left-0 bg-surface z-10 text-ink px-3"
+                        : "text-muted"
+                    }`}
+                    title={urlRow[col.key]}
+                  >
+                    {urlRow[col.key] || "—"}
+                  </td>
+                ))}
                 {PREVIEW_METRICS.flatMap((m) =>
                   metrics[m.key].map((v, si) => (
                     <td
