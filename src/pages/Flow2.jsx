@@ -238,7 +238,7 @@ export default function Flow2() {
     return (
       <div className="max-w-md mx-auto mt-10 card py-10 px-8 flex flex-col items-center text-center border-dashed">
         <Settings size={24} className="text-muted mb-3" strokeWidth={1.5} />
-        <div className="text-sm font-semibold text-ink mb-1">
+        <div className="text-xs font-semibold text-ink mb-1">
           Rolling window not set
         </div>
         <p className="text-xs text-muted mb-4">
@@ -261,17 +261,17 @@ export default function Flow2() {
     <div className="space-y-5">
       {/* What-to-upload guide */}
       <div className="card p-4 space-y-3">
-        <div className="text-base font-semibold text-ink">What to upload</div>
+        <div className="text-xs font-semibold text-ink">What to upload</div>
 
         <div>
-          <p className="text-sm text-muted mb-1.5">Upload fresh each month</p>
+          <p className="text-xs text-muted mb-1.5">Upload fresh each month</p>
           <ul className="space-y-1.5">
             {[
               { label: "GSC Export (All Segments)",  desc: "Site-wide totals, not per-URL" },
               { label: "GA4 Export (All Segments)",  desc: "A single file covering every segment automatically" },
               { label: "Event GA4 Export",           desc: "Click_Contact_Agent event count" },
             ].map((r) => (
-              <li key={r.label} className="flex items-start gap-2 text-sm text-ink">
+              <li key={r.label} className="flex items-start gap-2 text-xs text-ink">
                 <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
                 <span>
                   {r.label}{" "}
@@ -283,16 +283,22 @@ export default function Flow2() {
         </div>
 
         <div>
-          <p className="text-sm text-muted mb-1.5">Reuse from Traffic (Optimized) — no need to upload here</p>
+          <p className="text-xs font-medium text-ink mb-1.5">Reuse from Traffic (Optimized)</p>
           <ul className="space-y-1.5">
-            {["BC GSC Export", "Blog GSC Export", "Blog GA4 Export", "BC GA4 Export"].map(
-              (label) => (
-                <li key={label} className="flex items-start gap-2 text-sm text-ink">
-                  <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-accent" />
-                  <span>{label}</span>
-                </li>
-              ),
-            )}
+            {[
+              "BC GSC Export",
+              "Blog GSC Export",
+              "Blog GA4 Export",
+              "BC GA4 Export",
+            ].map((label) => (
+              <li key={label} className="flex items-start gap-2 text-xs text-ink">
+                <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-accent" />
+                <span>
+                  {label}{" "}
+                  <span className="text-muted">— no need to upload</span>
+                </span>
+              </li>
+            ))}
           </ul>
         </div>
       </div>
@@ -434,7 +440,7 @@ function DropZone({
       ) : (
         <>
           <Upload size={22} className="text-muted mb-3" strokeWidth={1.5} />
-          <div className="text-sm font-semibold text-ink mb-1">
+          <div className="text-xs font-semibold text-ink mb-1">
             {dragging
               ? "Drop files here"
               : "Drag & drop Traffic Overview files"}
@@ -488,7 +494,7 @@ function DetectionLog({ log, onClear }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-ink">Detection Log</h3>
+        <h3 className="text-xs font-semibold text-ink">Detection Log</h3>
         <button onClick={onClear} className="text-xs text-muted hover:text-ink">
           Clear
         </button>
@@ -498,7 +504,7 @@ function DetectionLog({ log, onClear }) {
           <div key={i} className="flex items-start gap-2 text-xs">
             {LOG_ICONS[entry.status]}
             <span
-              className="font-mono text-muted truncate max-w-[200px]"
+              className="text-muted truncate max-w-[200px]"
               title={entry.file}
             >
               {entry.file}
@@ -528,11 +534,10 @@ const SLOT_ROWS_F2 = [
   { id: "gsc_dijual",      source: "BC GSC Export",    segment: "/dijual/",             store: "flow1", prefix: "bc_gsc_dijual" },
   { id: "gsc_disewa",      source: "BC GSC Export",    segment: "/disewa/",             store: "flow1", prefix: "bc_gsc_disewa" },
   { id: "gsc_blog",        source: "Blog GSC Export",  segment: "/articles-all/",       store: "flow1", prefix: "blog_gsc" },
-  { divider: "Organic Google" },
-  { id: "ga4_free",        source: "GA4 Export",       segment: "All Segments",        store: "flow2", prefix: "ga4_free" },
-  { id: "ga4_leads",       source: "Event GA4 Export", segment: "click_contact_agent",  store: "flow2", prefix: "ga4_leads" },
-  { id: "blog_ga4",        source: "Blog GA4 Export",  segment: "/articles-all/",       store: "flow1", prefix: "blog_ga4" },
-  { id: "bc_ga4",          source: "BC GA4 Export",    segment: "dijual + disewa",     store: "flow1", prefix: "bc_ga4" },
+  { id: "ga4_free",        source: "GA4 Export",       segment: "All Segments",        store: "flow2", prefix: "ga4_free",  subtitle: "Organic Google" },
+  { id: "ga4_leads",       source: "Event GA4 Export", segment: "click_contact_agent",  store: "flow2", prefix: "ga4_leads", subtitle: "Organic Google" },
+  { id: "blog_ga4",        source: "Blog GA4 Export",  segment: "/articles-all/",       store: "flow1", prefix: "blog_ga4",  subtitle: "Organic Google" },
+  { id: "bc_ga4",          source: "BC GA4 Export",    segment: "dijual + disewa",     store: "flow1", prefix: "bc_ga4",    subtitle: "Organic Google" },
 ];
 
 function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
@@ -540,10 +545,10 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-heading text-base font-semibold text-ink">
+        <h2 className="text-xs font-semibold text-ink">
           Slot Status
         </h2>
-        <div className="flex items-center gap-4 text-xs font-mono text-muted">
+        <div className="flex items-center gap-4 text-2xs text-muted">
           <span>
             <span className="dot-ok">●</span> filled
           </span>
@@ -553,19 +558,19 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead>
             <tr>
-              <th className="text-left text-xs uppercase tracking-wide text-muted font-medium pb-2 pr-4 w-36">
+              <th className="text-left text-2xs uppercase tracking-wide text-muted font-medium pb-2 pr-4 w-36">
                 Source
               </th>
-              <th className="text-left text-xs uppercase tracking-wide text-muted font-medium pb-2 pr-4 w-32 whitespace-nowrap">
+              <th className="text-left text-2xs uppercase tracking-wide text-muted font-medium pb-2 pr-4 w-32 whitespace-nowrap">
                 Segment
               </th>
               {slots.map((s) => (
                 <th
                   key={s.key}
-                  className="text-center text-xs uppercase tracking-wide text-muted font-medium pb-2 px-2 min-w-[64px]"
+                  className="text-center text-2xs uppercase tracking-wide text-muted font-medium pb-2 px-2 min-w-[64px]"
                 >
                   {s.label}
                 </th>
@@ -574,29 +579,23 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
           </thead>
           <tbody className="divide-y divide-border">
             {SLOT_ROWS_F2.map((row, ri) => {
-              if (row.divider) {
-                return (
-                  <tr key={`divider-${ri}`}>
-                    <td colSpan={slots.length + 2} className="pt-3 pb-1 px-0">
-                      <span className="text-xs font-mono uppercase tracking-wider text-muted/70">
-                        {row.divider}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              }
               const idx = dataRowCount++;
               const storeData = row.store === "flow1" ? flow1Data : flow2Data;
               const canClear = row.store === "flow2";
               return (
                 <tr key={row.id} className={idx % 2 === 1 ? "bg-surface-2/40" : ""}>
-                  <td className="py-2 pr-4 text-ink text-sm">{row.source}</td>
-                  <td className="py-2 pr-4 text-muted text-xs font-mono whitespace-nowrap">{row.segment}</td>
+                  <td className="py-2.5 pr-4">
+                    <div className="text-ink text-xs">{row.source}</div>
+                    {row.subtitle && (
+                      <div className="text-2xs text-muted">{row.subtitle}</div>
+                    )}
+                  </td>
+                  <td className="py-2.5 pr-4 text-muted text-2xs whitespace-nowrap">{row.segment}</td>
                   {slots.map((s) => {
                     const key = `${row.prefix}_${s.key}`;
                     const filled = !!storeData[key];
                     return (
-                      <td key={s.key} className="py-2 px-2 text-center">
+                      <td key={s.key} className="py-2.5 px-2 text-center">
                         <SlotDot
                           filled={filled}
                           onClear={canClear ? () => onClear(key) : null}
@@ -622,7 +621,7 @@ function SlotDot({ filled, onClear }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <span className={`${filled ? "dot-ok" : "dot-empty"} font-mono text-base`}>●</span>
+      <span className={`${filled ? "dot-ok" : "dot-empty"} text-sm`}>●</span>
       {hover && filled && onClear && (
         <button onClick={onClear} className="text-muted hover:text-danger transition-colors">
           <X size={11} strokeWidth={2.5} />
@@ -698,16 +697,16 @@ function SegmentTable({ segId, output, slots }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="text-sm w-full">
+      <table className="text-xs w-full">
         <thead className="bg-surface-2">
           <tr>
-            <th className="text-left py-2.5 px-4 font-mono text-xs uppercase tracking-wider text-muted w-48 sticky left-0 bg-surface-2">
+            <th className="text-left py-2.5 px-4 text-2xs uppercase tracking-wider text-muted w-48 sticky left-0 bg-surface-2">
               Metric
             </th>
             {slots.map((s) => (
               <th
                 key={s.key}
-                className="text-center py-2.5 px-3 font-mono text-xs uppercase tracking-wider text-muted min-w-[90px]"
+                className="text-center py-2.5 px-3 text-2xs uppercase tracking-wider text-muted min-w-[90px]"
               >
                 {s.label}
               </th>
@@ -721,7 +720,7 @@ function SegmentTable({ segId, output, slots }) {
                 key={metric.id}
                 className={`hover:bg-surface-2/50 ${mi % 2 === 1 ? "bg-surface-2/25" : ""}`}
               >
-                <td className="py-2.5 px-4 text-ink text-sm sticky left-0 bg-surface">
+                <td className="py-2.5 px-4 text-ink text-xs sticky left-0 bg-surface">
                   {metric.label}
                 </td>
                 {slots.map((s) => {
@@ -731,7 +730,7 @@ function SegmentTable({ segId, output, slots }) {
                   return (
                     <td
                       key={s.key}
-                      className={`py-2.5 px-3 text-center font-mono text-sm ${hasData ? "text-ink" : "text-empty"}`}
+                      className={`py-2.5 px-3 text-center tabular-nums ${hasData ? "text-ink" : "text-empty"}`}
                     >
                       {hasData ? formatMetricValue(metric.id, val) : "—"}
                     </td>

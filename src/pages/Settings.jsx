@@ -102,12 +102,12 @@ export default function Settings() {
     <div className="space-y-5 max-w-2xl">
       {/* Google Sheets OAuth */}
       <div className="card p-5 space-y-4">
-        <h2 className="font-heading text-base font-semibold text-ink">
+        <h2 className="text-xs font-semibold text-ink">
           Google Sheets Connection
         </h2>
         {oauthToken ? (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-2 text-xs">
               <span
                 className={`w-2 h-2 rounded-full inline-block flex-shrink-0 ${
                   tokenExpired ? "bg-pending" : "bg-ok"
@@ -120,12 +120,12 @@ export default function Settings() {
               </span>
             </div>
             {oauthToken.email && (
-              <div className="text-sm text-muted">
+              <div className="text-xs text-muted">
                 Signed in as <strong className="text-ink">{oauthToken.email}</strong>
               </div>
             )}
             {tokenExpiry && (
-              <div className="text-xs text-muted font-mono">
+              <div className="text-2xs text-muted">
                 Token {tokenExpired ? "expired" : "expires"}: {tokenExpiry}
                 {oauthToken.refresh_token && (
                   <span className="ml-2 text-ok">· refresh token stored</span>
@@ -141,12 +141,12 @@ export default function Settings() {
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-muted">
+            <p className="text-xs text-muted">
               Connect your Google account to push results directly to a Google
               Spreadsheet.
             </p>
             {!clientId && (
-              <div className="p-3 bg-warning/8 border border-warning/30 rounded-lg text-sm text-ink">
+              <div className="p-3 bg-warning/8 border border-warning/30 rounded-lg text-xs text-ink">
                 <strong>VITE_GOOGLE_CLIENT_ID</strong> not set — add it to your{" "}
                 <code className="font-mono text-xs bg-surface-2 px-1 py-0.5 rounded">.env</code> file first.
               </div>
@@ -182,7 +182,7 @@ export default function Settings() {
 
       {/* Report Spreadsheet URL */}
       <div className="card p-5 space-y-4">
-        <h2 className="font-heading text-base font-semibold text-ink">
+        <h2 className="text-xs font-semibold text-ink">
           Report Spreadsheet URL
         </h2>
         <p className="text-sm text-muted">
@@ -201,7 +201,7 @@ export default function Settings() {
           </button>
         </form>
         {sheetsUrl && (
-          <div className="text-xs text-ok flex items-center gap-1 font-mono">
+          <div className="text-xs text-ok flex items-center gap-1">
             <span className="dot-ok">●</span> Saved
           </div>
         )}
@@ -209,7 +209,7 @@ export default function Settings() {
 
       {/* Report Sheet Tabs */}
       <div className="card p-5 space-y-4">
-        <h2 className="font-heading text-base font-semibold text-ink">
+        <h2 className="text-xs font-semibold text-ink">
           Report Sheet Tabs
         </h2>
         <p className="text-sm text-muted">
@@ -217,7 +217,7 @@ export default function Settings() {
           they don't exist yet.
         </p>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+          <table className="w-full text-xs" style={{ tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: "38%" }} />
               <col style={{ width: "31%" }} />
@@ -273,10 +273,10 @@ export default function Settings() {
       {/* Traffic (Optimized) Rolling Window */}
       <div className="card p-5 space-y-4">
         <div>
-          <h2 className="font-heading text-base font-semibold text-ink">
+          <h2 className="text-xs font-semibold text-ink">
             Traffic (Optimized) — Rolling Window
           </h2>
-          <p className="text-sm text-muted mt-1">
+          <p className="text-xs text-muted mt-1">
             Set the first month of the 6-month window for Traffic Import.
           </p>
         </div>
@@ -301,10 +301,10 @@ export default function Settings() {
       {/* Traffic Overview Rolling Window */}
       <div className="card p-5 space-y-4">
         <div>
-          <h2 className="font-heading text-base font-semibold text-ink">
+          <h2 className="text-xs font-semibold text-ink">
             Traffic Overview — Rolling Window
           </h2>
-          <p className="text-sm text-muted mt-1">
+          <p className="text-xs text-muted mt-1">
             Set the first month of the 6-month window for Traffic Overview.
           </p>
         </div>
@@ -329,10 +329,10 @@ export default function Settings() {
       {/* Data Management */}
       <div className="card p-5 space-y-4">
         <div>
-          <h2 className="font-heading text-base font-semibold text-ink">
+          <h2 className="text-xs font-semibold text-ink">
             Data Management
           </h2>
-          <p className="text-sm text-muted mt-1">
+          <p className="text-xs text-muted mt-1">
             Clear imported data from localStorage. This cannot be undone.
           </p>
         </div>
@@ -373,7 +373,7 @@ function SlotPreview({ window, count }) {
       {slots.map((s, i) => (
         <span
           key={s.key}
-          className={`px-2.5 py-1 rounded-full text-xs font-mono ${
+          className={`px-2.5 py-1 rounded-full text-xs ${
             i === 0
               ? "bg-accent-subtle text-accent border border-accent/20"
               : "bg-surface-2 text-muted border border-border"

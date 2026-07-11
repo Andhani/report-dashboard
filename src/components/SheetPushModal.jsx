@@ -21,7 +21,7 @@ export default function SheetPushModal({ sheetsUrl, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h3 className="font-heading text-base font-semibold text-ink">Report pushed</h3>
+          <h3 className="text-xs font-semibold text-ink">Report pushed</h3>
           <button
             onClick={onClose}
             className="text-muted hover:text-ink transition-colors"
@@ -31,7 +31,7 @@ export default function SheetPushModal({ sheetsUrl, onClose }) {
           </button>
         </div>
 
-        <p className="text-sm text-muted">Report pushed to Google Sheets.</p>
+        <p className="text-xs text-muted">Report pushed to Google Sheets.</p>
 
         <div className="flex flex-wrap gap-2 pt-1">
           <button

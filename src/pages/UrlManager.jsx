@@ -253,7 +253,7 @@ export default function UrlManager() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${
                 activeTab === tab.id
                   ? "bg-surface text-ink shadow-card"
                   : "text-muted hover:text-ink"
@@ -261,7 +261,7 @@ export default function UrlManager() {
             >
               {tab.label}
               <span
-                className={`ml-1.5 text-[10px] ${activeTab === tab.id ? "text-stone-400" : "text-stone-400"}`}
+                className="ml-1.5 text-[10px] text-muted"
               >
                 {count}
               </span>
@@ -277,20 +277,20 @@ export default function UrlManager() {
           <div className="inline-flex bg-surface-2 rounded-btn p-0.5">
             <button
               onClick={() => setImportMode("sheets")}
-              className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${importMode === "sheets" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
+              className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${importMode === "sheets" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
             >
               🔗 From Sheets
             </button>
             <button
               onClick={() => setImportMode("csv")}
-              className={`px-3 py-1.5 rounded-btn text-sm font-medium transition-colors ${importMode === "csv" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
+              className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${importMode === "csv" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
             >
               📂 Upload CSV
             </button>
           </div>
           {/* Replace/Append dropdown */}
           <select
-            className="text-sm border border-border rounded-btn px-2 py-1.5 bg-surface text-ink hover:border-border focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="text-xs border border-border rounded-btn px-2 py-1.5 bg-surface text-ink hover:border-border focus:outline-none focus:ring-2 focus:ring-accent/20"
             value={replaceMode}
             onChange={(e) => setReplaceMode(e.target.value)}
           >
@@ -302,7 +302,7 @@ export default function UrlManager() {
           {urls.length > 0 && (
             <button
               onClick={handleExportCSV}
-              className="btn-ghost text-gray-500"
+              className="btn-ghost text-muted"
             >
               ⬇ Export CSV
             </button>
@@ -312,7 +312,7 @@ export default function UrlManager() {
           </button>
           {urls.length > 0 && (
             <>
-              <span className="text-sm text-gray-500">{urls.length} rows</span>
+              <span className="text-2xs text-muted">{urls.length} rows</span>
               <button
                 onClick={handleClearAll}
                 className="btn-ghost text-danger hover:bg-danger/5"
@@ -330,7 +330,7 @@ export default function UrlManager() {
           <div className="flex gap-2">
             <input
               type="url"
-              className="input flex-1 text-sm"
+              className="input flex-1"
               placeholder="https://docs.google.com/spreadsheets/d/...#gid=..."
               value={importSheetUrl}
               onChange={(e) => {
@@ -346,7 +346,7 @@ export default function UrlManager() {
               {sheetLoading ? "Loading…" : "Import"}
             </button>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted">
             Paste the link to the exact tab (its <code>gid</code> is detected
             automatically). The sheet must be shared with{" "}
             <strong>"Anyone with the link can view"</strong> access.
@@ -372,7 +372,7 @@ export default function UrlManager() {
               "Choose CSV file"
             )}
           </button>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-muted">
             Select a .csv file from your computer to import.
           </span>
           <input
@@ -429,7 +429,7 @@ function UrlTable({ rows, cols, onUpdate, onDelete, startIndex = 0 }) {
 
   return (
     <div className="card overflow-x-auto">
-      <table className="text-sm w-full">
+      <table className="text-xs w-full">
         <thead className="bg-surface-2 border-b border-border sticky top-0 z-10">
           <tr>
             <th className="text-left py-3 px-3 text-muted font-medium w-8">
@@ -532,7 +532,7 @@ function TableRow({
 function ReadOnlyCell({ value }) {
   return (
     <span
-      className="text-sm text-ink truncate block max-w-[200px]"
+      className="text-xs text-ink truncate block max-w-[200px]"
       title={value || undefined}
     >
       {value || <span className="text-muted">—</span>}
@@ -554,7 +554,7 @@ function CellInput({ col, value, onChange }) {
   if (col.type === "readonly") {
     return (
       <span
-        className="text-xs text-muted font-mono truncate block max-w-[180px]"
+        className="text-2xs text-muted truncate block max-w-[180px]"
         title={value}
       >
         {value || "—"}
@@ -601,7 +601,7 @@ function CellInput({ col, value, onChange }) {
 
 function EmptyState({ type, onAdd }) {
   return (
-    <div className="border-2 border-dashed border-stone-200 rounded-card py-12 px-8 flex flex-col items-center text-center">
+    <div className="border-2 border-dashed border-border rounded-card py-12 px-8 flex flex-col items-center text-center">
       <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center text-accent mb-4">
         <svg
           className="w-5 h-5"
@@ -617,10 +617,10 @@ function EmptyState({ type, onAdd }) {
           />
         </svg>
       </div>
-      <div className="text-sm font-semibold text-stone-800 mb-1">
+      <div className="text-xs font-semibold text-ink mb-1">
         No {type.toUpperCase()} URLs yet
       </div>
-      <div className="text-xs text-stone-500 mb-4">
+      <div className="text-2xs text-muted mb-4">
         Add rows manually, import a CSV, or pull from a Google Sheet.
       </div>
       <button onClick={onAdd} className="btn-primary">

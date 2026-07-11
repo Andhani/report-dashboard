@@ -394,7 +394,7 @@ function GatingState({ Icon, title, desc, to, btnLabel }) {
   return (
     <div className="max-w-md mx-auto mt-10 card py-10 px-8 flex flex-col items-center text-center border-dashed">
       <Icon size={24} className="text-muted mb-3" strokeWidth={1.5} />
-      <div className="text-sm font-semibold text-ink mb-1">{title}</div>
+      <div className="text-xs font-semibold text-ink mb-1">{title}</div>
       <p className="text-xs text-muted mb-4">{desc}</p>
       <Link to={to} className="btn-primary">
         {btnLabel}
@@ -414,14 +414,14 @@ function UploadGuide() {
   ];
   return (
     <div className="card p-4">
-      <div className="text-base font-semibold text-ink mb-1">What to upload</div>
-      <p className="text-sm text-muted mb-2">
+      <div className="text-xs font-semibold text-ink mb-1">What to upload</div>
+      <p className="text-xs text-muted mb-2">
         Upload either the original export file or a sheet URL. Just drop the
         file as-is, it auto-detects the right sheet.
       </p>
       <ul className="space-y-1.5">
         {rows.map((r) => (
-          <li key={r.label} className="flex items-start gap-2 text-sm text-ink">
+          <li key={r.label} className="flex items-start gap-2 text-xs text-ink">
             <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
             <span>
               {r.label}{" "}
@@ -466,7 +466,7 @@ function DropZone({
       ) : (
         <>
           <Upload size={22} className="text-muted mb-3" strokeWidth={1.5} />
-          <div className="text-sm font-semibold text-ink mb-1">
+          <div className="text-xs font-semibold text-ink mb-1">
             {dragging ? "Drop files here" : "Drag & drop .xlsx files"}
           </div>
           <div className="text-xs text-muted mb-4">
@@ -492,7 +492,7 @@ function DetectionLog({ log, onClear }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-ink">Detection Log</h3>
+        <h3 className="text-xs font-semibold text-ink">Detection Log</h3>
         <button
           onClick={onClear}
           className="text-xs text-muted hover:text-ink"
@@ -505,7 +505,7 @@ function DetectionLog({ log, onClear }) {
           <div key={i} className="flex items-start gap-2 text-xs">
             {LOG_ICONS[entry.status]}
             <span
-              className="font-mono text-muted truncate max-w-[200px]"
+              className="text-muted truncate max-w-[200px]"
               title={entry.file}
             >
               {entry.file}
@@ -542,26 +542,26 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-heading text-base font-semibold text-ink">Slot Status</h2>
-        <div className="flex items-center gap-4 text-xs font-mono text-muted">
+        <h2 className="text-xs font-semibold text-ink">Slot Status</h2>
+        <div className="flex items-center gap-4 text-2xs text-muted">
           <span><span className="dot-ok">●</span> filled</span>
           <span><span className="dot-empty">●</span> empty</span>
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead>
             <tr>
-              <th className="text-left text-xs uppercase tracking-wide text-muted font-medium pb-2 pr-4 w-36">
+              <th className="text-left text-2xs uppercase tracking-wide text-muted font-medium pb-2 pr-4 w-36">
                 Source
               </th>
-              <th className="text-left text-xs uppercase tracking-wide text-muted font-medium pb-2 pr-4 whitespace-nowrap">
+              <th className="text-left text-2xs uppercase tracking-wide text-muted font-medium pb-2 pr-4 whitespace-nowrap">
                 Segment
               </th>
               {slots.map((s) => (
                 <th
                   key={s.key}
-                  className="text-center text-xs uppercase tracking-wide text-muted font-medium pb-2 px-3 min-w-[76px]"
+                  className="text-center text-2xs uppercase tracking-wide text-muted font-medium pb-2 px-3 min-w-[76px]"
                 >
                   {s.label}
                 </th>
@@ -572,12 +572,12 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
             {SLOT_ROWS.map((row, ri) => (
               <tr key={row.id} className={ri % 2 === 1 ? "bg-surface-2/40" : ""}>
                 <td className="py-2.5 pr-4">
-                  <div className="text-ink text-sm">{row.source}</div>
+                  <div className="text-ink text-xs">{row.source}</div>
                   {row.subtitle && (
-                    <div className="text-xs text-muted">{row.subtitle}</div>
+                    <div className="text-2xs text-muted">{row.subtitle}</div>
                   )}
                 </td>
-                <td className="py-2.5 pr-4 text-xs text-muted font-mono whitespace-nowrap">{row.segment}</td>
+                <td className="py-2.5 pr-4 text-2xs text-muted whitespace-nowrap">{row.segment}</td>
                   {slots.map((s) => {
                     const st = slotStatus(row.id, s.key);
                     return (
@@ -617,7 +617,7 @@ function SlotCell({ status, tooltip, rowId, slotKey, flow1Data, onClear }) {
       onMouseLeave={() => setHover(false)}
       title={tooltip}
     >
-      <span className={`dot-${status} font-mono text-base`}>●</span>
+      <span className={`dot-${status} text-sm`}>●</span>
       {hover && status !== "empty" && (
         <button
           onClick={handleClear}
@@ -709,7 +709,7 @@ function PreviewSection({
               </button>
             ))}
           </div>
-          <span className="text-xs text-muted font-mono">
+          <span className="text-2xs text-muted">
             {matchCount}/{urlList.length} matched
           </span>
         </div>
@@ -764,7 +764,7 @@ const PREVIEW_METRICS = [
 function PreviewTable({ project, output, slots }) {
   if (output.length === 0) {
     return (
-      <div className="p-8 text-center text-sm text-muted">No URLs in list</div>
+      <div className="p-8 text-center text-xs text-muted">No URLs in list</div>
     );
   }
 
@@ -775,17 +775,17 @@ function PreviewTable({ project, output, slots }) {
       <table className="text-xs w-full">
         <thead className="bg-surface-2 sticky top-0">
           <tr>
-            <th className="text-left py-2 px-3 font-mono text-2xs uppercase tracking-wider text-muted sticky left-0 bg-surface-2 z-10 min-w-[140px]">
+            <th className="text-left py-2 px-3 text-2xs uppercase tracking-wider text-muted sticky left-0 bg-surface-2 z-10 min-w-[140px]">
               Keyword
             </th>
-            <th className="text-left py-2 px-2 font-mono text-2xs uppercase tracking-wider text-muted min-w-[120px]">
+            <th className="text-left py-2 px-2 text-2xs uppercase tracking-wider text-muted min-w-[120px]">
               Slug
             </th>
             {PREVIEW_METRICS.map((m) => (
               <th
                 key={m.key}
                 colSpan={slots.length}
-                className="text-center py-2 px-2 font-mono text-2xs uppercase tracking-wider text-muted border-l border-border"
+                className="text-center py-2 px-2 text-2xs uppercase tracking-wider text-muted border-l border-border"
               >
                 {m.label}
               </th>
@@ -798,7 +798,7 @@ function PreviewTable({ project, output, slots }) {
               slots.map((s, si) => (
                 <th
                   key={`${m.key}_${s.key}`}
-                  className={`text-center py-1 px-1.5 font-mono text-2xs text-muted border-l ${
+                  className={`text-center py-1 px-1.5 text-2xs text-muted border-l ${
                     si === 0 ? "border-border" : "border-border/50"
                   }`}
                 >
@@ -825,7 +825,7 @@ function PreviewTable({ project, output, slots }) {
                   {urlRow[labelCol] || "—"}
                 </td>
                 <td
-                  className="py-1.5 px-2 font-mono text-muted max-w-[120px] truncate"
+                  className="py-1.5 px-2 text-muted max-w-[120px] truncate"
                   title={urlRow.slug}
                 >
                   {urlRow.slug || "—"}
@@ -834,7 +834,7 @@ function PreviewTable({ project, output, slots }) {
                   metrics[m.key].map((v, si) => (
                     <td
                       key={`${m.key}_${si}`}
-                      className={`py-1.5 px-1.5 text-center font-mono ${m.dim ? "text-muted" : "text-ink"} border-l ${
+                      className={`py-1.5 px-1.5 text-center tabular-nums ${m.dim ? "text-muted" : "text-ink"} border-l ${
                         si === 0 ? "border-border" : "border-border/50"
                       }`}
                     >

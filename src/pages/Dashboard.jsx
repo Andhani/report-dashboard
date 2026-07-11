@@ -84,11 +84,11 @@ export default function Dashboard() {
                   className="text-muted flex-shrink-0"
                   strokeWidth={1.75}
                 />
-                <h3 className="font-heading text-base font-semibold text-ink leading-tight">
+                <h3 className="text-xs font-semibold text-ink leading-tight">
                   {card.title}
                 </h3>
               </div>
-              <p className="text-sm text-muted leading-snug flex-1">
+              <p className="text-xs text-muted leading-snug flex-1">
                 {card.description}
               </p>
               <div>
@@ -133,8 +133,8 @@ export default function Dashboard() {
             strokeWidth={1.75}
           />
           <div className="min-w-0">
-            <div className="font-medium text-sm text-ink">URL Lists</div>
-            <div className="text-xs text-muted truncate">
+            <div className="font-medium text-xs text-ink">URL Lists</div>
+            <div className="text-2xs text-muted truncate">
               {bcUrls.length} BC · {blogUrls.length} Blog URLs stored
             </div>
           </div>
@@ -149,8 +149,8 @@ export default function Dashboard() {
             strokeWidth={1.75}
           />
           <div className="min-w-0">
-            <div className="font-medium text-sm text-ink">Settings</div>
-            <div className="text-xs text-muted truncate">
+            <div className="font-medium text-xs text-ink">Settings</div>
+            <div className="text-2xs text-muted truncate">
               OAuth, rolling window, Sheets URL
             </div>
           </div>
@@ -179,13 +179,13 @@ function SetupStatus({ bcUrls, blogUrls, flow1Window, flow2Window }) {
           className="text-warning flex-shrink-0"
           strokeWidth={2}
         />
-        <span className="text-sm font-medium text-ink mr-2">Setup needed</span>
+        <span className="text-xs font-medium text-ink mr-2">Setup needed</span>
         <div className="flex flex-wrap gap-x-4 gap-y-1">
           {steps.map((step) => (
             <Link
               key={step.label}
               to={step.link}
-              className="flex items-center gap-1.5 text-xs font-mono"
+              className="flex items-center gap-1.5 text-xs"
             >
               <span className={step.done ? "dot-ok" : "dot-empty"}>●</span>
               <span
@@ -265,24 +265,24 @@ function SlotGrid({ title, slots, data, extraData, type }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-heading text-base font-semibold text-ink">{title}</h2>
-        <div className="flex items-center gap-4 text-xs font-mono text-muted">
+        <h2 className="text-xs font-semibold text-ink">{title}</h2>
+        <div className="flex items-center gap-4 text-2xs text-muted">
           <span><span className="dot-ok">●</span> filled</span>
           <span><span className="dot-pending">●</span> partial</span>
           <span><span className="dot-empty">●</span> empty</span>
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead>
             <tr>
-              <th className="text-left text-muted font-medium text-xs uppercase tracking-wide pb-2 pr-4 w-40">
+              <th className="text-left text-muted font-medium text-2xs uppercase tracking-wide pb-2 pr-4 w-40">
                 Source
               </th>
               {slots.map((s) => (
                 <th
                   key={s.key}
-                  className="text-center text-muted font-medium text-xs uppercase tracking-wide pb-2 px-2 min-w-[64px]"
+                  className="text-center text-muted font-medium text-2xs uppercase tracking-wide pb-2 px-2 min-w-[64px]"
                 >
                   {s.label}
                 </th>
@@ -295,7 +295,7 @@ function SlotGrid({ title, slots, data, extraData, type }) {
                 key={row.label}
                 className={ri % 2 === 1 ? "bg-surface-2/40" : ""}
               >
-                <td className="py-2 pr-4 text-sm text-ink font-medium">
+                <td className="py-2 pr-4 text-xs text-ink font-medium">
                   {row.label}
                 </td>
                 {slots.map((s) => {
@@ -303,7 +303,7 @@ function SlotGrid({ title, slots, data, extraData, type }) {
                   return (
                     <td
                       key={s.key}
-                      className="py-2 px-2 text-center font-mono text-base"
+                      className="py-2 px-2 text-center text-sm"
                     >
                       <span className={`dot-${st}`}>●</span>
                     </td>
