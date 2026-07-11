@@ -249,45 +249,28 @@ function BCSection({ block }) {
         <span className="text-xs font-semibold text-ink">{monthLabel}</span>
         <span className="text-2xs text-muted">GA4</span>
       </div>
-      <table className="w-full text-xs border-collapse">
-        <thead>
-          <tr>
-            <td colSpan={2} className="pb-2 w-1/2">
-              <div className="text-2xs uppercase tracking-wider text-muted">Traffic Summary</div>
-              <div className="text-2xs text-muted mt-0.5">{count} URLs (bottom content)</div>
-            </td>
-            <td colSpan={2} className="pb-2 w-1/2 pl-6">
-              <div className="text-2xs uppercase tracking-wider text-muted">Estimated Leads</div>
-            </td>
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="border-b border-border">
-            <td className="py-1.5 text-muted">Views</td>
-            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(traffic.views)}</td>
-            <td className="py-1.5 pl-6 text-muted">Views-based</td>
-            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(estimated.views)}</td>
-          </tr>
-          <tr className="border-b border-border">
-            <td className="py-1.5 text-muted">Active Users</td>
-            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(traffic.users)}</td>
-            <td className="py-1.5 pl-6 text-muted">Users-based</td>
-            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(estimated.users)}</td>
-          </tr>
-          <tr className="border-b border-border">
-            <td className="py-1.5 text-muted">Sessions</td>
-            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(traffic.sessions)}</td>
-            <td className="py-1.5 pl-6 text-muted">Sessions-based</td>
-            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(estimated.sessions)}</td>
-          </tr>
-          <tr>
-            <td className="py-1.5 text-muted">Avg AET</td>
-            <td className="py-1.5 text-right tabular-nums font-medium text-ink">{fmtAET(traffic.aet_seconds)}</td>
-            <td className="py-1.5 pl-6"></td>
-            <td className="py-1.5"></td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="grid grid-cols-2 gap-x-6 text-xs">
+        {/* Headers */}
+        <div className="pb-2">
+          <div className="text-2xs uppercase tracking-wider text-muted">Traffic Summary</div>
+          <div className="text-2xs text-muted mt-0.5">{count} URLs (bottom content)</div>
+        </div>
+        <div className="pb-2">
+          <div className="text-2xs uppercase tracking-wider text-muted">Estimated Leads</div>
+        </div>
+        {/* Views */}
+        <SplitRow label="Views" value={fmtNum(traffic.views)} />
+        <SplitRow label="Views-based" value={fmtEst(estimated.views)} highlight />
+        {/* Users */}
+        <SplitRow label="Active Users" value={fmtNum(traffic.users)} />
+        <SplitRow label="Users-based" value={fmtEst(estimated.users)} highlight />
+        {/* Sessions */}
+        <SplitRow label="Sessions" value={fmtNum(traffic.sessions)} />
+        <SplitRow label="Sessions-based" value={fmtEst(estimated.sessions)} highlight />
+        {/* Avg AET — no right counterpart */}
+        <SplitRow label="Avg AET" value={fmtAET(traffic.aet_seconds)} last />
+        <div className="py-1.5" />
+      </div>
     </div>
   );
 }
@@ -303,79 +286,59 @@ function BlogSection({ block }) {
         <span className="text-xs font-semibold text-ink">{monthLabel}</span>
         <span className="text-2xs text-muted">GA4</span>
       </div>
-      <table className="w-full text-xs border-collapse">
-        <tbody>
-          <tr>
-            <td colSpan={2} className="pb-1.5 w-1/2">
-              <div className="text-2xs uppercase tracking-wider text-muted">Create ({creates.count})</div>
-            </td>
-            <td colSpan={2} className="pb-1.5 w-1/2 pl-6">
-              <div className="text-2xs uppercase tracking-wider text-muted">Estimated Leads (Create)</div>
-            </td>
-          </tr>
-          <tr className="border-b border-border">
-            <td className="py-1.5 text-muted">Views</td>
-            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(creates.traffic.views)}</td>
-            <td className="py-1.5 pl-6 text-muted">Views-based</td>
-            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(creates.estimated.views)}</td>
-          </tr>
-          <tr className="border-b border-border">
-            <td className="py-1.5 text-muted">Users</td>
-            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(creates.traffic.users)}</td>
-            <td className="py-1.5 pl-6 text-muted">Users-based</td>
-            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(creates.estimated.users)}</td>
-          </tr>
-          <tr className="border-b border-border">
-            <td className="py-1.5 text-muted">Sessions</td>
-            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(creates.traffic.sessions)}</td>
-            <td className="py-1.5 pl-6 text-muted">Sessions-based</td>
-            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(creates.estimated.sessions)}</td>
-          </tr>
-          <tr className="border-b border-border">
-            <td className="py-1.5 text-muted">Avg AET</td>
-            <td className="py-1.5 text-right tabular-nums font-medium text-ink">{fmtAET(creates.traffic.aet_seconds)}</td>
-            <td className="py-1.5 pl-6"></td>
-            <td className="py-1.5"></td>
-          </tr>
-          <tr>
-            <td colSpan={2} className="pt-4 pb-1.5 w-1/2">
-              <div className="text-2xs uppercase tracking-wider text-muted">Update ({updates.count})</div>
-            </td>
-            <td colSpan={2} className="pt-4 pb-1.5 w-1/2 pl-6">
-              <div className="text-2xs uppercase tracking-wider text-muted">Estimated Leads (Update)</div>
-            </td>
-          </tr>
-          <tr className="border-b border-border">
-            <td className="py-1.5 text-muted">Views</td>
-            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(updates.traffic.views)}</td>
-            <td className="py-1.5 pl-6 text-muted">Views-based</td>
-            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(updates.estimated.views)}</td>
-          </tr>
-          <tr className="border-b border-border">
-            <td className="py-1.5 text-muted">Users</td>
-            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(updates.traffic.users)}</td>
-            <td className="py-1.5 pl-6 text-muted">Users-based</td>
-            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(updates.estimated.users)}</td>
-          </tr>
-          <tr className="border-b border-border">
-            <td className="py-1.5 text-muted">Sessions</td>
-            <td className="py-1.5 text-right tabular-nums text-ink">{fmtNum(updates.traffic.sessions)}</td>
-            <td className="py-1.5 pl-6 text-muted">Sessions-based</td>
-            <td className="py-1.5 text-right tabular-nums text-ok">{fmtEst(updates.estimated.sessions)}</td>
-          </tr>
-          <tr>
-            <td className="py-1.5 text-muted">Avg AET</td>
-            <td className="py-1.5 text-right tabular-nums font-medium text-ink">{fmtAET(updates.traffic.aet_seconds)}</td>
-            <td className="py-1.5 pl-6"></td>
-            <td className="py-1.5"></td>
-          </tr>
-          <tr>
-            <td colSpan={4} className="pt-3 border-t border-border">
-              <div className="text-2xs text-muted">Grand Total: {grandTotal.count} URLs</div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="grid grid-cols-2 gap-x-6 text-xs">
+        {/* Create headers */}
+        <div className="pb-1.5">
+          <div className="text-2xs uppercase tracking-wider text-muted">Create ({creates.count})</div>
+        </div>
+        <div className="pb-1.5">
+          <div className="text-2xs uppercase tracking-wider text-muted">Estimated Leads (Create)</div>
+        </div>
+        {/* Create rows */}
+        <SplitRow label="Views" value={fmtNum(creates.traffic.views)} />
+        <SplitRow label="Views-based" value={fmtEst(creates.estimated.views)} highlight />
+        <SplitRow label="Users" value={fmtNum(creates.traffic.users)} />
+        <SplitRow label="Users-based" value={fmtEst(creates.estimated.users)} highlight />
+        <SplitRow label="Sessions" value={fmtNum(creates.traffic.sessions)} />
+        <SplitRow label="Sessions-based" value={fmtEst(creates.estimated.sessions)} highlight />
+        <SplitRow label="Avg AET" value={fmtAET(creates.traffic.aet_seconds)} last />
+        <div className="py-1.5" />
+        {/* Update headers */}
+        <div className="pt-4 pb-1.5">
+          <div className="text-2xs uppercase tracking-wider text-muted">Update ({updates.count})</div>
+        </div>
+        <div className="pt-4 pb-1.5">
+          <div className="text-2xs uppercase tracking-wider text-muted">Estimated Leads (Update)</div>
+        </div>
+        {/* Update rows */}
+        <SplitRow label="Views" value={fmtNum(updates.traffic.views)} />
+        <SplitRow label="Views-based" value={fmtEst(updates.estimated.views)} highlight />
+        <SplitRow label="Users" value={fmtNum(updates.traffic.users)} />
+        <SplitRow label="Users-based" value={fmtEst(updates.estimated.users)} highlight />
+        <SplitRow label="Sessions" value={fmtNum(updates.traffic.sessions)} />
+        <SplitRow label="Sessions-based" value={fmtEst(updates.estimated.sessions)} highlight />
+        <SplitRow label="Avg AET" value={fmtAET(updates.traffic.aet_seconds)} last />
+        <div className="py-1.5" />
+        {/* Grand total */}
+        <div className="col-span-2 pt-3 border-t border-border">
+          <div className="text-2xs text-muted">Grand Total: {grandTotal.count} URLs</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Shared UI helpers ────────────────────────────────────────────────────────
+
+function SplitRow({ label, value, highlight, last }) {
+  return (
+    <div
+      className={`flex items-center justify-between py-1.5 ${last ? "" : "border-b border-border"}`}
+    >
+      <span className="text-muted">{label}</span>
+      <span className={`tabular-nums font-medium ${highlight ? "text-ok" : "text-ink"}`}>
+        {value}
+      </span>
     </div>
   );
 }
