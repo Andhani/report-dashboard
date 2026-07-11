@@ -528,11 +528,10 @@ const SLOT_ROWS_F2 = [
   { id: "gsc_dijual",      source: "BC GSC Export",    segment: "/dijual/",             store: "flow1", prefix: "bc_gsc_dijual" },
   { id: "gsc_disewa",      source: "BC GSC Export",    segment: "/disewa/",             store: "flow1", prefix: "bc_gsc_disewa" },
   { id: "gsc_blog",        source: "Blog GSC Export",  segment: "/articles-all/",       store: "flow1", prefix: "blog_gsc" },
-  { divider: "Organic Google" },
-  { id: "ga4_free",        source: "GA4 Export",       segment: "All Segments",        store: "flow2", prefix: "ga4_free" },
-  { id: "ga4_leads",       source: "Event GA4 Export", segment: "click_contact_agent",  store: "flow2", prefix: "ga4_leads" },
-  { id: "blog_ga4",        source: "Blog GA4 Export",  segment: "/articles-all/",       store: "flow1", prefix: "blog_ga4" },
-  { id: "bc_ga4",          source: "BC GA4 Export",    segment: "dijual + disewa",     store: "flow1", prefix: "bc_ga4" },
+  { id: "ga4_free",        source: "GA4 Export",       segment: "All Segments",        store: "flow2", prefix: "ga4_free",  subtitle: "Organic Google" },
+  { id: "ga4_leads",       source: "Event GA4 Export", segment: "click_contact_agent",  store: "flow2", prefix: "ga4_leads", subtitle: "Organic Google" },
+  { id: "blog_ga4",        source: "Blog GA4 Export",  segment: "/articles-all/",       store: "flow1", prefix: "blog_ga4",  subtitle: "Organic Google" },
+  { id: "bc_ga4",          source: "BC GA4 Export",    segment: "dijual + disewa",     store: "flow1", prefix: "bc_ga4",    subtitle: "Organic Google" },
 ];
 
 function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
@@ -574,29 +573,23 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
           </thead>
           <tbody className="divide-y divide-border">
             {SLOT_ROWS_F2.map((row, ri) => {
-              if (row.divider) {
-                return (
-                  <tr key={`divider-${ri}`}>
-                    <td colSpan={slots.length + 2} className="pt-3 pb-1 px-0">
-                      <span className="text-2xs uppercase tracking-wider text-muted/70">
-                        {row.divider}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              }
               const idx = dataRowCount++;
               const storeData = row.store === "flow1" ? flow1Data : flow2Data;
               const canClear = row.store === "flow2";
               return (
                 <tr key={row.id} className={idx % 2 === 1 ? "bg-surface-2/40" : ""}>
-                  <td className="py-2 pr-4 text-ink text-xs">{row.source}</td>
-                  <td className="py-2 pr-4 text-muted text-2xs whitespace-nowrap">{row.segment}</td>
+                  <td className="py-2.5 pr-4">
+                    <div className="text-ink text-xs">{row.source}</div>
+                    {row.subtitle && (
+                      <div className="text-2xs text-muted">{row.subtitle}</div>
+                    )}
+                  </td>
+                  <td className="py-2.5 pr-4 text-muted text-2xs whitespace-nowrap">{row.segment}</td>
                   {slots.map((s) => {
                     const key = `${row.prefix}_${s.key}`;
                     const filled = !!storeData[key];
                     return (
-                      <td key={s.key} className="py-2 px-2 text-center">
+                      <td key={s.key} className="py-2.5 px-2 text-center">
                         <SlotDot
                           filled={filled}
                           onClear={canClear ? () => onClear(key) : null}
