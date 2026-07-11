@@ -283,16 +283,22 @@ export default function Flow2() {
         </div>
 
         <div>
-          <p className="text-xs text-muted mb-1.5">Reuse from Traffic (Optimized) — no need to upload here</p>
+          <p className="text-xs font-medium text-ink mb-1.5">Reuse from Traffic (Optimized)</p>
           <ul className="space-y-1.5">
-            {["BC GSC Export", "Blog GSC Export", "Blog GA4 Export", "BC GA4 Export"].map(
-              (label) => (
-                <li key={label} className="flex items-start gap-2 text-xs text-ink">
-                  <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-accent" />
-                  <span>{label}</span>
-                </li>
-              ),
-            )}
+            {[
+              "BC GSC Export",
+              "Blog GSC Export",
+              "Blog GA4 Export",
+              "BC GA4 Export",
+            ].map((label) => (
+              <li key={label} className="flex items-start gap-2 text-xs text-ink">
+                <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-accent" />
+                <span>
+                  {label}{" "}
+                  <span className="text-muted">— no need to upload</span>
+                </span>
+              </li>
+            ))}
           </ul>
         </div>
       </div>
