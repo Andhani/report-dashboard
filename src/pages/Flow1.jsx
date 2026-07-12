@@ -73,11 +73,11 @@ export default function Flow1() {
   const [log, setLog] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [previewTab, setPreviewTab] = useState("bc");
+  const [previewTab, setPreviewTab] = useStorage("flow1_preview_tab", "bc");
   const [pushStatus, setPushStatus] = useState({});
   const [pushModal, setPushModal] = useState(false);
-  const [importMode, setImportMode] = useState("sheets");
-  const [sheetUrl, setSheetUrl] = useState("");
+  const [importMode, setImportMode] = useStorage("flow1_import_mode", "sheets");
+  const [sheetUrl, setSheetUrl] = useStorage("flow1_sheet_url", "");
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState(null);
   const fileRef = useRef();
