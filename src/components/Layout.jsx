@@ -100,7 +100,7 @@ export default function Layout() {
       {sidebarOpen && (
       <aside className="w-[220px] bg-bg border-r border-border flex flex-col flex-shrink-0">
         {/* Logo */}
-        <div className="px-5 h-[60px] flex items-center justify-between border-b border-border">
+        <div className="px-5 h-[60px] flex items-center border-b border-border">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-7 h-7 bg-accent rounded-md flex items-center justify-center text-[10px] font-bold text-white tracking-tight flex-shrink-0">
               RD
@@ -112,13 +112,6 @@ export default function Layout() {
               <div className="text-[11px] text-muted truncate">BC & Blog SEO</div>
             </div>
           </div>
-          <button
-            onClick={toggleSidebar}
-            title="Close sidebar"
-            className="flex-shrink-0 p-1 rounded text-muted hover:text-ink hover:bg-surface-2 transition-colors"
-          >
-            <PanelLeftClose size={15} strokeWidth={1.75} />
-          </button>
         </div>
 
         {/* Nav */}
@@ -154,8 +147,15 @@ export default function Layout() {
         </nav>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-border">
+        <div className="px-5 py-3 border-t border-border flex items-center justify-between">
           <div className="text-[11px] text-muted">Monthly SEO Reports</div>
+          <button
+            onClick={toggleSidebar}
+            title="Close sidebar"
+            className="p-0.5 rounded text-border hover:text-muted transition-colors"
+          >
+            <PanelLeftClose size={13} strokeWidth={1.5} />
+          </button>
         </div>
       </aside>
       )}
@@ -169,9 +169,9 @@ export default function Layout() {
               <button
                 onClick={toggleSidebar}
                 title="Open sidebar"
-                className="p-1 rounded text-muted hover:text-ink hover:bg-surface-2 transition-colors"
+                className="p-0.5 rounded text-border hover:text-muted transition-colors"
               >
-                <PanelLeftOpen size={15} strokeWidth={1.75} />
+                <PanelLeftOpen size={13} strokeWidth={1.5} />
               </button>
             )}
             <PageTitle pathname={location.pathname} />
