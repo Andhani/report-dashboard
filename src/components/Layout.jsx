@@ -10,6 +10,8 @@ import {
   ChevronUp,
   Moon,
   Sun,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
 const navItems = [
@@ -48,6 +50,10 @@ const navItems = [
 export default function Layout() {
   const location = useLocation();
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem("sidebarOpen");
+    return saved === null ? true : saved === "true";
+  });
   const mainRef = useRef(null);
   const [theme, setTheme] = useState(() => {
     return (
@@ -81,13 +87,21 @@ export default function Layout() {
     setTheme((t) => (t === "light" ? "dark" : "light"));
   }
 
+  function toggleSidebar() {
+    setSidebarOpen((v) => {
+      localStorage.setItem("sidebarOpen", String(!v));
+      return !v;
+    });
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
+      {sidebarOpen && (
       <aside className="w-[220px] bg-bg border-r border-border flex flex-col flex-shrink-0">
         {/* Logo */}
-        <div className="px-5 h-[60px] flex items-center border-b border-border">
-          <div className="flex items-center gap-2.5">
+        <div className="px-5 h-[60px] flex items-center justify-between border-b border-border">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-7 h-7 bg-accent rounded-md flex items-center justify-center text-[10px] font-bold text-white tracking-tight flex-shrink-0">
               RD
             </div>
@@ -98,6 +112,13 @@ export default function Layout() {
               <div className="text-[11px] text-muted truncate">BC & Blog SEO</div>
             </div>
           </div>
+          <button
+            onClick={toggleSidebar}
+            title="Close sidebar"
+            className="flex-shrink-0 p-1 rounded text-muted hover:text-ink hover:bg-surface-2 transition-colors"
+          >
+            <PanelLeftClose size={15} strokeWidth={1.75} />
+          </button>
         </div>
 
         {/* Nav */}
@@ -137,12 +158,24 @@ export default function Layout() {
           <div className="text-[11px] text-muted">Monthly SEO Reports</div>
         </div>
       </aside>
+      )}
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Top bar */}
         <header className="flex-shrink-0 bg-surface border-b border-border px-7 h-[60px] flex items-center justify-between">
-          <PageTitle pathname={location.pathname} />
+          <div className="flex items-center gap-3">
+            {!sidebarOpen && (
+              <button
+                onClick={toggleSidebar}
+                title="Open sidebar"
+                className="p-1 rounded text-muted hover:text-ink hover:bg-surface-2 transition-colors"
+              >
+                <PanelLeftOpen size={15} strokeWidth={1.75} />
+              </button>
+            )}
+            <PageTitle pathname={location.pathname} />
+          </div>
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </header>
 
