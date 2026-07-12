@@ -558,6 +558,56 @@ function ReadOnlyCell({ value }) {
   );
 }
 
+// Month name tables for normalizing imported dates (Indonesian + English)
+const IMPORT_MONTH_ID = {
+  januari: 1, februari: 2, maret: 3, april: 4, mei: 5, juni: 6,
+  juli: 7, agustus: 8, september: 9, oktober: 10, november: 11, desember: 12,
+};
+const IMPORT_MONTH_EN = {
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+  july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8,
+  sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
+/**
+ * Normalize any common date string to YYYY-MM-DD for consistent storage
+ * and reliable filtering downstream. Handles: ISO, DD/MM/YYYY, D MonthName YYYY,
+ * MonthName YYYY (Indonesian + English), and native JS Date parsing.
+ */
+function normalizeImportedDate(value) {
+  if (!value) return "";
+  const s = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // YYYY-MM → treat as 1st of month
+  let m = s.match(/^(\d{4})-(\d{2})$/);
+  if (m) return `${m[1]}-${m[2]}-01`;
+  // DD/MM/YYYY or D/M/YYYY (Indonesian — day first)
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) {
+    const [, d, mo, y] = m;
+    return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
+  // D MonthName YYYY e.g. "1 Juni 2026"
+  m = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if (m) {
+    const mo = IMPORT_MONTH_ID[m[2].toLowerCase()] ?? IMPORT_MONTH_EN[m[2].toLowerCase()];
+    if (mo) return `${m[3]}-${String(mo).padStart(2, "0")}-${String(m[1]).padStart(2, "0")}`;
+  }
+  // MonthName YYYY e.g. "Juni 2026"
+  m = s.match(/^([A-Za-z]+)\s+(\d{4})$/);
+  if (m) {
+    const mo = IMPORT_MONTH_ID[m[1].toLowerCase()] ?? IMPORT_MONTH_EN[m[1].toLowerCase()];
+    if (mo) return `${m[2]}-${String(mo).padStart(2, "0")}-01`;
+  }
+  // Native Date parsing as last resort
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  return s;
+}
+
 // <input type="date"> only accepts YYYY-MM-DD; imported dates like "3 Oct
 // 2025" render blank otherwise, even though the underlying value is intact.
 function toISODate(value) {
@@ -742,7 +792,7 @@ function parseImportedRow(raw, type, cols) {
       offer: get("Offer", "offer"),
       property: get("Property", "property"),
       url: get("URL", "url", "Url"),
-      publish: get("Publish", "publish", "Publish Date", "publish_date"),
+      publish: normalizeImportedDate(get("Publish", "publish", "Publish Date", "publish_date")),
       status: get("Status", "status"),
       pic: get("PIC", "pic"),
       slug: "",
@@ -753,7 +803,7 @@ function parseImportedRow(raw, type, cols) {
       keyword: get("Keyword", "keyword", "Main Keyword", "main_keyword"),
       url: get("URL", "url", "Url"),
       status: get("Status", "status"),
-      publish_date: get("Publish Date", "publish_date", "Publish", "publish"),
+      publish_date: normalizeImportedDate(get("Publish Date", "publish_date", "Publish", "publish")),
       content_type: get("Content Type", "content_type", "ContentType"),
       pic: get("PIC", "pic"),
       slug: "",

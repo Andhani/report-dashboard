@@ -7,18 +7,59 @@ export function getLeadsMonth(slots) {
   return slots[slots.length - 1] ?? null;
 }
 
+// Month name tables for robust date parsing (Indonesian + English)
+const MONTH_ID = {
+  januari: 1, februari: 2, maret: 3, april: 4, mei: 5, juni: 6,
+  juli: 7, agustus: 8, september: 9, oktober: 10, november: 11, desember: 12,
+};
+const MONTH_EN = {
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+  july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8,
+  sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
+/**
+ * Parse a date string of any common format into { year, month }.
+ * Handles: YYYY-MM-DD, YYYY-MM, DD/MM/YYYY (Indonesian), D MonthName YYYY,
+ * MonthName YYYY, and native JS Date parsing as a last resort.
+ */
+function parseDateToYM(d) {
+  if (!d) return null;
+  const s = String(d).trim();
+  // YYYY-MM or YYYY-MM-DD (most common — from <input type="date">)
+  let m = s.match(/^(\d{4})-(\d{2})/);
+  if (m) return { year: +m[1], month: +m[2] };
+  // DD/MM/YYYY or D/M/YYYY (Indonesian locale — day comes first)
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) return { year: +m[3], month: +m[2] };
+  // D MonthName YYYY e.g. "1 Juni 2026" or "1 June 2026"
+  m = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if (m) {
+    const mo = MONTH_ID[m[2].toLowerCase()] ?? MONTH_EN[m[2].toLowerCase()];
+    if (mo) return { year: +m[3], month: mo };
+  }
+  // MonthName YYYY e.g. "Juni 2026"
+  m = s.match(/^([A-Za-z]+)\s+(\d{4})$/);
+  if (m) {
+    const mo = MONTH_ID[m[1].toLowerCase()] ?? MONTH_EN[m[1].toLowerCase()];
+    if (mo) return { year: +m[2], month: mo };
+  }
+  // Native Date parsing as last resort
+  const dt = new Date(s);
+  if (!isNaN(dt.getTime())) return { year: dt.getFullYear(), month: dt.getMonth() + 1 };
+  return null;
+}
+
 /**
  * Filter URL list rows to those published in the given month.
  * dateField: 'publish' (BC) or 'publish_date' (Blog)
+ * Accepts ISO dates, DD/MM/YYYY, Indonesian month names, and more.
  */
 function filterByMonth(urlList, dateField, year, month) {
   return urlList.filter((row) => {
-    const d = row[dateField];
-    if (!d) return false;
-    // Accept YYYY-MM-DD or YYYY-MM
-    const m = String(d).match(/^(\d{4})-(\d{2})/);
-    if (!m) return false;
-    return parseInt(m[1]) === year && parseInt(m[2]) === month;
+    const ym = parseDateToYM(row[dateField]);
+    return ym !== null && ym.year === year && ym.month === month;
   });
 }
 
