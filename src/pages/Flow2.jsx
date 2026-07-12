@@ -40,6 +40,26 @@ import {
 } from "lucide-react";
 import SheetPushModal from "../components/SheetPushModal";
 
+function aggregateGSCRows(entry) {
+  if (!entry || !Array.isArray(entry.rows)) return entry;
+  let clicks = 0, impressions = 0, posWeightedSum = 0, posImpressions = 0;
+  for (const row of entry.rows) {
+    clicks += row.clicks ?? 0;
+    impressions += row.impressions ?? 0;
+    const rank = row.rank ?? 0;
+    const imp = row.impressions ?? 0;
+    if (rank > 0 && imp > 0) {
+      posWeightedSum += rank * imp;
+      posImpressions += imp;
+    }
+  }
+  return {
+    clicks,
+    impressions,
+    avgPosition: posImpressions > 0 ? posWeightedSum / posImpressions : 0,
+  };
+}
+
 export default function Flow2() {
   const [flow2Data, setFlow2Data] = useChunkedStorage("flow2_data", {});
   const [flow1Data] = useChunkedStorage("flow1_data", {});
@@ -47,13 +67,17 @@ export default function Flow2() {
   const [sheetsUrl] = useStorage("sheets_report_url", "");
 
   const mergedForCompute = useMemo(() => {
-    const merged = { ...flow2Data };
+    const fromFlow1 = {};
     for (const [k, v] of Object.entries(flow1Data)) {
-      if (k.startsWith("bc_gsc_dijual_")) merged[`gsc_dijual_${k.slice(14)}`] = v;
-      else if (k.startsWith("bc_gsc_disewa_")) merged[`gsc_disewa_${k.slice(14)}`] = v;
-      else if (k.startsWith("blog_gsc_")) merged[`gsc_blog_${k.slice(9)}`] = v;
+      if (k.startsWith("bc_gsc_dijual_"))
+        fromFlow1[`gsc_dijual_${k.slice(14)}`] = aggregateGSCRows(v);
+      else if (k.startsWith("bc_gsc_disewa_"))
+        fromFlow1[`gsc_disewa_${k.slice(14)}`] = aggregateGSCRows(v);
+      else if (k.startsWith("blog_gsc_"))
+        fromFlow1[`gsc_blog_${k.slice(9)}`] = aggregateGSCRows(v);
     }
-    return merged;
+    // flow2Data wins: a directly-uploaded GSC chart overrides the flow1 fallback
+    return { ...fromFlow1, ...flow2Data };
   }, [flow1Data, flow2Data]);
 
   const [log, setLog] = useState([]);
@@ -61,8 +85,9 @@ export default function Flow2() {
   const [dragging, setDragging] = useState(false);
   const [pushStatus, setPushStatus] = useState(null);
   const [pushModal, setPushModal] = useState(false);
-  const [importMode, setImportMode] = useState("sheets");
-  const [sheetUrl, setSheetUrl] = useState("");
+  const [importMode, setImportMode] = useStorage("flow2_import_mode", "sheets");
+  const [sheetUrl, setSheetUrl] = useStorage("flow2_sheet_url", "");
+  const [activeSeg, setActiveSeg] = useStorage("flow2_active_seg", "all_organic");
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState(null);
   const fileRef = useRef();
@@ -395,6 +420,8 @@ export default function Flow2() {
           onPushSheets={handlePushSheets}
           pushStatus={pushStatus}
           sheetsUrl={sheetsUrl}
+          activeSeg={activeSeg}
+          setActiveSeg={setActiveSeg}
         />
       )}
     </div>
@@ -634,8 +661,9 @@ function OverviewSection({
   onPushSheets,
   pushStatus,
   sheetsUrl,
+  activeSeg,
+  setActiveSeg,
 }) {
-  const [activeSeg, setActiveSeg] = useState("all_organic");
 
   return (
     <div className="space-y-4">
