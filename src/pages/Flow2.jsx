@@ -80,7 +80,7 @@ export default function Flow2() {
     return { ...fromFlow1, ...flow2Data };
   }, [flow1Data, flow2Data]);
 
-  const [log, setLog] = useState([]);
+  const [log, setLog] = useStorage("flow2_log", []);
   const [processing, setProcessing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [pushStatus, setPushStatus] = useState(null);
@@ -153,7 +153,7 @@ export default function Flow2() {
     }
 
     setFlow2Data((prev) => ({ ...prev, ...newEntries }));
-    setLog((prev) => [...newLog, ...prev]);
+    setLog((prev) => [...newLog, ...prev].slice(0, 100));
     setProcessing(false);
   }
 
@@ -223,7 +223,7 @@ export default function Flow2() {
           (inWindow ? "" : " ⚠ outside current window"),
       },
       ...prev,
-    ]);
+    ].slice(0, 100));
   }
 
   // ─── Export ─────────────────────────────────────────────────────────────────
