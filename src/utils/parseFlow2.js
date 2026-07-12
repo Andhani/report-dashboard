@@ -31,17 +31,8 @@ const MONTH_MAP = {
 // ─── GSC Chart sheet (.xlsx) ──────────────────────────────────────────────────
 
 /**
- * Parse a Flow 2 GSC Chart export (.xlsx).
+ * Parse a Flow 2 GSC Chart workbook.
  * Returns: { type: 'gsc_chart', segment, month, clicks, impressions, avgPosition }
- */
-export function parseGSCChartFile(arrayBuffer) {
-  const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
-  return parseGSCChartWorkbook(wb);
-}
-
-/**
- * Same as parseGSCChartFile, but takes an already-built SheetJS workbook —
- * used for the "import from Google Sheets" path.
  */
 export function parseGSCChartWorkbook(wb) {
   try {
@@ -125,39 +116,29 @@ export function parseGSCChartWorkbook(wb) {
   }
 }
 
-// ─── GA4 Free-form export (.csv) ──────────────────────────────────────────────
+// ─── GA4 Free-form export (.csv / .xlsx) ─────────────────────────────────────
 
 /**
- * Parse a Flow 2 GA4 Free-form export (.csv).
- * Extracts the grand total row (row index 7) for site-wide totals.
- * Also detects segment from URL patterns in data rows.
- * Returns: { type: 'ga4_free', segment, month, views, users, sessions, aet_seconds }
+ * Core row-level parser for GA4 Free-form exports.
+ * Accepts a 2D array of values (from Papa.parse or SheetJS sheet_to_json).
+ * Row layout: index 3 = date range, index 7 = grand total, index 8+ = URL rows.
  */
-export function parseGA4FreeFile(csvText) {
-  const lines = Papa.parse(csvText, { skipEmptyLines: false }).data;
-
-  // Row index 3: "# 20260501-20260531"
-  const month = parseGA4DateRange(String(lines[3]?.[0] ?? "").trim());
+function parseGA4FreeRows(rows) {
+  const month = parseGA4DateRange(String(rows[3]?.[0] ?? "").trim());
   if (!month) return null;
 
-  // Row index 7: grand total
-  const totRow = lines[7];
+  const totRow = rows[7];
   if (!totRow) return null;
 
-  // grand total row: [empty, views, users, sessions, aet_seconds, "Grand total"]
   const views = toNum(totRow[1]);
   const users = toNum(totRow[2]);
   const sessions = toNum(totRow[3]);
   const aet_seconds = toNum(totRow[4]);
 
-  // Detect segment from data rows (index 8+)
-  // Default = all_organic (this file always carries the full site totals)
-  // But for Flow 2, the same file is used for all segments — grand total = all_organic
-  // Sub-segment values are filtered SUM from per-URL rows
   const segmentTotals = { dijual: z(), disewa: z(), blog: z() };
 
-  for (let i = 8; i < lines.length; i++) {
-    const r = lines[i];
+  for (let i = 8; i < rows.length; i++) {
+    const r = rows[i];
     const path = String(r[0] ?? "").trim();
     if (!path.startsWith("/")) continue;
 
@@ -187,7 +168,6 @@ export function parseGA4FreeFile(csvText) {
     }
   }
 
-  // Compute avg AET per segment
   for (const seg of Object.values(segmentTotals)) {
     seg.aet_seconds = seg.count > 0 ? seg.aetSum / seg.count : 0;
   }
@@ -195,9 +175,7 @@ export function parseGA4FreeFile(csvText) {
   return {
     type: "ga4_free",
     month,
-    // All organic = grand total row
     all_organic: { views, users, sessions, aet_seconds },
-    // Sub-segment totals computed from per-URL rows
     dijual: {
       views: segmentTotals.dijual.views,
       users: segmentTotals.dijual.users,
@@ -217,6 +195,37 @@ export function parseGA4FreeFile(csvText) {
       aet_seconds: segmentTotals.blog.aet_seconds,
     },
   };
+}
+
+/**
+ * Parse a Flow 2 GA4 Free-form export (.csv).
+ */
+export function parseGA4FreeFile(csvText) {
+  const rows = Papa.parse(csvText, { skipEmptyLines: false }).data;
+  return parseGA4FreeRows(rows);
+}
+
+/**
+ * Parse a Flow 2 GA4 Free-form export (.xlsx workbook).
+ * Looks for a sheet whose name contains "free-form" or "freeform".
+ */
+export function parseGA4FreeWorkbook(wb) {
+  try {
+    const sheetName = wb.SheetNames.find(
+      (s) =>
+        s.toLowerCase().includes("free-form") ||
+        s.toLowerCase().includes("freeform"),
+    );
+    if (!sheetName) return null;
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {
+      header: 1,
+      defval: "",
+      raw: true,
+    });
+    return parseGA4FreeRows(rows);
+  } catch {
+    return null;
+  }
 }
 
 // ─── GA4 Leads export (.csv) ──────────────────────────────────────────────────
@@ -246,14 +255,14 @@ export function parseGA4LeadsFile(csvText) {
 
 /**
  * Main entry: detect file type and parse.
- * Handles .xlsx (GSC Chart) and .csv (GA4 Free-form or Leads).
+ * Handles .xlsx (GSC Chart or GA4 Free-form) and .csv (GA4 Free-form or Leads).
  */
 export async function parseFlow2File(file, arrayBuffer) {
   const name = file.name.toLowerCase();
 
   if (name.endsWith(".xlsx")) {
-    const result = parseGSCChartFile(arrayBuffer);
-    return result;
+    const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
+    return parseGSCChartWorkbook(wb) ?? parseGA4FreeWorkbook(wb);
   }
 
   if (name.endsWith(".csv")) {
