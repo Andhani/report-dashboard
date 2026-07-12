@@ -94,17 +94,17 @@ export default function Flow1() {
     const newLog = [];
 
     for (const file of Array.from(files)) {
-      if (!file.name.match(/\.(xlsx)$/i)) {
+      if (!file.name.match(/\.(xlsx|csv)$/i)) {
         newLog.push({
           file: file.name,
           status: "skip",
-          message: "Not an .xlsx file — skipped",
+          message: "Not an .xlsx or .csv file — skipped",
         });
         continue;
       }
       try {
         const buf = await readFileAsArrayBuffer(file);
-        const result = await parseFlow1File(buf);
+        const result = await parseFlow1File(buf, file.name);
 
         if (!result) {
           newLog.push({
@@ -364,7 +364,7 @@ export default function Flow1() {
             <input
               ref={fileRef}
               type="file"
-              accept=".xlsx"
+              accept=".xlsx,.csv"
               multiple
               className="hidden"
               onChange={(e) => {
@@ -488,7 +488,7 @@ function DropZone({
         <>
           <Upload size={22} className="text-muted mb-3" strokeWidth={1.5} />
           <div className="text-xs font-semibold text-ink mb-1">
-            {dragging ? "Drop files here" : "Drag & drop .xlsx files"}
+            {dragging ? "Drop files here" : "Drag & drop .xlsx or .csv files"}
           </div>
           <div className="text-xs text-muted mb-4">
             Original GSC or GA4 export, no restructure. Sheets auto-detected.

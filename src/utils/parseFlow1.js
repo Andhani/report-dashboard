@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import Papa from "papaparse";
 import { parseGA4DateRange, urlToSlug, formatMonthKey } from "./dateUtils";
 
 const MONTH_MAP = {
@@ -28,10 +29,16 @@ const MONTH_MAP = {
 };
 
 /**
- * Main entry point. Tries GSC first (has Filters sheet), then GA4.
+ * Main entry point. Auto-detects xlsx vs csv by filename extension.
  * Returns parsed result object or null.
  */
-export async function parseFlow1File(arrayBuffer) {
+export async function parseFlow1File(arrayBuffer, filename = "") {
+  if (filename.toLowerCase().endsWith(".csv")) {
+    const text = new TextDecoder("utf-8").decode(arrayBuffer);
+    const clean = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+    const { data: rows } = Papa.parse(clean, { skipEmptyLines: false });
+    return tryParseGA4CSV(rows) ?? tryParseGSCCSV(rows);
+  }
   const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
   return parseFlow1Workbook(wb);
 }
@@ -138,6 +145,74 @@ function tryParseGA4(wb) {
   } catch {
     return null;
   }
+}
+
+// ─── CSV parsers ──────────────────────────────────────────────────────────────
+
+function tryParseGA4CSV(rows) {
+  // Row index 3: "# 20260501-20260531"
+  const month = parseGA4DateRange(String(rows[3]?.[0] ?? "").trim());
+  if (!month) return null;
+
+  let project = null;
+  const dataRows = [];
+
+  for (let i = 8; i < rows.length; i++) {
+    const r = rows[i];
+    const path = String(r[0] ?? "").trim();
+    if (!path.startsWith("/")) continue;
+
+    if (!project) {
+      if (path.includes("/dijual/") || path.includes("/disewa/")) project = "bc";
+      else if (path.includes("/articles-all/")) project = "blog";
+    }
+
+    dataRows.push({
+      slug: path,
+      views: toNum(r[1]),
+      users: toNum(r[2]),
+      sessions: toNum(r[3]),
+      aet_seconds: toNum(r[4]),
+    });
+  }
+
+  if (!project || dataRows.length === 0) return null;
+  return { type: "ga4", project, month, rows: dataRows };
+}
+
+function tryParseGSCCSV(rows) {
+  // Scan first 15 rows for date range and page filter
+  let month = null;
+  let segment = null;
+
+  for (let i = 0; i < Math.min(15, rows.length); i++) {
+    const cell = String(rows[i]?.[0] ?? "").trim();
+    const val1 = String(rows[i]?.[1] ?? "").trim();
+    const key = cell.toLowerCase();
+
+    if (key === "date" || key === "dates") month = parseGSCDate(val1);
+    if (!month) month = parseGSCDate(cell);
+    if (key === "page" || key.includes("filter by page"))
+      segment = detectSegment(val1) ?? detectSegment(cell);
+  }
+
+  // Parse URL rows (col[0] starts with "http")
+  const dataRows = [];
+  for (const r of rows) {
+    const url = String(r[0] ?? "").trim();
+    if (!url.startsWith("http")) continue;
+    if (!segment) segment = detectSegment(url);
+    dataRows.push({
+      slug: urlToSlug(url),
+      clicks: toNum(r[1]),
+      impressions: toNum(r[2]),
+      ctr: toCTR(r[3]),
+      rank: toNum(r[4]),
+    });
+  }
+
+  if (dataRows.length === 0 || !month) return null;
+  return { type: "gsc", segment: segment ?? "unknown", month, rows: dataRows };
 }
 
 // ─── Storage key helpers ──────────────────────────────────────────────────────
