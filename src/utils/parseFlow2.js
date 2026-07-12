@@ -222,7 +222,14 @@ export function parseGA4FreeWorkbook(wb) {
       defval: "",
       raw: true,
     });
-    return parseGA4FreeRows(rows);
+    const isLeads =
+      String(rows[2]?.[0] ?? "")
+        .toLowerCase()
+        .includes("leads") ||
+      String(rows[6]?.[0] ?? "")
+        .toLowerCase()
+        .includes("key events");
+    return isLeads ? parseGA4LeadsRows(rows) : parseGA4FreeRows(rows);
   } catch {
     return null;
   }
@@ -231,24 +238,28 @@ export function parseGA4FreeWorkbook(wb) {
 // ─── GA4 Leads export (.csv) ──────────────────────────────────────────────────
 
 /**
+ * Core row-level parser for GA4 Leads exports.
+ * Accepts a 2D array of values (from Papa.parse or SheetJS sheet_to_json).
+ */
+function parseGA4LeadsRows(rows) {
+  const month = parseGA4DateRange(String(rows[3]?.[0] ?? "").trim());
+  if (!month) return null;
+
+  const totRow = rows[7];
+  if (!totRow) return null;
+
+  const clickContactAgent = toNum(totRow[2]);
+  return { type: "ga4_leads", month, clickContactAgent };
+}
+
+/**
  * Parse a Flow 2 GA4 Leads export (.csv).
  * Extracts Click_Contact_Agent count from grand total row (index 7).
  * Returns: { type: 'ga4_leads', month, clickContactAgent }
  */
 export function parseGA4LeadsFile(csvText) {
-  const lines = Papa.parse(csvText, { skipEmptyLines: false }).data;
-
-  // Row index 3: "# 20260501-20260531"
-  const month = parseGA4DateRange(String(lines[3]?.[0] ?? "").trim());
-  if (!month) return null;
-
-  // Grand total row index 7: [empty, empty, count, "Grand total"]
-  const totRow = lines[7];
-  if (!totRow) return null;
-
-  const clickContactAgent = toNum(totRow[2]);
-
-  return { type: "ga4_leads", month, clickContactAgent };
+  const rows = Papa.parse(csvText, { skipEmptyLines: false }).data;
+  return parseGA4LeadsRows(rows);
 }
 
 // ─── Auto-detect from file content ───────────────────────────────────────────
