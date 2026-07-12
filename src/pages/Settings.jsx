@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useStorage } from "../hooks/useStorage";
+import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
 import { getValidToken } from "../utils/googleAuth";
 
@@ -8,8 +9,7 @@ export default function Settings() {
   const [flow1Window, setFlow1Window] = useStorage("flow1_window", null);
   const [flow2Window, setFlow2Window] = useStorage("flow2_window", null);
   const [sheetsUrl, setSheetsUrl] = useStorage("sheets_report_url", "");
-  const [, setFlow1Data] = useStorage("flow1_data", {});
-  const [, setFlow2Data] = useStorage("flow2_data", {});
+  const { setFlow1Data, setFlow2Data } = useDataContext();
 
   const [sheetsInput, setSheetsInput] = useState(sheetsUrl || "");
   const [clearConfirm, setClearConfirm] = useState(null);

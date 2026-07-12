@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { useStorage, useChunkedStorage } from "../hooks/useStorage";
+import { useStorage } from "../hooks/useStorage";
+import { useDataContext } from "../context/DataContext";
 import { usePagination } from "../hooks/usePagination";
 import {
   getMonthSlots,
@@ -64,7 +65,7 @@ const BLOG_URL_COLS = [
 ];
 
 export default function Flow1() {
-  const [flow1Data, setFlow1Data] = useChunkedStorage("flow1_data", {});
+  const { flow1Data, setFlow1Data } = useDataContext();
   const [flow1Window] = useStorage("flow1_window", null);
   const [bcUrls] = useStorage("bc_urls", []);
   const [blogUrls] = useStorage("blog_urls", []);
