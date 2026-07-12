@@ -91,6 +91,9 @@ export function computeFlow2Output(flow2Data, slots) {
           : ga4Free[seg.id]
         : null;
 
+      // GSC for non-all_organic comes from Flow1; skip if not yet imported
+      if (seg.id !== "all_organic" && !gsc) continue;
+
       const clicks = gsc?.clicks ?? 0;
       const impressions = gsc?.impressions ?? 0;
       const avgPosition = gsc?.avgPosition ?? 0;
