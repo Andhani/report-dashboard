@@ -10,9 +10,10 @@ import {
   ChevronUp,
   Moon,
   Sun,
-  PanelLeftClose,
-  PanelLeftOpen,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
+
 
 const navItems = [
   {
@@ -97,25 +98,26 @@ export default function Layout() {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
-      {sidebarOpen && (
-      <aside className="w-[220px] bg-bg border-r border-border flex flex-col flex-shrink-0">
+      <aside className={`${sidebarOpen ? "w-[220px]" : "w-[44px]"} bg-bg border-r border-border flex flex-col flex-shrink-0 transition-[width] duration-200`}>
         {/* Logo */}
-        <div className="px-5 h-[60px] flex items-center border-b border-border">
+        <div className="h-[60px] flex items-center border-b border-border px-2.5 overflow-hidden">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-7 h-7 bg-accent rounded-md flex items-center justify-center text-[10px] font-bold text-white tracking-tight flex-shrink-0">
               RD
             </div>
-            <div className="min-w-0">
-              <div className="font-semibold text-xs leading-tight text-ink truncate">
-                Report Dashboard
+            {sidebarOpen && (
+              <div className="min-w-0">
+                <div className="font-semibold text-xs leading-tight text-ink truncate">
+                  Report Dashboard
+                </div>
+                <div className="text-[11px] text-muted truncate">BC & Blog SEO</div>
               </div>
-              <div className="text-[11px] text-muted truncate">BC & Blog SEO</div>
-            </div>
+            )}
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-2 py-3 space-y-0.5">
+        <nav className="flex-1 px-1.5 py-3 space-y-0.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -123,8 +125,9 @@ export default function Layout() {
                 key={item.to}
                 to={item.to}
                 end={item.to === "/"}
+                title={!sidebarOpen ? item.label : undefined}
                 className={({ isActive }) =>
-                  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors border-l-2 ${
+                  `flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors border-l-2 ${
                     isActive
                       ? "border-accent text-accent"
                       : "border-transparent text-muted hover:bg-surface-2 hover:text-ink"
@@ -138,7 +141,9 @@ export default function Layout() {
                       className="flex-shrink-0"
                       strokeWidth={isActive ? 2 : 1.75}
                     />
-                    <span className="flex-1 min-w-0 truncate">{item.label}</span>
+                    {sidebarOpen && (
+                      <span className="flex-1 min-w-0 truncate">{item.label}</span>
+                    )}
                   </>
                 )}
               </NavLink>
@@ -147,35 +152,28 @@ export default function Layout() {
         </nav>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-border flex items-center justify-between">
-          <div className="text-[11px] text-muted">Monthly SEO Reports</div>
+        <div className="px-2.5 py-3 border-t border-border flex items-center justify-between overflow-hidden">
+          {sidebarOpen && (
+            <div className="text-[11px] text-muted whitespace-nowrap">Monthly SEO Reports</div>
+          )}
           <button
             onClick={toggleSidebar}
-            title="Close sidebar"
-            className="p-0.5 rounded text-border hover:text-muted transition-colors"
+            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            className={`flex-shrink-0 p-1 rounded-md border border-border text-muted hover:text-ink hover:bg-surface-2 transition-colors ${!sidebarOpen ? "mx-auto" : ""}`}
           >
-            <PanelLeftClose size={13} strokeWidth={1.5} />
+            {sidebarOpen
+              ? <ChevronsLeft size={12} strokeWidth={2} />
+              : <ChevronsRight size={12} strokeWidth={2} />
+            }
           </button>
         </div>
       </aside>
-      )}
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Top bar */}
         <header className="flex-shrink-0 bg-surface border-b border-border px-7 h-[60px] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {!sidebarOpen && (
-              <button
-                onClick={toggleSidebar}
-                title="Open sidebar"
-                className="p-0.5 rounded text-border hover:text-muted transition-colors"
-              >
-                <PanelLeftOpen size={13} strokeWidth={1.5} />
-              </button>
-            )}
-            <PageTitle pathname={location.pathname} />
-          </div>
+          <PageTitle pathname={location.pathname} />
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </header>
 
