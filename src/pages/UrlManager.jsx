@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import { useStorage } from "../hooks/useStorage";
 import { usePagination } from "../hooks/usePagination";
 import { urlToSlug } from "../utils/dateUtils";
@@ -188,27 +189,44 @@ export default function UrlManager() {
     }
   }
 
-  function handleCsvFile(e) {
+  async function handleFileImport(e) {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
     setCsvLoading(true);
-    Papa.parse(file, {
-      header: false,
-      skipEmptyLines: true,
-      complete: ({ data }) => {
+    try {
+      if (file.name.toLowerCase().endsWith(".xlsx")) {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(new Uint8Array(buf), { type: "array" });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
         const headerIdx = locateHeaderRow(data);
         const rows = rowsToObjects(data, headerIdx).map((raw) =>
           parseImportedRow(raw, activeTab, cols),
         );
         applyImport(rows);
-        setCsvLoading(false);
-      },
-      error: (err) => {
-        setCsvLoading(false);
-        alert(`CSV parse error: ${err.message}`);
-      },
-    });
+      } else {
+        await new Promise((resolve, reject) => {
+          Papa.parse(file, {
+            header: false,
+            skipEmptyLines: true,
+            complete: ({ data }) => {
+              const headerIdx = locateHeaderRow(data);
+              const rows = rowsToObjects(data, headerIdx).map((raw) =>
+                parseImportedRow(raw, activeTab, cols),
+              );
+              applyImport(rows);
+              resolve();
+            },
+            error: (err) => reject(err),
+          });
+        });
+      }
+    } catch (err) {
+      alert(`Import error: ${err.message}`);
+    } finally {
+      setCsvLoading(false);
+    }
   }
 
   function handleExportCSV() {
@@ -285,7 +303,7 @@ export default function UrlManager() {
               onClick={() => setImportMode("csv")}
               className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${importMode === "csv" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
             >
-              📂 Upload CSV
+              📂 Upload File
             </button>
           </div>
           {/* Replace/Append dropdown */}
@@ -369,18 +387,18 @@ export default function UrlManager() {
                 Importing…
               </span>
             ) : (
-              "Choose CSV file"
+              "Choose file"
             )}
           </button>
           <span className="text-xs text-muted">
-            Select a .csv file from your computer to import.
+            Accepts .csv or .xlsx — columns are matched by header name.
           </span>
           <input
             ref={csvRef}
             type="file"
-            accept=".csv"
+            accept=".csv,.xlsx"
             className="hidden"
-            onChange={handleCsvFile}
+            onChange={handleFileImport}
           />
         </div>
       )}
