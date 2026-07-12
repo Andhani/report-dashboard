@@ -120,7 +120,7 @@ export default function Flow2() {
             file: file.name,
             status: "error",
             message:
-              "Could not detect file — check it is a GSC Export (.xlsx) or GA4 / Event GA4 Export (.csv)",
+              "Could not detect file — expected GSC Export, GA4 Export, or Event GA4 Export (.xlsx or .csv)",
           });
           continue;
         }
