@@ -76,14 +76,14 @@ function withSlug(row) {
 }
 
 export default function UrlManager() {
-  const [activeTab, setActiveTab] = useState("bc");
+  const [activeTab, setActiveTab] = useStorage("urls_active_tab", "bc");
   const [bcUrls, setBcUrls] = useStorage("bc_urls", []);
   const [blogUrls, setBlogUrls] = useStorage("blog_urls", []);
 
   // Import toolbar state
-  const [importMode, setImportMode] = useState("sheets");
-  const [replaceMode, setReplaceMode] = useState("replace");
-  const [importSheetUrl, setImportSheetUrl] = useState("");
+  const [importMode, setImportMode] = useStorage("urls_import_mode", "sheets");
+  const [replaceMode, setReplaceMode] = useStorage("urls_replace_mode", "replace");
+  const [importSheetUrl, setImportSheetUrl] = useStorage("urls_import_sheet_url", "");
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState(null);
   const [csvLoading, setCsvLoading] = useState(false);

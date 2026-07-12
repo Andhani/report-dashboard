@@ -70,7 +70,7 @@ export default function Flow1() {
   const [blogUrls] = useStorage("blog_urls", []);
   const [sheetsUrl] = useStorage("sheets_report_url", "");
 
-  const [log, setLog] = useState([]);
+  const [log, setLog] = useStorage("flow1_log", []);
   const [processing, setProcessing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [previewTab, setPreviewTab] = useStorage("flow1_preview_tab", "bc");
@@ -143,7 +143,7 @@ export default function Flow1() {
     }
 
     setFlow1Data((prev) => ({ ...prev, ...newEntries }));
-    setLog((prev) => [...newLog, ...prev]);
+    setLog((prev) => [...newLog, ...prev].slice(0, 100));
     setProcessing(false);
   }
 
@@ -192,7 +192,7 @@ export default function Flow1() {
         key,
       },
       ...prev,
-    ]);
+    ].slice(0, 100));
   }
 
   async function handleSheetImport() {
