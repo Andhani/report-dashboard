@@ -11,28 +11,50 @@ const CHUNK_SEP = "::";
  *   localStorage[prefix]        → JSON array of entry keys (index)
  *   localStorage[prefix::key]   → JSON value for that entry
  *
- * Reads either the new chunked format (index is an array) or falls back to
- * the old single-key format (index is an object) for zero-migration compat.
+ * Returns [value, setValue, { missingKeys, writeError }]:
+ *   missingKeys — keys indexed but whose chunks were absent on load (need re-import)
+ *   writeError  — non-null string when the last write failed (e.g. QuotaExceededError)
  */
 export function useChunkedStorage(prefix, defaultValue = {}) {
+  // Populated once in the lazy initializer; stable across re-renders.
+  const missingKeysRef = useRef([]);
+  // Updated inside setValue's updater; re-render reads the new value.
+  const writeErrorRef = useRef(null);
+
   const [value, setValueState] = useState(() => {
     try {
       const indexRaw = localStorage.getItem(prefix);
       if (indexRaw !== null) {
         const parsed = JSON.parse(indexRaw);
         if (Array.isArray(parsed)) {
-          // New chunked format
+          // New chunked format — read each chunk; record any that are absent.
           const result = {};
+          const missing = [];
           for (const k of parsed) {
             try {
               const raw = localStorage.getItem(prefix + CHUNK_SEP + k);
-              if (raw !== null) result[k] = JSON.parse(raw);
+              if (raw !== null) {
+                result[k] = JSON.parse(raw);
+              } else {
+                missing.push(k);
+              }
             } catch {}
           }
+          missingKeysRef.current = missing;
           return result;
         }
-        // Old format: value itself was the stored object
-        return parsed;
+        // Old format: value itself was the stored object.
+        // Migrate immediately so subsequent writes don't orphan old keys.
+        const result = parsed;
+        for (const [k, v] of Object.entries(result)) {
+          try {
+            localStorage.setItem(prefix + CHUNK_SEP + k, JSON.stringify(v));
+          } catch {}
+        }
+        try {
+          localStorage.setItem(prefix, JSON.stringify(Object.keys(result)));
+        } catch {}
+        return result;
       }
       return defaultValue;
     } catch {
@@ -43,8 +65,10 @@ export function useChunkedStorage(prefix, defaultValue = {}) {
   const setValue = useCallback(
     (newValue) => {
       setValueState((prev) => {
-        const next =
-          typeof newValue === "function" ? newValue(prev) : newValue;
+        const next = typeof newValue === "function" ? newValue(prev) : newValue;
+
+        // Reset error state at the start of each write attempt.
+        writeErrorRef.current = null;
 
         if (next === null || next === undefined) {
           try {
@@ -70,6 +94,8 @@ export function useChunkedStorage(prefix, defaultValue = {}) {
             try {
               localStorage.setItem(prefix + CHUNK_SEP + k, JSON.stringify(v));
             } catch (err) {
+              writeErrorRef.current =
+                "Browser storage is full — data is kept in memory but won't survive a page refresh. Clear old data in Settings.";
               console.error(`useChunkedStorage: could not write "${k}":`, err);
             }
           }
@@ -86,6 +112,8 @@ export function useChunkedStorage(prefix, defaultValue = {}) {
         try {
           localStorage.setItem(prefix, JSON.stringify(nextKeys));
         } catch (err) {
+          writeErrorRef.current =
+            "Browser storage is full — data is kept in memory but won't survive a page refresh. Clear old data in Settings.";
           console.error(`useChunkedStorage: could not write index:`, err);
         }
 
@@ -95,7 +123,11 @@ export function useChunkedStorage(prefix, defaultValue = {}) {
     [prefix],
   );
 
-  return [value, setValue];
+  return [
+    value,
+    setValue,
+    { missingKeys: missingKeysRef.current, writeError: writeErrorRef.current },
+  ];
 }
 
 const WRITE_DEBOUNCE_MS = 400;
