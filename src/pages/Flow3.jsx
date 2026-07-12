@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useChunkedStorage, useStorage } from "../hooks/useStorage";
+import { useStorage } from "../hooks/useStorage";
+import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
 import { downloadCSV } from "../utils/exportUtils";
 import { extractSpreadsheetId, pushFlow3ToSheets } from "../utils/sheetsApi";
@@ -19,8 +20,7 @@ import { Settings, Database, AlertTriangle } from "lucide-react";
 import SheetPushModal from "../components/SheetPushModal";
 
 export default function Flow3() {
-  const [flow1Data] = useChunkedStorage("flow1_data", {});
-  const [flow2Data] = useChunkedStorage("flow2_data", {});
+  const { flow1Data, flow2Data } = useDataContext();
   const [flow1Window] = useStorage("flow1_window", null);
   const [bcUrls] = useStorage("bc_urls", []);
   const [blogUrls] = useStorage("blog_urls", []);

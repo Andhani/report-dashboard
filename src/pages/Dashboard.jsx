@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { useChunkedStorage, useStorage } from "../hooks/useStorage";
+import { useStorage } from "../hooks/useStorage";
+import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
 import {
   Upload,
@@ -39,8 +40,7 @@ const FLOW_CARDS = [
 ];
 
 export default function Dashboard() {
-  const [flow1Data] = useChunkedStorage("flow1_data", {});
-  const [flow2Data] = useChunkedStorage("flow2_data", {});
+  const { flow1Data, flow2Data } = useDataContext();
   const [flow1Window] = useStorage("flow1_window", null);
   const [flow2Window] = useStorage("flow2_window", null);
   const [bcUrls] = useStorage("bc_urls", []);

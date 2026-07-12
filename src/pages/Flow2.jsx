@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useStorage, useChunkedStorage } from "../hooks/useStorage";
+import { useStorage } from "../hooks/useStorage";
+import { useDataContext } from "../context/DataContext";
 import {
   getMonthSlots,
   formatMonthKey,
@@ -61,8 +62,7 @@ function aggregateGSCRows(entry) {
 }
 
 export default function Flow2() {
-  const [flow2Data, setFlow2Data] = useChunkedStorage("flow2_data", {});
-  const [flow1Data] = useChunkedStorage("flow1_data", {});
+  const { flow1Data, flow2Data, setFlow2Data } = useDataContext();
   const [flow2Window] = useStorage("flow2_window", null);
   const [sheetsUrl] = useStorage("sheets_report_url", "");
 
