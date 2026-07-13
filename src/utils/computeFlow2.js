@@ -84,12 +84,23 @@ export function computeFlow2Output(flow2Data, slots) {
       // GA4 Leads — always all_organic
       const leads = flow2Data[`ga4_leads_${mk}`];
 
-      // GA4 values: all_organic comes from grand total, others from filtered sums
-      const ga4 = ga4Free
-        ? seg.id === "all_organic"
-          ? ga4Free.all_organic
-          : ga4Free[seg.id]
-        : null;
+      // GA4: all_organic uses grand total; segments prefer dedicated file, fall back to ga4_free row-filtered sums
+      let ga4;
+      if (seg.id === "all_organic") {
+        ga4 = ga4Free ? ga4Free.all_organic : null;
+      } else {
+        const segFile = flow2Data[`ga4_${seg.id}_${mk}`];
+        ga4 = segFile
+          ? {
+              views: segFile.views,
+              users: segFile.users,
+              sessions: segFile.sessions,
+              aet_seconds: segFile.aet_seconds,
+            }
+          : ga4Free
+            ? ga4Free[seg.id]
+            : null;
+      }
 
       // GSC for non-all_organic comes from Flow1; skip if not yet imported
       if (seg.id !== "all_organic" && !gsc) continue;

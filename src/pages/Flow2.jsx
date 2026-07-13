@@ -43,7 +43,10 @@ import SheetPushModal from "../components/SheetPushModal";
 
 function aggregateGSCRows(entry) {
   if (!entry || !Array.isArray(entry.rows)) return entry;
-  let clicks = 0, impressions = 0, posWeightedSum = 0, posImpressions = 0;
+  let clicks = 0,
+    impressions = 0,
+    posWeightedSum = 0,
+    posImpressions = 0;
   for (const row of entry.rows) {
     clicks += row.clicks ?? 0;
     impressions += row.impressions ?? 0;
@@ -87,7 +90,10 @@ export default function Flow2() {
   const [pushModal, setPushModal] = useState(false);
   const [importMode, setImportMode] = useStorage("flow2_import_mode", "sheets");
   const [sheetUrl, setSheetUrl] = useStorage("flow2_sheet_url", "");
-  const [activeSeg, setActiveSeg] = useStorage("flow2_active_seg", "all_organic");
+  const [activeSeg, setActiveSeg] = useStorage(
+    "flow2_active_seg",
+    "all_organic",
+  );
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState(null);
   const fileRef = useRef();
@@ -214,16 +220,18 @@ export default function Flow2() {
     const inWindow = slotKeys.has(mk);
 
     setFlow2Data((prev) => ({ ...prev, [key]: result }));
-    setLog((prev) => [
-      {
-        file: "Google Sheet",
-        status: inWindow ? "ok" : "warn",
-        message:
-          formatFlow2DetectionLabel(result) +
-          (inWindow ? "" : " ⚠ outside current window"),
-      },
-      ...prev,
-    ].slice(0, 100));
+    setLog((prev) =>
+      [
+        {
+          file: "Google Sheet",
+          status: inWindow ? "ok" : "warn",
+          message:
+            formatFlow2DetectionLabel(result) +
+            (inWindow ? "" : " ⚠ outside current window"),
+        },
+        ...prev,
+      ].slice(0, 100),
+    );
   }
 
   // ─── Export ─────────────────────────────────────────────────────────────────
@@ -281,151 +289,185 @@ export default function Flow2() {
   return (
     <>
       {pushModal && (
-        <SheetPushModal sheetsUrl={sheetsUrl} onClose={() => setPushModal(false)} />
-      )}
-    <div className="space-y-5">
-      {/* What-to-upload guide */}
-      <div className="card p-4">
-        <div className="text-xs font-semibold text-ink mb-1">What to upload</div>
-        <p className="text-xs text-muted mb-2">Upload fresh each month</p>
-        <ul className="space-y-1.5 mb-3">
-          {[
-            { label: "GSC Export (All Segments)",  desc: "Site-wide totals, not per-URL" },
-            { label: "GA4 Export (All Segments)",  desc: "A single file covering every segment automatically" },
-            { label: "Event GA4 Export",           desc: "Click_Contact_Agent event count" },
-          ].map((r) => (
-            <li key={r.label} className="flex items-start gap-2 text-xs text-ink">
-              <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
-              <span>
-                {r.label}{" "}
-                <span className="text-muted">— {r.desc}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="text-xs text-muted mb-1.5">Reuse from Traffic (Optimized)</p>
-        <ul className="space-y-1.5">
-          {[
-            "BC GSC Export",
-            "Blog GSC Export",
-            "Blog GA4 Export",
-            "BC GA4 Export",
-          ].map((label) => (
-            <li key={label} className="flex items-start gap-2 text-xs text-ink">
-              <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
-              <span>
-                {label}{" "}
-                <span className="text-muted">— no need to upload</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Import section with mode toggle */}
-      <div className="space-y-3">
-        <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5 gap-0.5">
-          <button
-            onClick={() => setImportMode("sheets")}
-            className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-all ${
-              importMode === "sheets"
-                ? "bg-surface text-ink shadow-card"
-                : "text-muted hover:text-ink"
-            }`}
-          >
-            From Sheets
-          </button>
-          <button
-            onClick={() => setImportMode("file")}
-            className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-all ${
-              importMode === "file"
-                ? "bg-surface text-ink shadow-card"
-                : "text-muted hover:text-ink"
-            }`}
-          >
-            Upload File
-          </button>
-        </div>
-
-        {importMode === "sheets" ? (
-          <div className="card p-4 space-y-3">
-            <input
-              type="url"
-              className="input"
-              placeholder="https://docs.google.com/spreadsheets/d/..."
-              value={sheetUrl}
-              onChange={(e) => setSheetUrl(e.target.value)}
-            />
-            <p className="text-xs text-muted">
-              Share with{" "}
-              <strong>"Anyone with the link can view."</strong> Keep original
-              export as-is, no restructure. Sheets auto-detected.
-            </p>
-            {sheetError && (
-              <div className="text-xs text-danger">{sheetError}</div>
-            )}
-            <button
-              onClick={handleSheetImport}
-              disabled={!sheetUrl.trim() || sheetLoading}
-              className="btn-primary disabled:opacity-50"
-            >
-              {sheetLoading ? "Importing…" : "Import"}
-            </button>
-          </div>
-        ) : (
-          <>
-            <DropZone
-              dragging={dragging}
-              processing={processing}
-              onDrop={onDrop}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragging(true);
-              }}
-              onDragLeave={() => setDragging(false)}
-              onClick={() => fileRef.current.click()}
-            />
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".xlsx,.csv"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                processFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
-          </>
-        )}
-      </div>
-
-      {/* Detection log */}
-      {log.length > 0 && <DetectionLog log={log} onClear={() => setLog([])} />}
-
-      {/* Slot grid */}
-      <SlotGrid
-        slots={slots}
-        flow1Data={flow1Data}
-        flow2Data={flow2Data}
-        onClear={clearSlot}
-      />
-
-      {/* Overview table + export */}
-      {output && (
-        <OverviewSection
-          output={output}
-          slots={slots}
-          onDownloadCSV={handleDownloadCSV}
-          onPushSheets={handlePushSheets}
-          pushStatus={pushStatus}
+        <SheetPushModal
           sheetsUrl={sheetsUrl}
-          activeSeg={activeSeg}
-          setActiveSeg={setActiveSeg}
+          onClose={() => setPushModal(false)}
         />
       )}
-    </div>
-  </>
+      <div className="space-y-5">
+        {/* What-to-upload guide */}
+        <div className="card p-4">
+          <div className="text-xs font-semibold text-ink mb-1">
+            What to upload
+          </div>
+          <p className="text-xs text-muted mb-2">Upload fresh each month</p>
+          <ul className="space-y-1.5 mb-3">
+            {[
+              {
+                label: "GSC Export (All Segments)",
+                desc: "Site-wide totals — not per-URL",
+              },
+              {
+                label: "GA4 Export (All Segments)",
+                desc: "Full site organic — grand total for All Organic row",
+              },
+              {
+                label: "GA4 Export (/dijual/)",
+                desc: "Auto-detected from file rows",
+              },
+              {
+                label: "GA4 Export (/disewa/)",
+                desc: "Auto-detected from file rows",
+              },
+              {
+                label: "GA4 Export (Blog)",
+                desc: "Auto-detected from file rows",
+              },
+              {
+                label: "Event GA4 Export",
+                desc: "Click_Contact_Agent event count",
+              },
+            ].map((r) => (
+              <li
+                key={r.label}
+                className="flex items-start gap-2 text-xs text-ink"
+              >
+                <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
+                <span>
+                  {r.label} <span className="text-muted">— {r.desc}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted mb-1.5">
+            Reuse from Traffic (Optimized)
+          </p>
+          <ul className="space-y-1.5">
+            {[
+              "BC GSC Export (/dijual/)",
+              "BC GSC Export (/disewa/)",
+              "Blog GSC Export",
+            ].map((label) => (
+              <li
+                key={label}
+                className="flex items-start gap-2 text-xs text-ink"
+              >
+                <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
+                <span>
+                  {label}{" "}
+                  <span className="text-muted">— no need to upload</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Import section with mode toggle */}
+        <div className="space-y-3">
+          <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5 gap-0.5">
+            <button
+              onClick={() => setImportMode("sheets")}
+              className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-all ${
+                importMode === "sheets"
+                  ? "bg-surface text-ink shadow-card"
+                  : "text-muted hover:text-ink"
+              }`}
+            >
+              From Sheets
+            </button>
+            <button
+              onClick={() => setImportMode("file")}
+              className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-all ${
+                importMode === "file"
+                  ? "bg-surface text-ink shadow-card"
+                  : "text-muted hover:text-ink"
+              }`}
+            >
+              Upload File
+            </button>
+          </div>
+
+          {importMode === "sheets" ? (
+            <div className="card p-4 space-y-3">
+              <input
+                type="url"
+                className="input"
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                value={sheetUrl}
+                onChange={(e) => setSheetUrl(e.target.value)}
+              />
+              <p className="text-xs text-muted">
+                Share with <strong>"Anyone with the link can view."</strong>{" "}
+                Keep original export as-is, no restructure. Sheets
+                auto-detected.
+              </p>
+              {sheetError && (
+                <div className="text-xs text-danger">{sheetError}</div>
+              )}
+              <button
+                onClick={handleSheetImport}
+                disabled={!sheetUrl.trim() || sheetLoading}
+                className="btn-primary disabled:opacity-50"
+              >
+                {sheetLoading ? "Importing…" : "Import"}
+              </button>
+            </div>
+          ) : (
+            <>
+              <DropZone
+                dragging={dragging}
+                processing={processing}
+                onDrop={onDrop}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onClick={() => fileRef.current.click()}
+              />
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".xlsx,.csv"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  processFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </>
+          )}
+        </div>
+
+        {/* Detection log */}
+        {log.length > 0 && (
+          <DetectionLog log={log} onClear={() => setLog([])} />
+        )}
+
+        {/* Slot grid */}
+        <SlotGrid
+          slots={slots}
+          flow1Data={flow1Data}
+          flow2Data={flow2Data}
+          onClear={clearSlot}
+        />
+
+        {/* Overview table + export */}
+        {output && (
+          <OverviewSection
+            output={output}
+            slots={slots}
+            onDownloadCSV={handleDownloadCSV}
+            onPushSheets={handlePushSheets}
+            pushStatus={pushStatus}
+            sheetsUrl={sheetsUrl}
+            activeSeg={activeSeg}
+            setActiveSeg={setActiveSeg}
+          />
+        )}
+      </div>
+    </>
   );
 }
 
@@ -551,14 +593,71 @@ function DetectionLog({ log, onClear }) {
 // ─── Slot Grid ────────────────────────────────────────────────────────────────
 
 const SLOT_ROWS_F2 = [
-  { id: "gsc_all_organic", source: "GSC Export",       segment: "All Segments",        store: "flow2", prefix: "gsc_all_organic" },
-  { id: "gsc_dijual",      source: "BC GSC Export",    segment: "/dijual/",             store: "flow1", prefix: "bc_gsc_dijual" },
-  { id: "gsc_disewa",      source: "BC GSC Export",    segment: "/disewa/",             store: "flow1", prefix: "bc_gsc_disewa" },
-  { id: "gsc_blog",        source: "Blog GSC Export",  segment: "/articles-all/",       store: "flow1", prefix: "blog_gsc" },
-  { id: "ga4_free",        source: "GA4 Export",       segment: "All Segments",        store: "flow2", prefix: "ga4_free",  subtitle: "Organic Google" },
-  { id: "ga4_leads",       source: "Event GA4 Export", segment: "click_contact_agent",  store: "flow2", prefix: "ga4_leads", subtitle: "Organic Google" },
-  { id: "blog_ga4",        source: "Blog GA4 Export",  segment: "/articles-all/",       store: "flow1", prefix: "blog_ga4",  subtitle: "Organic Google" },
-  { id: "bc_ga4",          source: "BC GA4 Export",    segment: "dijual + disewa",     store: "flow1", prefix: "bc_ga4",    subtitle: "Organic Google" },
+  {
+    id: "gsc_all_organic",
+    source: "GSC Export",
+    segment: "All Segments",
+    store: "flow2",
+    prefix: "gsc_all_organic",
+  },
+  {
+    id: "gsc_dijual",
+    source: "BC GSC Export",
+    segment: "/dijual/",
+    store: "flow1",
+    prefix: "bc_gsc_dijual",
+  },
+  {
+    id: "gsc_disewa",
+    source: "BC GSC Export",
+    segment: "/disewa/",
+    store: "flow1",
+    prefix: "bc_gsc_disewa",
+  },
+  {
+    id: "gsc_blog",
+    source: "Blog GSC Export",
+    segment: "/articles-all/",
+    store: "flow1",
+    prefix: "blog_gsc",
+  },
+  {
+    id: "ga4_free",
+    source: "GA4 Export",
+    segment: "All Segments",
+    store: "flow2",
+    prefix: "ga4_free",
+    subtitle: "Organic Google",
+  },
+  {
+    id: "ga4_dijual",
+    source: "GA4 Export",
+    segment: "/dijual/",
+    store: "flow2",
+    prefix: "ga4_dijual",
+  },
+  {
+    id: "ga4_disewa",
+    source: "GA4 Export",
+    segment: "/disewa/",
+    store: "flow2",
+    prefix: "ga4_disewa",
+  },
+  {
+    id: "ga4_blog",
+    source: "GA4 Export",
+    segment: "/articles-all/",
+    store: "flow2",
+    prefix: "ga4_blog",
+  },
+  {
+    id: "ga4_leads",
+    source: "Event GA4 Export",
+    segment: "click_contact_agent",
+    store: "flow2",
+    prefix: "ga4_leads",
+    subtitle: "Organic Google",
+  },
 ];
 
 function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
@@ -566,9 +665,7 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xs font-semibold text-ink">
-          Slot Status
-        </h2>
+        <h2 className="text-xs font-semibold text-ink">Slot Status</h2>
         <div className="flex items-center gap-4 text-2xs text-muted">
           <span>
             <span className="dot-ok">●</span> filled
@@ -604,14 +701,19 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
               const storeData = row.store === "flow1" ? flow1Data : flow2Data;
               const canClear = row.store === "flow2";
               return (
-                <tr key={row.id} className={idx % 2 === 1 ? "bg-surface-2/40" : ""}>
+                <tr
+                  key={row.id}
+                  className={idx % 2 === 1 ? "bg-surface-2/40" : ""}
+                >
                   <td className="py-2.5 pr-4">
                     <div className="text-ink text-xs">{row.source}</div>
                     {row.subtitle && (
                       <div className="text-2xs text-muted">{row.subtitle}</div>
                     )}
                   </td>
-                  <td className="py-2.5 pr-4 text-muted text-2xs whitespace-nowrap">{row.segment}</td>
+                  <td className="py-2.5 pr-4 text-muted text-2xs whitespace-nowrap">
+                    {row.segment}
+                  </td>
                   {slots.map((s) => {
                     const key = `${row.prefix}_${s.key}`;
                     const filled = !!storeData[key];
@@ -644,7 +746,10 @@ function SlotDot({ filled, onClear }) {
     >
       <span className={`${filled ? "dot-ok" : "dot-empty"} text-sm`}>●</span>
       {hover && filled && onClear && (
-        <button onClick={onClear} className="text-muted hover:text-danger transition-colors">
+        <button
+          onClick={onClear}
+          className="text-muted hover:text-danger transition-colors"
+        >
           <X size={11} strokeWidth={2.5} />
         </button>
       )}
@@ -664,7 +769,6 @@ function OverviewSection({
   activeSeg,
   setActiveSeg,
 }) {
-
   return (
     <div className="space-y-4">
       {/* Export bar */}
