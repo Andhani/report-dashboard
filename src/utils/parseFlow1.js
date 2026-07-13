@@ -115,21 +115,14 @@ function tryParseGA4(wb) {
     const month = parseGA4DateRange(String(allRows[3]?.[0] ?? "").trim());
     if (!month) return null;
 
-    // Index 8+: data rows (index 7 = grand total, skip rows without a leading slash)
-    let project = null;
-    const rows = [];
+    const project = detectGA4Project(allRows);
+    if (!project) return null;
 
+    const rows = [];
     for (let i = 8; i < allRows.length; i++) {
       const r = allRows[i];
       const path = String(r[0] ?? "").trim();
       if (!path.startsWith("/")) continue;
-
-      if (!project) {
-        if (path.includes("/dijual/") || path.includes("/disewa/"))
-          project = "bc";
-        else if (path.includes("/articles-all/")) project = "blog";
-      }
-
       rows.push({
         slug: path,
         views: toNum(r[1]),
@@ -139,7 +132,7 @@ function tryParseGA4(wb) {
       });
     }
 
-    if (!project || rows.length === 0) return null;
+    if (rows.length === 0) return null;
 
     return { type: "ga4", project, month, rows };
   } catch {
@@ -154,19 +147,14 @@ function tryParseGA4CSV(rows) {
   const month = parseGA4DateRange(String(rows[3]?.[0] ?? "").trim());
   if (!month) return null;
 
-  let project = null;
-  const dataRows = [];
+  const project = detectGA4Project(rows);
+  if (!project) return null;
 
+  const dataRows = [];
   for (let i = 8; i < rows.length; i++) {
     const r = rows[i];
     const path = String(r[0] ?? "").trim();
     if (!path.startsWith("/")) continue;
-
-    if (!project) {
-      if (path.includes("/dijual/") || path.includes("/disewa/")) project = "bc";
-      else if (path.includes("/articles-all/")) project = "blog";
-    }
-
     dataRows.push({
       slug: path,
       views: toNum(r[1]),
@@ -176,7 +164,7 @@ function tryParseGA4CSV(rows) {
     });
   }
 
-  if (!project || dataRows.length === 0) return null;
+  if (dataRows.length === 0) return null;
   return { type: "ga4", project, month, rows: dataRows };
 }
 
@@ -225,7 +213,9 @@ export function getDataKey(result) {
     if (result.segment === "blog") return `blog_gsc_${mk}`;
   }
   if (result.type === "ga4") {
-    return `${result.project}_ga4_${mk}`;
+    if (result.project === "bc_dijual") return `bc_ga4_dijual_${mk}`;
+    if (result.project === "bc_disewa") return `bc_ga4_disewa_${mk}`;
+    if (result.project === "blog") return `blog_ga4_${mk}`;
   }
   return null;
 }
@@ -245,10 +235,36 @@ export function formatDetectionLabel(result) {
     };
     return `${seg[result.segment] ?? result.segment} — ${month} (${result.rows.length} URLs)`;
   }
-  return `${result.project === "bc" ? "BC" : "Blog"} GA4 Export — ${month} (${result.rows.length} URLs)`;
+  const projectLabels = {
+    bc_dijual: "BC GA4 Export (/dijual/)",
+    bc_disewa: "BC GA4 Export (/disewa/)",
+    blog: "Blog GA4 Export",
+  };
+  return `${projectLabels[result.project] ?? result.project} — ${month} (${result.rows.length} URLs)`;
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
+
+function detectGA4Project(rows) {
+  let dijual = 0,
+    disewa = 0,
+    blog = 0,
+    total = 0;
+  for (let i = 8; i < rows.length && i < 108; i++) {
+    const path = String(rows[i]?.[0] ?? "").trim();
+    if (!path.startsWith("/")) continue;
+    total++;
+    if (path.includes("/dijual/")) dijual++;
+    else if (path.includes("/disewa/")) disewa++;
+    else if (path.includes("/articles-all/")) blog++;
+  }
+  if (total < 3) return null;
+  const max = Math.max(dijual, disewa, blog);
+  if (max === 0 || max / total < 0.5) return null;
+  if (dijual === max) return "bc_dijual";
+  if (disewa === max) return "bc_disewa";
+  return "blog";
+}
 
 function toRows(sheet) {
   return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: true });

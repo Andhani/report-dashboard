@@ -461,10 +461,8 @@ function UploadGuide() {
     { label: "BC GSC Export", detail: "One file per segment: dijual, disewa" },
     { label: "Blog GSC Export", detail: "Page filter set to /articles-all/" },
     { label: "Blog GA4 Export", detail: "Query string set to /articles-all/" },
-    {
-      label: "BC GA4 Export",
-      detail: "Covers both dijual and disewa in one file",
-    },
+    { label: "BC GA4 Export /dijual/", detail: "Segment-specific file for /dijual/ URLs" },
+    { label: "BC GA4 Export /disewa/", detail: "Segment-specific file for /disewa/ URLs" },
   ];
   return (
     <div className="card p-4">
@@ -615,9 +613,15 @@ const SLOT_ROWS = [
     subtitle: "Organic Google",
   },
   {
-    id: "bc_ga4",
+    id: "bc_ga4_dijual",
     source: "BC GA4 Export",
-    segment: "dijual + disewa",
+    segment: "/dijual/",
+    subtitle: "Organic Google",
+  },
+  {
+    id: "bc_ga4_disewa",
+    source: "BC GA4 Export",
+    segment: "/disewa/",
     subtitle: "Organic Google",
   },
 ];

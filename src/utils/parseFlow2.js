@@ -408,10 +408,10 @@ export function formatFlow2DetectionLabel(result) {
     return `GA4 Export (All Segments) — ${month} · ${result.all_organic.views.toLocaleString()} total views`;
   }
   if (result.type === "ga4_dijual") {
-    return `GA4 Export (/dijual/) — ${month} · ${result.views.toLocaleString()} views`;
+    return `BC GA4 Export (/dijual/) — ${month} · ${result.views.toLocaleString()} views`;
   }
   if (result.type === "ga4_disewa") {
-    return `GA4 Export (/disewa/) — ${month} · ${result.views.toLocaleString()} views`;
+    return `BC GA4 Export (/disewa/) — ${month} · ${result.views.toLocaleString()} views`;
   }
   if (result.type === "ga4_blog") {
     return `GA4 Export (Blog) — ${month} · ${result.views.toLocaleString()} views`;
