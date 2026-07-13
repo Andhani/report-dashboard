@@ -2,6 +2,28 @@ import * as XLSX from "xlsx";
 import { getValidToken } from "./googleAuth";
 
 /**
+ * Add a new sheet tab to a spreadsheet.
+ */
+async function addSheet(spreadsheetId, sheetName, token) {
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        requests: [{ addSheet: { properties: { title: sheetName } } }],
+      }),
+    },
+  );
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data;
+}
+
+/**
  * Clear all values in a sheet tab.
  */
 async function clearSheet(spreadsheetId, sheetName, token) {
@@ -101,8 +123,23 @@ export async function pushFlow3ToSheets(spreadsheetId, csvRows) {
 }
 
 /**
+ * Clear the sheet if it exists, or create it if it doesn't.
+ */
+async function ensureSheet(spreadsheetId, sheetName, token) {
+  try {
+    await clearSheet(spreadsheetId, sheetName, token);
+  } catch (e) {
+    if (/Unable to parse range/i.test(e.message)) {
+      await addSheet(spreadsheetId, sheetName, token);
+    } else {
+      throw e;
+    }
+  }
+}
+
+/**
  * Push Flow 2 (Traffic Overview) to Google Sheets.
- * Clears the destination sheet first, then writes all rows from A1.
+ * Creates the destination sheet if it doesn't exist, clears it, then writes all rows from A1.
  * Layout matches buildFlow2CSV: rows = metrics, columns = segments × months.
  */
 export async function pushFlow2ToSheets(spreadsheetId, csvRows) {
@@ -112,7 +149,7 @@ export async function pushFlow2ToSheets(spreadsheetId, csvRows) {
 
   const sheetName = "Traffic Overview (BC & Blog)";
 
-  await clearSheet(spreadsheetId, sheetName, token);
+  await ensureSheet(spreadsheetId, sheetName, token);
 
   const nRows = csvRows.length;
   const nCols = csvRows[0]?.length ?? 1;
