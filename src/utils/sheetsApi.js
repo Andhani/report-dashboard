@@ -52,7 +52,7 @@ export async function pushFlow1ToSheets(spreadsheetId, project, csvRows) {
   const sheetName =
     project === "bc" ? "BC Traffic (Optimized)" : "Blog Traffic (Optimized)";
 
-  await clearSheet(spreadsheetId, sheetName, token);
+  await ensureSheet(spreadsheetId, sheetName, token);
 
   const nRows = csvRows.length;
   const nCols = Math.max(...csvRows.map((r) => r.length));
@@ -100,7 +100,7 @@ export async function pushFlow3ToSheets(spreadsheetId, csvRows) {
 
   const sheetName = "Leads Summary";
 
-  await clearSheet(spreadsheetId, sheetName, token);
+  await ensureSheet(spreadsheetId, sheetName, token);
 
   const nRows = csvRows.length;
   const nCols = Math.max(...csvRows.map((r) => r.length));

@@ -119,7 +119,74 @@ export function parseGSCChartWorkbook(wb) {
 // ─── GA4 Free-form export (.csv / .xlsx) ─────────────────────────────────────
 
 /**
- * Core row-level parser for GA4 Free-form exports.
+ * Inspect first 100 data rows (index 8+) and return the dominant URL segment
+ * ('dijual', 'disewa', 'blog') when ≥50 % of rows share the same path prefix.
+ * Returns null for mixed / all-organic files.
+ */
+function detectGA4Segment(rows) {
+  let dijual = 0,
+    disewa = 0,
+    blog = 0,
+    total = 0;
+  for (let i = 8; i < rows.length && i < 108; i++) {
+    const path = String(rows[i]?.[0] ?? "").trim();
+    if (!path.startsWith("/")) continue;
+    total++;
+    if (path.includes("/dijual/")) dijual++;
+    else if (path.includes("/disewa/")) disewa++;
+    else if (path.includes("/articles-all/")) blog++;
+  }
+  if (total < 3) return null;
+  const max = Math.max(dijual, disewa, blog);
+  if (max === 0 || max / total < 0.5) return null;
+  if (dijual === max) return "dijual";
+  if (disewa === max) return "disewa";
+  return "blog";
+}
+
+/**
+ * Parse a segment-specific GA4 Free-form export (one segment per file).
+ * Sums views / users / sessions from all URL rows.
+ * AET is the unweighted average over rows that have AET > 0.
+ * Returns: { type: 'ga4_dijual'|'ga4_disewa'|'ga4_blog', month, views, users, sessions, aet_seconds }
+ */
+function parseGA4SegmentRows(rows, segment) {
+  const month = parseGA4DateRange(String(rows[3]?.[0] ?? "").trim());
+  if (!month) return null;
+
+  let views = 0,
+    users = 0,
+    sessions = 0,
+    aetSum = 0,
+    aetCount = 0;
+
+  for (let i = 8; i < rows.length; i++) {
+    const r = rows[i];
+    const path = String(r[0] ?? "").trim();
+    if (!path.startsWith("/")) continue;
+
+    views += toNum(r[1]);
+    users += toNum(r[2]);
+    sessions += toNum(r[3]);
+    const a = toNum(r[4]);
+    if (a > 0) {
+      aetSum += a;
+      aetCount++;
+    }
+  }
+
+  return {
+    type: `ga4_${segment}`,
+    month,
+    views,
+    users,
+    sessions,
+    aet_seconds: aetCount > 0 ? aetSum / aetCount : 0,
+  };
+}
+
+/**
+ * Core row-level parser for GA4 Free-form exports (all-organic / mixed files).
  * Accepts a 2D array of values (from Papa.parse or SheetJS sheet_to_json).
  * Row layout: index 3 = date range, index 7 = grand total, index 8+ = URL rows.
  */
@@ -151,20 +218,26 @@ function parseGA4FreeRows(rows) {
       segmentTotals.dijual.views += v;
       segmentTotals.dijual.users += u;
       segmentTotals.dijual.sessions += s;
-      segmentTotals.dijual.aetSum += a;
-      segmentTotals.dijual.count++;
+      if (a > 0) {
+        segmentTotals.dijual.aetSum += a;
+        segmentTotals.dijual.count++;
+      }
     } else if (path.includes("/disewa/")) {
       segmentTotals.disewa.views += v;
       segmentTotals.disewa.users += u;
       segmentTotals.disewa.sessions += s;
-      segmentTotals.disewa.aetSum += a;
-      segmentTotals.disewa.count++;
+      if (a > 0) {
+        segmentTotals.disewa.aetSum += a;
+        segmentTotals.disewa.count++;
+      }
     } else if (path.includes("/articles-all/")) {
       segmentTotals.blog.views += v;
       segmentTotals.blog.users += u;
       segmentTotals.blog.sessions += s;
-      segmentTotals.blog.aetSum += a;
-      segmentTotals.blog.count++;
+      if (a > 0) {
+        segmentTotals.blog.aetSum += a;
+        segmentTotals.blog.count++;
+      }
     }
   }
 
@@ -199,9 +272,13 @@ function parseGA4FreeRows(rows) {
 
 /**
  * Parse a Flow 2 GA4 Free-form export (.csv).
+ * Auto-detects whether the file is segment-specific (dijual / disewa / blog)
+ * or all-organic/mixed and routes to the appropriate parser.
  */
 export function parseGA4FreeFile(csvText) {
   const rows = Papa.parse(csvText, { skipEmptyLines: false }).data;
+  const segment = detectGA4Segment(rows);
+  if (segment) return parseGA4SegmentRows(rows, segment);
   return parseGA4FreeRows(rows);
 }
 
@@ -229,7 +306,10 @@ export function parseGA4FreeWorkbook(wb) {
       String(rows[6]?.[0] ?? "")
         .toLowerCase()
         .includes("key events");
-    return isLeads ? parseGA4LeadsRows(rows) : parseGA4FreeRows(rows);
+    if (isLeads) return parseGA4LeadsRows(rows);
+    const segment = detectGA4Segment(rows);
+    if (segment) return parseGA4SegmentRows(rows, segment);
+    return parseGA4FreeRows(rows);
   } catch {
     return null;
   }
@@ -301,6 +381,9 @@ export function getFlow2DataKey(result) {
   const mk = formatMonthKey(result.month.year, result.month.month);
   if (result.type === "gsc_chart") return `gsc_${result.segment}_${mk}`;
   if (result.type === "ga4_free") return `ga4_free_${mk}`;
+  if (result.type === "ga4_dijual") return `ga4_dijual_${mk}`;
+  if (result.type === "ga4_disewa") return `ga4_disewa_${mk}`;
+  if (result.type === "ga4_blog") return `ga4_blog_${mk}`;
   if (result.type === "ga4_leads") return `ga4_leads_${mk}`;
   return null;
 }
@@ -323,6 +406,15 @@ export function formatFlow2DetectionLabel(result) {
   }
   if (result.type === "ga4_free") {
     return `GA4 Export (All Segments) — ${month} · ${result.all_organic.views.toLocaleString()} total views`;
+  }
+  if (result.type === "ga4_dijual") {
+    return `GA4 Export (/dijual/) — ${month} · ${result.views.toLocaleString()} views`;
+  }
+  if (result.type === "ga4_disewa") {
+    return `GA4 Export (/disewa/) — ${month} · ${result.views.toLocaleString()} views`;
+  }
+  if (result.type === "ga4_blog") {
+    return `GA4 Export (Blog) — ${month} · ${result.views.toLocaleString()} views`;
   }
   if (result.type === "ga4_leads") {
     return `Event GA4 Export — ${month} · ${result.clickContactAgent.toLocaleString()} Click_Contact_Agent`;
