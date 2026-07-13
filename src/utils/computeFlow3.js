@@ -66,13 +66,23 @@ function filterByMonth(urlList, dateField, year, month) {
 /**
  * Get GA4 per-URL metrics for a list of URLs from Flow 1 data.
  * Returns map: slug → { views, users, sessions, aet_seconds }
+ *
+ * BC data is stored in two separate segment keys (dijual + disewa);
+ * Blog is stored under a single key.
  */
 function getGA4MetricsMap(flow1Data, monthKey, project) {
-  const entry = flow1Data[`${project}_ga4_${monthKey}`];
-  if (!entry?.rows) return {};
+  const keys =
+    project === "bc"
+      ? [`bc_ga4_dijual_${monthKey}`, `bc_ga4_disewa_${monthKey}`]
+      : [`${project}_ga4_${monthKey}`];
+
   const map = {};
-  for (const r of entry.rows) {
-    if (r.slug) map[r.slug] = r;
+  for (const key of keys) {
+    const entry = flow1Data[key];
+    if (!entry?.rows) continue;
+    for (const r of entry.rows) {
+      if (r.slug) map[r.slug] = r;
+    }
   }
   return map;
 }
