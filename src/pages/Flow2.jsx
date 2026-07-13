@@ -688,27 +688,6 @@ const SLOT_ROWS_F2 = [
     subtitle: "Organic Google",
   },
   {
-    id: "ga4_dijual",
-    source: "BC GA4 Export",
-    segment: "/dijual/",
-    store: "flow2",
-    prefix: "ga4_dijual",
-  },
-  {
-    id: "ga4_disewa",
-    source: "BC GA4 Export",
-    segment: "/disewa/",
-    store: "flow2",
-    prefix: "ga4_disewa",
-  },
-  {
-    id: "ga4_blog",
-    source: "GA4 Export",
-    segment: "/articles-all/",
-    store: "flow2",
-    prefix: "ga4_blog",
-  },
-  {
     id: "ga4_leads",
     source: "Event GA4 Export",
     segment: "click_contact_agent",
