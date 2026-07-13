@@ -94,7 +94,34 @@ function tryParseGSC(wb) {
 
     if (rows.length === 0) return null;
 
-    return { type: "gsc", segment: segment ?? "unknown", month, rows };
+    // Also parse Chart sheet for daily aggregates (used by Traffic Overview reuse path
+    // to match the same method as a direct Chart file upload: simple daily average position).
+    let chartAgg = null;
+    try {
+      if (wb.SheetNames.includes("Chart")) {
+        const chartRows = toRows(wb.Sheets["Chart"]);
+        let cClicks = 0, cImpressions = 0, posSum = 0, posCount = 0;
+        for (let i = 1; i < chartRows.length; i++) {
+          const r = chartRows[i];
+          if (!r[0]) continue;
+          cClicks += toNum(r[1]);
+          cImpressions += toNum(r[2]);
+          const pos = toNum(r[4]);
+          if (pos > 0) { posSum += pos; posCount++; }
+        }
+        if (cClicks > 0) {
+          chartAgg = {
+            clicks: cClicks,
+            impressions: cImpressions,
+            avgPosition: posCount > 0 ? posSum / posCount : 0,
+          };
+        }
+      }
+    } catch {
+      // chartAgg remains null; aggregation falls back to URL-level rows
+    }
+
+    return { type: "gsc", segment: segment ?? "unknown", month, rows, chartAgg };
   } catch {
     return null;
   }

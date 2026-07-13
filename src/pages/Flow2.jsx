@@ -43,6 +43,9 @@ import SheetPushModal from "../components/SheetPushModal";
 
 function aggregateGSCRows(entry) {
   if (!entry || !Array.isArray(entry.rows)) return entry;
+  // Prefer Chart sheet daily aggregates when available — same method as direct Chart upload.
+  if (entry.chartAgg) return entry.chartAgg;
+  // Fallback for older stored entries: impression-weighted average from URL rows.
   let clicks = 0,
     impressions = 0,
     posWeightedSum = 0,
@@ -66,26 +69,24 @@ function aggregateGSCRows(entry) {
 
 function aggregateGA4Rows(entry) {
   if (!entry || !Array.isArray(entry.rows)) return null;
+  // Session-weighted AET so the result matches the grand total row in the GA4 export.
   let views = 0,
     users = 0,
     sessions = 0,
-    aetSum = 0,
-    aetCount = 0;
+    aetWeightedSum = 0;
   for (const row of entry.rows) {
     views += row.views ?? 0;
     users += row.users ?? 0;
-    sessions += row.sessions ?? 0;
+    const s = row.sessions ?? 0;
+    sessions += s;
     const a = row.aet_seconds ?? 0;
-    if (a > 0) {
-      aetSum += a;
-      aetCount++;
-    }
+    if (a > 0 && s > 0) aetWeightedSum += a * s;
   }
   return {
     views,
     users,
     sessions,
-    aet_seconds: aetCount > 0 ? aetSum / aetCount : 0,
+    aet_seconds: sessions > 0 ? aetWeightedSum / sessions : 0,
   };
 }
 
@@ -336,23 +337,11 @@ export default function Flow2() {
             {[
               {
                 label: "GSC Export (All Segments)",
-                desc: "Site-wide totals — not per-URL",
+                desc: "Site-wide Chart sheet — grand total clicks, impressions, position",
               },
               {
                 label: "GA4 Export (All Segments)",
-                desc: "Full site organic — grand total for All Organic row",
-              },
-              {
-                label: "BC GA4 Export (/dijual/)",
-                desc: "Auto-detected from file rows",
-              },
-              {
-                label: "BC GA4 Export (/disewa/)",
-                desc: "Auto-detected from file rows",
-              },
-              {
-                label: "GA4 Export (Blog)",
-                desc: "Auto-detected from file rows",
+                desc: "Full-site organic — grand total row for All Organic Traffic",
               },
               {
                 label: "Event GA4 Export",
@@ -371,25 +360,42 @@ export default function Flow2() {
             ))}
           </ul>
           <p className="text-xs text-muted mb-1.5">
-            Reuse from Traffic (Optimized)
+            Reuse from Traffic (Optimized) — no need to re-upload
           </p>
           <ul className="space-y-1.5">
             {[
-              "BC GSC Export (/dijual/)",
-              "BC GSC Export (/disewa/)",
-              "Blog GSC Export",
-              "BC GA4 Export /dijual/",
-              "BC GA4 Export /disewa/",
-              "Blog GA4 Export",
-            ].map((label) => (
+              {
+                label: "BC GSC Export (/dijual/)",
+                desc: "auto-pulled from Flow 1",
+              },
+              {
+                label: "BC GSC Export (/disewa/)",
+                desc: "auto-pulled from Flow 1",
+              },
+              {
+                label: "Blog GSC Export",
+                desc: "auto-pulled from Flow 1",
+              },
+              {
+                label: "BC GA4 Export (/dijual/)",
+                desc: "auto-pulled from Flow 1",
+              },
+              {
+                label: "BC GA4 Export (/disewa/)",
+                desc: "auto-pulled from Flow 1",
+              },
+              {
+                label: "Blog GA4 Export",
+                desc: "auto-pulled from Flow 1",
+              },
+            ].map((r) => (
               <li
-                key={label}
+                key={r.label}
                 className="flex items-start gap-2 text-xs text-ink"
               >
                 <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
                 <span>
-                  {label}{" "}
-                  <span className="text-muted">— no need to upload</span>
+                  {r.label} <span className="text-muted">— {r.desc}</span>
                 </span>
               </li>
             ))}
@@ -626,6 +632,9 @@ function DetectionLog({ log, onClear }) {
 
 // ─── Slot Grid ────────────────────────────────────────────────────────────────
 
+// flow2Prefix: the key prefix used when the same file is uploaded directly to Flow 2
+// instead of being reused from Flow 1. SlotGrid checks both sources so filled status
+// stays accurate regardless of which path provided the data.
 const SLOT_ROWS_F2 = [
   {
     id: "gsc_all_organic",
@@ -640,6 +649,7 @@ const SLOT_ROWS_F2 = [
     segment: "/dijual/",
     store: "flow1",
     prefix: "bc_gsc_dijual",
+    flow2Prefix: "gsc_dijual",
   },
   {
     id: "gsc_disewa",
@@ -647,6 +657,7 @@ const SLOT_ROWS_F2 = [
     segment: "/disewa/",
     store: "flow1",
     prefix: "bc_gsc_disewa",
+    flow2Prefix: "gsc_disewa",
   },
   {
     id: "gsc_blog",
@@ -654,6 +665,7 @@ const SLOT_ROWS_F2 = [
     segment: "/articles-all/",
     store: "flow1",
     prefix: "blog_gsc",
+    flow2Prefix: "gsc_blog",
   },
   {
     id: "bc_ga4_dijual_f1",
@@ -661,7 +673,8 @@ const SLOT_ROWS_F2 = [
     segment: "/dijual/",
     store: "flow1",
     prefix: "bc_ga4_dijual",
-    subtitle: "from Traffic (Optimized)",
+    flow2Prefix: "ga4_dijual",
+    subtitle: "reuse / manual upload",
   },
   {
     id: "bc_ga4_disewa_f1",
@@ -669,7 +682,8 @@ const SLOT_ROWS_F2 = [
     segment: "/disewa/",
     store: "flow1",
     prefix: "bc_ga4_disewa",
-    subtitle: "from Traffic (Optimized)",
+    flow2Prefix: "ga4_disewa",
+    subtitle: "reuse / manual upload",
   },
   {
     id: "blog_ga4_f1",
@@ -677,7 +691,8 @@ const SLOT_ROWS_F2 = [
     segment: "/articles-all/",
     store: "flow1",
     prefix: "blog_ga4",
-    subtitle: "from Traffic (Optimized)",
+    flow2Prefix: "ga4_blog",
+    subtitle: "reuse / manual upload",
   },
   {
     id: "ga4_free",
@@ -735,8 +750,7 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
           <tbody className="divide-y divide-border">
             {SLOT_ROWS_F2.map((row, ri) => {
               const idx = dataRowCount++;
-              const storeData = row.store === "flow1" ? flow1Data : flow2Data;
-              const canClear = row.store === "flow2";
+              const primaryStore = row.store === "flow1" ? flow1Data : flow2Data;
               return (
                 <tr
                   key={row.id}
@@ -752,13 +766,26 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
                     {row.segment}
                   </td>
                   {slots.map((s) => {
-                    const key = `${row.prefix}_${s.key}`;
-                    const filled = !!storeData[key];
+                    const primaryKey = `${row.prefix}_${s.key}`;
+                    const flow2Key = row.flow2Prefix
+                      ? `${row.flow2Prefix}_${s.key}`
+                      : null;
+                    const primaryFilled = !!primaryStore[primaryKey];
+                    const flow2Filled = flow2Key ? !!flow2Data[flow2Key] : false;
+                    const filled = primaryFilled || flow2Filled;
+                    // Allow clearing: flow2 direct upload always clearable;
+                    // for reuse rows, clear the flow2 override if that's what filled it.
+                    const clearKey =
+                      row.store === "flow2"
+                        ? primaryKey
+                        : flow2Filled
+                          ? flow2Key
+                          : null;
                     return (
                       <td key={s.key} className="py-2.5 px-2 text-center">
                         <SlotDot
                           filled={filled}
-                          onClear={canClear ? () => onClear(key) : null}
+                          onClear={clearKey ? () => onClear(clearKey) : null}
                         />
                       </td>
                     );
