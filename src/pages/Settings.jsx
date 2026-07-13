@@ -11,7 +11,6 @@ export default function Settings() {
   const [sheetsUrl, setSheetsUrl] = useStorage("sheets_report_url", "");
   const { setFlow1Data, setFlow2Data } = useDataContext();
 
-  const [sheetsInput, setSheetsInput] = useState(sheetsUrl || "");
   const [clearConfirm, setClearConfirm] = useState(null);
 
   // Fetch email from Google userinfo if token exists but email not yet stored
@@ -36,7 +35,7 @@ export default function Settings() {
 
   function handleSheetsUrl(e) {
     e.preventDefault();
-    setSheetsUrl(sheetsInput.trim());
+    setSheetsUrl(sheetsUrl.trim());
     alert("Spreadsheet URL saved.");
   }
 
@@ -81,7 +80,6 @@ export default function Settings() {
       setFlow1Window(null);
       setFlow2Window(null);
       setSheetsUrl("");
-      setSheetsInput("");
     }
     setClearConfirm(null);
   }
@@ -193,8 +191,8 @@ export default function Settings() {
             type="url"
             className="input flex-1"
             placeholder="https://docs.google.com/spreadsheets/d/..."
-            value={sheetsInput}
-            onChange={(e) => setSheetsInput(e.target.value)}
+            value={sheetsUrl}
+            onChange={(e) => setSheetsUrl(e.target.value)}
           />
           <button type="submit" className="btn-primary">
             Save
