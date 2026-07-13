@@ -19,6 +19,14 @@ import {
 import { Settings, Database, AlertTriangle } from "lucide-react";
 import SheetPushModal from "../components/SheetPushModal";
 
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
+function toDateStr(year, month, day) {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 export default function Flow3() {
   const { flow1Data, flow2Data } = useDataContext();
   const [flow1Window] = useStorage("flow1_window", null);
@@ -29,6 +37,7 @@ export default function Flow3() {
   const [pushStatus, setPushStatus] = useState(null);
   const [pushModal, setPushModal] = useState(false);
   const [selectedSlotIdx, setSelectedSlotIdx] = useState(null);
+  const [dateRange, setDateRange] = useState({ startDay: null, endDay: null });
 
   const slots = flow1Window ? getMonthSlots(flow1Window, 6) : [];
   const defaultSlot = getLeadsMonth(slots);
@@ -62,11 +71,35 @@ export default function Flow3() {
     );
   }
 
+  function handleSlotSelect(i) {
+    setSelectedSlotIdx(i);
+    setDateRange({ startDay: null, endDay: null });
+  }
+
+  const lastDay = currentSlot
+    ? daysInMonth(currentSlot.year, currentSlot.month)
+    : 31;
+  const minDate = currentSlot
+    ? toDateStr(currentSlot.year, currentSlot.month, 1)
+    : "";
+  const maxDate = currentSlot
+    ? toDateStr(currentSlot.year, currentSlot.month, lastDay)
+    : "";
+  const startDateVal =
+    currentSlot && dateRange.startDay
+      ? toDateStr(currentSlot.year, currentSlot.month, dateRange.startDay)
+      : "";
+  const endDateVal =
+    currentSlot && dateRange.endDay
+      ? toDateStr(currentSlot.year, currentSlot.month, dateRange.endDay)
+      : "";
+  const hasDateFilter = dateRange.startDay !== null || dateRange.endDay !== null;
+
   const bcBlock = currentSlot
-    ? computeBCLeads(bcUrls, flow1Data, flow2Data, currentSlot)
+    ? computeBCLeads(bcUrls, flow1Data, flow2Data, currentSlot, dateRange)
     : null;
   const blogBlock = currentSlot
-    ? computeBlogLeads(blogUrls, flow1Data, flow2Data, currentSlot)
+    ? computeBlogLeads(blogUrls, flow1Data, flow2Data, currentSlot, dateRange)
     : null;
 
   function handleDownloadCSV() {
@@ -123,7 +156,7 @@ export default function Flow3() {
                 return (
                   <button
                     key={s.key}
-                    onClick={() => setSelectedSlotIdx(i)}
+                    onClick={() => handleSlotSelect(i)}
                     className={`px-3 py-1 rounded-full text-xs transition-colors ${
                       isActive
                         ? "bg-accent text-white"
@@ -137,8 +170,59 @@ export default function Flow3() {
               })}
             </div>
             {!isLastSlot && (
+              <span className="text-2xs text-muted">★ = most recent</span>
+            )}
+          </div>
+        )}
+
+        {/* Date range filter */}
+        {currentSlot && (
+          <div className="card p-3 flex flex-wrap items-center gap-4">
+            <span className="text-2xs uppercase tracking-wider text-muted flex-shrink-0">
+              Date Range
+            </span>
+            <label className="flex items-center gap-2 text-xs text-muted">
+              From
+              <input
+                type="date"
+                min={minDate}
+                max={maxDate}
+                value={startDateVal}
+                onChange={(e) => {
+                  const day = e.target.value
+                    ? +e.target.value.split("-")[2]
+                    : null;
+                  setDateRange((r) => ({ ...r, startDay: day }));
+                }}
+                className="rounded border border-border bg-surface-2 px-2 py-0.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-muted">
+              To
+              <input
+                type="date"
+                min={minDate}
+                max={maxDate}
+                value={endDateVal}
+                onChange={(e) => {
+                  const day = e.target.value
+                    ? +e.target.value.split("-")[2]
+                    : null;
+                  setDateRange((r) => ({ ...r, endDay: day }));
+                }}
+                className="rounded border border-border bg-surface-2 px-2 py-0.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+            {hasDateFilter ? (
+              <button
+                onClick={() => setDateRange({ startDay: null, endDay: null })}
+                className="text-2xs text-muted hover:text-ink underline"
+              >
+                Clear
+              </button>
+            ) : (
               <span className="text-2xs text-muted">
-                ★ = most recent
+                Full month (no filter)
               </span>
             )}
           </div>
@@ -245,28 +329,48 @@ function BCSection({ block }) {
   return (
     <div className="card p-4">
       <div className="flex items-baseline gap-2 mb-4">
-        <span className="text-2xs uppercase tracking-wider text-muted">BC Leads</span>
+        <span className="text-2xs uppercase tracking-wider text-muted">
+          BC Leads
+        </span>
         <span className="text-xs font-semibold text-ink">{monthLabel}</span>
         <span className="text-2xs text-muted">GA4</span>
       </div>
       <div className="grid grid-cols-2 gap-x-6 text-xs">
         {/* Headers */}
         <div className="pb-2">
-          <div className="text-2xs uppercase tracking-wider text-muted">Traffic Summary</div>
-          <div className="text-2xs text-muted mt-0.5">{count} URLs (bottom content)</div>
+          <div className="text-2xs uppercase tracking-wider text-muted">
+            Traffic Summary
+          </div>
+          <div className="text-2xs text-muted mt-0.5">
+            {count} URLs (bottom content)
+          </div>
         </div>
         <div className="pb-2">
-          <div className="text-2xs uppercase tracking-wider text-muted">Estimated Leads</div>
+          <div className="text-2xs uppercase tracking-wider text-muted">
+            Estimated Leads
+          </div>
         </div>
         {/* Views */}
         <SplitRow label="Views" value={fmtNum(traffic.views)} />
-        <SplitRow label="Views-based" value={fmtEst(estimated.views)} highlight />
+        <SplitRow
+          label="Views-based"
+          value={fmtEst(estimated.views)}
+          highlight
+        />
         {/* Users */}
         <SplitRow label="Active Users" value={fmtNum(traffic.users)} />
-        <SplitRow label="Users-based" value={fmtEst(estimated.users)} highlight />
+        <SplitRow
+          label="Users-based"
+          value={fmtEst(estimated.users)}
+          highlight
+        />
         {/* Sessions */}
         <SplitRow label="Sessions" value={fmtNum(traffic.sessions)} />
-        <SplitRow label="Sessions-based" value={fmtEst(estimated.sessions)} highlight />
+        <SplitRow
+          label="Sessions-based"
+          value={fmtEst(estimated.sessions)}
+          highlight
+        />
         {/* Avg AET — no right counterpart */}
         <SplitRow label="Avg AET" value={fmtAET(traffic.aet_seconds)} last />
         <div className="py-1.5" />
@@ -282,46 +386,90 @@ function BlogSection({ block }) {
   return (
     <div className="card p-4">
       <div className="flex items-baseline gap-2 mb-4">
-        <span className="text-2xs uppercase tracking-wider text-muted">Blog Leads</span>
+        <span className="text-2xs uppercase tracking-wider text-muted">
+          Blog Leads
+        </span>
         <span className="text-xs font-semibold text-ink">{monthLabel}</span>
         <span className="text-2xs text-muted">GA4</span>
       </div>
       <div className="grid grid-cols-2 gap-x-6 text-xs">
         {/* Create headers */}
         <div className="pb-1.5">
-          <div className="text-2xs uppercase tracking-wider text-muted">Create ({creates.count})</div>
+          <div className="text-2xs uppercase tracking-wider text-muted">
+            Create ({creates.count})
+          </div>
         </div>
         <div className="pb-1.5">
-          <div className="text-2xs uppercase tracking-wider text-muted">Estimated Leads (Create)</div>
+          <div className="text-2xs uppercase tracking-wider text-muted">
+            Estimated Leads (Create)
+          </div>
         </div>
         {/* Create rows */}
         <SplitRow label="Views" value={fmtNum(creates.traffic.views)} />
-        <SplitRow label="Views-based" value={fmtEst(creates.estimated.views)} highlight />
+        <SplitRow
+          label="Views-based"
+          value={fmtEst(creates.estimated.views)}
+          highlight
+        />
         <SplitRow label="Users" value={fmtNum(creates.traffic.users)} />
-        <SplitRow label="Users-based" value={fmtEst(creates.estimated.users)} highlight />
+        <SplitRow
+          label="Users-based"
+          value={fmtEst(creates.estimated.users)}
+          highlight
+        />
         <SplitRow label="Sessions" value={fmtNum(creates.traffic.sessions)} />
-        <SplitRow label="Sessions-based" value={fmtEst(creates.estimated.sessions)} highlight />
-        <SplitRow label="Avg AET" value={fmtAET(creates.traffic.aet_seconds)} last />
+        <SplitRow
+          label="Sessions-based"
+          value={fmtEst(creates.estimated.sessions)}
+          highlight
+        />
+        <SplitRow
+          label="Avg AET"
+          value={fmtAET(creates.traffic.aet_seconds)}
+          last
+        />
         <div className="py-1.5" />
         {/* Update headers */}
         <div className="pt-4 pb-1.5">
-          <div className="text-2xs uppercase tracking-wider text-muted">Update ({updates.count})</div>
+          <div className="text-2xs uppercase tracking-wider text-muted">
+            Update ({updates.count})
+          </div>
         </div>
         <div className="pt-4 pb-1.5">
-          <div className="text-2xs uppercase tracking-wider text-muted">Estimated Leads (Update)</div>
+          <div className="text-2xs uppercase tracking-wider text-muted">
+            Estimated Leads (Update)
+          </div>
         </div>
         {/* Update rows */}
         <SplitRow label="Views" value={fmtNum(updates.traffic.views)} />
-        <SplitRow label="Views-based" value={fmtEst(updates.estimated.views)} highlight />
+        <SplitRow
+          label="Views-based"
+          value={fmtEst(updates.estimated.views)}
+          highlight
+        />
         <SplitRow label="Users" value={fmtNum(updates.traffic.users)} />
-        <SplitRow label="Users-based" value={fmtEst(updates.estimated.users)} highlight />
+        <SplitRow
+          label="Users-based"
+          value={fmtEst(updates.estimated.users)}
+          highlight
+        />
         <SplitRow label="Sessions" value={fmtNum(updates.traffic.sessions)} />
-        <SplitRow label="Sessions-based" value={fmtEst(updates.estimated.sessions)} highlight />
-        <SplitRow label="Avg AET" value={fmtAET(updates.traffic.aet_seconds)} last />
+        <SplitRow
+          label="Sessions-based"
+          value={fmtEst(updates.estimated.sessions)}
+          highlight
+        />
+        <SplitRow
+          label="Avg AET"
+          value={fmtAET(updates.traffic.aet_seconds)}
+          last
+        />
         <div className="py-1.5" />
         {/* Grand total */}
         <div className="col-span-2 pt-3 border-t border-border">
-          <div className="text-2xs text-muted">Grand Total: {grandTotal.count} URLs</div>
+          <div className="text-2xs text-muted">
+            Grand Total: {grandTotal.count} URLs
+          </div>
         </div>
       </div>
     </div>
@@ -336,7 +484,9 @@ function SplitRow({ label, value, highlight, last }) {
       className={`flex items-center justify-between py-1.5 ${last ? "" : "border-b border-border"}`}
     >
       <span className="text-muted">{label}</span>
-      <span className={`tabular-nums font-medium ${highlight ? "text-ok" : "text-ink"}`}>
+      <span
+        className={`tabular-nums font-medium ${highlight ? "text-ok" : "text-ink"}`}
+      >
         {value}
       </span>
     </div>
@@ -349,7 +499,9 @@ function RateSection({ block }) {
   const { rates, siteWide } = block;
   return (
     <div className="card p-4">
-      <div className="text-2xs uppercase tracking-wider text-muted mb-3">Lead Rates</div>
+      <div className="text-2xs uppercase tracking-wider text-muted mb-3">
+        Lead Rates
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <RateBlock
           title="Lead / Views"
