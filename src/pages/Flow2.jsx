@@ -364,33 +364,33 @@ export default function Flow2() {
             ))}
           </ul>
           <p className="text-xs text-muted mb-1.5">
-            Reuse from Traffic (Optimized) — no need to re-upload
+            Reuse from Traffic (Optimized)
           </p>
           <ul className="space-y-1.5">
             {[
               {
                 label: "BC GSC Export (/dijual/)",
-                desc: "auto-pulled from Flow 1",
+                desc: "auto-pulled, no upload",
               },
               {
                 label: "BC GSC Export (/disewa/)",
-                desc: "auto-pulled from Flow 1",
+                desc: "auto-pulled, no upload",
               },
               {
                 label: "Blog GSC Export",
-                desc: "auto-pulled from Flow 1",
+                desc: "auto-pulled, no upload",
               },
               {
                 label: "BC GA4 Export (/dijual/)",
-                desc: "auto-pulled from Flow 1",
+                desc: "auto-pulled, no upload",
               },
               {
                 label: "BC GA4 Export (/disewa/)",
-                desc: "auto-pulled from Flow 1",
+                desc: "auto-pulled, no upload",
               },
               {
                 label: "Blog GA4 Export",
-                desc: "auto-pulled from Flow 1",
+                desc: "auto-pulled, no upload",
               },
             ].map((r) => (
               <li
@@ -729,9 +729,6 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
           <span>
             <span className="dot-empty">●</span> empty
           </span>
-          <span title="Re-upload to Flow 1 to get exact position/AET">
-            ◑ needs re-upload
-          </span>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -790,13 +787,23 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
                         : flow2Filled
                           ? flow2Key
                           : null;
-                    // Flag old entries that lack the new exact-aggregate fields —
-                    // they still work but use a fallback approximation for position/AET.
+                    // Only flag flow1 reuse entries that lack BOTH the new exact-aggregate
+                    // fields AND url-level rows — meaning no usable data at all.
+                    // flow2 direct-upload rows (store:"flow2") are never stale: their
+                    // entries store already-aggregated values in a different shape.
+                    // flow1 entries with rows use the url-row fallback, which is fine.
                     const isStale =
                       filled &&
+                      row.store === "flow1" &&
                       !flow2Filled &&
-                      ((row.source.includes("GSC") && primaryEntry && !primaryEntry.chartAgg) ||
-                        (row.source.includes("GA4") && primaryEntry && !primaryEntry.grandTotal));
+                      ((row.source.includes("GSC") &&
+                        primaryEntry &&
+                        !primaryEntry.chartAgg &&
+                        !Array.isArray(primaryEntry.rows)) ||
+                        (row.source.includes("GA4") &&
+                          primaryEntry &&
+                          !primaryEntry.grandTotal &&
+                          !Array.isArray(primaryEntry.rows)));
                     return (
                       <td key={s.key} className="py-2.5 px-2 text-center">
                         <SlotDot
