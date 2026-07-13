@@ -80,8 +80,7 @@ export function parseGSCChartWorkbook(wb) {
     let month = null;
     let totalClicks = 0;
     let totalImpressions = 0;
-    let positionSum = 0;
-    let positionCount = 0;
+    let posWeightedSum = 0; // sum(position * daily_impressions) for impression-weighted avg
 
     for (let i = 1; i < chartRows.length; i++) {
       const r = chartRows[i];
@@ -92,13 +91,12 @@ export function parseGSCChartWorkbook(wb) {
       if (!month) month = extractMonthFromDate(dateVal);
 
       totalClicks += toNum(r[1]);
-      totalImpressions += toNum(r[2]);
+      const imp = toNum(r[2]);
+      totalImpressions += imp;
       // r[3] = CTR (not used in Flow 2 overview)
+      // Impression-weighted daily average — faithful to how GSC aggregates position.
       const pos = toNum(r[4]);
-      if (pos > 0) {
-        positionSum += pos;
-        positionCount++;
-      }
+      if (pos > 0 && imp > 0) posWeightedSum += pos * imp;
     }
 
     if (!month || totalClicks === 0) return null;
@@ -109,7 +107,7 @@ export function parseGSCChartWorkbook(wb) {
       month,
       clicks: totalClicks,
       impressions: totalImpressions,
-      avgPosition: positionCount > 0 ? positionSum / positionCount : 0,
+      avgPosition: totalImpressions > 0 ? posWeightedSum / totalImpressions : 0,
     };
   } catch {
     return null;
