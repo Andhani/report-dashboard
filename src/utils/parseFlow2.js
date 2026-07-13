@@ -146,34 +146,20 @@ function detectGA4Segment(rows) {
 
 /**
  * Parse a segment-specific GA4 Free-form export (one segment per file).
- * Sums views / users / sessions from all URL rows.
- * AET is the unweighted average over rows that have AET > 0.
+ * Reads totals from the grand total row (index 7), same as the all-organic parser.
  * Returns: { type: 'ga4_dijual'|'ga4_disewa'|'ga4_blog', month, views, users, sessions, aet_seconds }
  */
 function parseGA4SegmentRows(rows, segment) {
   const month = parseGA4DateRange(String(rows[3]?.[0] ?? "").trim());
   if (!month) return null;
 
-  let views = 0,
-    users = 0,
-    sessions = 0,
-    aetSum = 0,
-    aetCount = 0;
+  const totRow = rows[7];
+  if (!totRow) return null;
 
-  for (let i = 8; i < rows.length; i++) {
-    const r = rows[i];
-    const path = String(r[0] ?? "").trim();
-    if (!path.startsWith("/")) continue;
-
-    views += toNum(r[1]);
-    users += toNum(r[2]);
-    sessions += toNum(r[3]);
-    const a = toNum(r[4]);
-    if (a > 0) {
-      aetSum += a;
-      aetCount++;
-    }
-  }
+  const views = toNum(totRow[1]);
+  const users = toNum(totRow[2]);
+  const sessions = toNum(totRow[3]);
+  const aet_seconds = toNum(totRow[4]);
 
   return {
     type: `ga4_${segment}`,
@@ -181,7 +167,7 @@ function parseGA4SegmentRows(rows, segment) {
     views,
     users,
     sessions,
-    aet_seconds: aetCount > 0 ? aetSum / aetCount : 0,
+    aet_seconds,
   };
 }
 
