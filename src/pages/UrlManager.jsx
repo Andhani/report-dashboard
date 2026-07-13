@@ -78,8 +78,8 @@ function withSlug(row) {
 
 export default function UrlManager() {
   const [activeTab, setActiveTab] = useStorage("urls_active_tab", "bc");
-  const [bcUrls, setBcUrls] = useStorage("bc_urls", []);
-  const [blogUrls, setBlogUrls] = useStorage("blog_urls", []);
+  const [bcUrls, setBcUrls] = useStorage("bc_urls", [], { sync: true });
+  const [blogUrls, setBlogUrls] = useStorage("blog_urls", [], { sync: true });
 
   // Import toolbar state
   const [importMode, setImportMode] = useStorage("urls_import_mode", "sheets");

@@ -136,12 +136,12 @@ const WRITE_DEBOUNCE_MS = 400;
  * useState that persists to localStorage.
  * Value is JSON-serialized on write and deserialized on read.
  *
- * Writes are debounced: on large datasets (e.g. thousands of imported URL
- * rows), JSON.stringify-ing the whole array on every keystroke is heavy
- * enough to make typing feel sluggish. React state still updates
- * immediately; only the localStorage write is delayed and coalesced.
+ * Writes are debounced by default: on large datasets JSON.stringify-ing on
+ * every keystroke is heavy. Pass { sync: true } for keys where data must
+ * survive a navigation that happens within the debounce window (e.g. small
+ * URL lists where losing a write on unmount is unacceptable).
  */
-export function useStorage(key, defaultValue) {
+export function useStorage(key, defaultValue, { sync = false } = {}) {
   const [value, setValueState] = useState(() => {
     try {
       const raw = localStorage.getItem(key);
@@ -181,14 +181,18 @@ export function useStorage(key, defaultValue) {
       const next =
         typeof newValue === "function" ? newValue(valueRef.current) : newValue;
       setValueState(next);
-      pendingRef.current = next;
-      clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        persist(pendingRef.current);
-        pendingRef.current = undefined;
-      }, WRITE_DEBOUNCE_MS);
+      if (sync) {
+        persist(next);
+      } else {
+        pendingRef.current = next;
+        clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+          persist(pendingRef.current);
+          pendingRef.current = undefined;
+        }, WRITE_DEBOUNCE_MS);
+      }
     },
-    [persist],
+    [persist, sync],
   );
 
   // Flush any pending write immediately if the component unmounts or the
