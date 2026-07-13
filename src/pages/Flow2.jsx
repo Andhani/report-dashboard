@@ -69,7 +69,11 @@ function aggregateGSCRows(entry) {
 
 function aggregateGA4Rows(entry) {
   if (!entry || !Array.isArray(entry.rows)) return null;
-  // Session-weighted AET so the result matches the grand total row in the GA4 export.
+  // Use stored grand total when available — exact match with the direct-upload path
+  // which reads the same grand total row from the GA4 export file.
+  if (entry.grandTotal) return entry.grandTotal;
+  // Fallback for old stored entries (no grandTotal): session-weighted average from
+  // URL rows approximates the grand total AET better than unweighted, but is not exact.
   let views = 0,
     users = 0,
     sessions = 0,
@@ -725,6 +729,9 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
           <span>
             <span className="dot-empty">●</span> empty
           </span>
+          <span title="Re-upload to Flow 1 to get exact position/AET">
+            ◑ needs re-upload
+          </span>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -770,8 +777,10 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
                     const flow2Key = row.flow2Prefix
                       ? `${row.flow2Prefix}_${s.key}`
                       : null;
-                    const primaryFilled = !!primaryStore[primaryKey];
-                    const flow2Filled = flow2Key ? !!flow2Data[flow2Key] : false;
+                    const primaryEntry = primaryStore[primaryKey];
+                    const flow2Entry = flow2Key ? flow2Data[flow2Key] : null;
+                    const primaryFilled = !!primaryEntry;
+                    const flow2Filled = !!flow2Entry;
                     const filled = primaryFilled || flow2Filled;
                     // Allow clearing: flow2 direct upload always clearable;
                     // for reuse rows, clear the flow2 override if that's what filled it.
@@ -781,10 +790,18 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
                         : flow2Filled
                           ? flow2Key
                           : null;
+                    // Flag old entries that lack the new exact-aggregate fields —
+                    // they still work but use a fallback approximation for position/AET.
+                    const isStale =
+                      filled &&
+                      !flow2Filled &&
+                      ((row.source.includes("GSC") && primaryEntry && !primaryEntry.chartAgg) ||
+                        (row.source.includes("GA4") && primaryEntry && !primaryEntry.grandTotal));
                     return (
                       <td key={s.key} className="py-2.5 px-2 text-center">
                         <SlotDot
                           filled={filled}
+                          stale={isStale}
                           onClear={clearKey ? () => onClear(clearKey) : null}
                         />
                       </td>
@@ -800,7 +817,7 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
   );
 }
 
-function SlotDot({ filled, onClear }) {
+function SlotDot({ filled, stale, onClear }) {
   const [hover, setHover] = useState(false);
   return (
     <div
@@ -808,7 +825,12 @@ function SlotDot({ filled, onClear }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <span className={`${filled ? "dot-ok" : "dot-empty"} text-sm`}>●</span>
+      <span
+        className={`${filled ? "dot-ok" : "dot-empty"} text-sm`}
+        title={stale ? "Re-upload to Flow 1 to get exact position/AET values" : undefined}
+      >
+        {stale ? "◑" : "●"}
+      </span>
       {hover && filled && onClear && (
         <button
           onClick={onClear}

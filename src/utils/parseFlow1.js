@@ -100,20 +100,22 @@ function tryParseGSC(wb) {
     try {
       if (wb.SheetNames.includes("Chart")) {
         const chartRows = toRows(wb.Sheets["Chart"]);
-        let cClicks = 0, cImpressions = 0, posSum = 0, posCount = 0;
+        let cClicks = 0, cImpressions = 0, posWeightedSum = 0;
         for (let i = 1; i < chartRows.length; i++) {
           const r = chartRows[i];
           if (!r[0]) continue;
           cClicks += toNum(r[1]);
-          cImpressions += toNum(r[2]);
+          const imp = toNum(r[2]);
+          cImpressions += imp;
           const pos = toNum(r[4]);
-          if (pos > 0) { posSum += pos; posCount++; }
+          // Impression-weighted daily average — faithful to how GSC aggregates position.
+          if (pos > 0 && imp > 0) posWeightedSum += pos * imp;
         }
         if (cClicks > 0) {
           chartAgg = {
             clicks: cClicks,
             impressions: cImpressions,
-            avgPosition: posCount > 0 ? posSum / posCount : 0,
+            avgPosition: cImpressions > 0 ? posWeightedSum / cImpressions : 0,
           };
         }
       }
@@ -161,7 +163,23 @@ function tryParseGA4(wb) {
 
     if (rows.length === 0) return null;
 
-    return { type: "ga4", project, month, rows };
+    // Store grand total row (index 7) so the Traffic Overview reuse path can read
+    // exact totals instead of approximating from URL-level averages.
+    let grandTotal = null;
+    const totRow = allRows[7];
+    if (totRow) {
+      const totSessions = toNum(totRow[3]);
+      if (totSessions > 0) {
+        grandTotal = {
+          views: toNum(totRow[1]),
+          users: toNum(totRow[2]),
+          sessions: totSessions,
+          aet_seconds: toNum(totRow[4]),
+        };
+      }
+    }
+
+    return { type: "ga4", project, month, rows, grandTotal };
   } catch {
     return null;
   }
