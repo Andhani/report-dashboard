@@ -64,6 +64,31 @@ function aggregateGSCRows(entry) {
   };
 }
 
+function aggregateGA4Rows(entry) {
+  if (!entry || !Array.isArray(entry.rows)) return null;
+  let views = 0,
+    users = 0,
+    sessions = 0,
+    aetSum = 0,
+    aetCount = 0;
+  for (const row of entry.rows) {
+    views += row.views ?? 0;
+    users += row.users ?? 0;
+    sessions += row.sessions ?? 0;
+    const a = row.aet_seconds ?? 0;
+    if (a > 0) {
+      aetSum += a;
+      aetCount++;
+    }
+  }
+  return {
+    views,
+    users,
+    sessions,
+    aet_seconds: aetCount > 0 ? aetSum / aetCount : 0,
+  };
+}
+
 export default function Flow2() {
   const { flow1Data, flow2Data, setFlow2Data } = useDataContext();
   const [flow2Window] = useStorage("flow2_window", null);
@@ -78,8 +103,14 @@ export default function Flow2() {
         fromFlow1[`gsc_disewa_${k.slice(14)}`] = aggregateGSCRows(v);
       else if (k.startsWith("blog_gsc_"))
         fromFlow1[`gsc_blog_${k.slice(9)}`] = aggregateGSCRows(v);
+      else if (k.startsWith("bc_ga4_dijual_"))
+        fromFlow1[`ga4_dijual_${k.slice(14)}`] = aggregateGA4Rows(v);
+      else if (k.startsWith("bc_ga4_disewa_"))
+        fromFlow1[`ga4_disewa_${k.slice(14)}`] = aggregateGA4Rows(v);
+      else if (k.startsWith("blog_ga4_"))
+        fromFlow1[`ga4_blog_${k.slice(9)}`] = aggregateGA4Rows(v);
     }
-    // flow2Data wins: a directly-uploaded GSC chart overrides the flow1 fallback
+    // flow2Data wins: a directly-uploaded file overrides the flow1 fallback
     return { ...fromFlow1, ...flow2Data };
   }, [flow1Data, flow2Data]);
 
@@ -312,11 +343,11 @@ export default function Flow2() {
                 desc: "Full site organic — grand total for All Organic row",
               },
               {
-                label: "GA4 Export (/dijual/)",
+                label: "BC GA4 Export (/dijual/)",
                 desc: "Auto-detected from file rows",
               },
               {
-                label: "GA4 Export (/disewa/)",
+                label: "BC GA4 Export (/disewa/)",
                 desc: "Auto-detected from file rows",
               },
               {
@@ -347,6 +378,9 @@ export default function Flow2() {
               "BC GSC Export (/dijual/)",
               "BC GSC Export (/disewa/)",
               "Blog GSC Export",
+              "BC GA4 Export /dijual/",
+              "BC GA4 Export /disewa/",
+              "Blog GA4 Export",
             ].map((label) => (
               <li
                 key={label}
@@ -622,6 +656,30 @@ const SLOT_ROWS_F2 = [
     prefix: "blog_gsc",
   },
   {
+    id: "bc_ga4_dijual_f1",
+    source: "BC GA4 Export",
+    segment: "/dijual/",
+    store: "flow1",
+    prefix: "bc_ga4_dijual",
+    subtitle: "from Traffic (Optimized)",
+  },
+  {
+    id: "bc_ga4_disewa_f1",
+    source: "BC GA4 Export",
+    segment: "/disewa/",
+    store: "flow1",
+    prefix: "bc_ga4_disewa",
+    subtitle: "from Traffic (Optimized)",
+  },
+  {
+    id: "blog_ga4_f1",
+    source: "Blog GA4 Export",
+    segment: "/articles-all/",
+    store: "flow1",
+    prefix: "blog_ga4",
+    subtitle: "from Traffic (Optimized)",
+  },
+  {
     id: "ga4_free",
     source: "GA4 Export",
     segment: "All Segments",
@@ -631,14 +689,14 @@ const SLOT_ROWS_F2 = [
   },
   {
     id: "ga4_dijual",
-    source: "GA4 Export",
+    source: "BC GA4 Export",
     segment: "/dijual/",
     store: "flow2",
     prefix: "ga4_dijual",
   },
   {
     id: "ga4_disewa",
-    source: "GA4 Export",
+    source: "BC GA4 Export",
     segment: "/disewa/",
     store: "flow2",
     prefix: "ga4_disewa",

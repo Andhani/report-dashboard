@@ -55,8 +55,10 @@ export function computeFlow1Output(project, urlList, flow1Data, slots) {
       const dijual = flow1Data[`bc_gsc_dijual_${slot.key}`]?.rows;
       const disewa = flow1Data[`bc_gsc_disewa_${slot.key}`]?.rows;
       if (dijual || disewa) gscMaps[slot.key] = mergeBCGSC(dijual, disewa);
-      const ga4 = flow1Data[`bc_ga4_${slot.key}`]?.rows;
-      if (ga4) ga4Maps[slot.key] = buildGA4Map(ga4);
+      const ga4Dijual = flow1Data[`bc_ga4_dijual_${slot.key}`]?.rows ?? [];
+      const ga4Disewa = flow1Data[`bc_ga4_disewa_${slot.key}`]?.rows ?? [];
+      const allGA4 = [...ga4Dijual, ...ga4Disewa];
+      if (allGA4.length) ga4Maps[slot.key] = buildGA4Map(allGA4);
     } else {
       const gsc = flow1Data[`blog_gsc_${slot.key}`]?.rows;
       if (gsc) gscMaps[slot.key] = buildGSCMap(gsc);
