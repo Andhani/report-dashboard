@@ -19,47 +19,62 @@ const MONTH_EN = {
   sep: 9, oct: 10, nov: 11, dec: 12,
 };
 
+// Statuses treated as "published" for BC and Blog Create counts
+const PUBLISHED_STATUSES = new Set([
+  "Published",
+  "Published Create",
+  "Published Upgrade",
+]);
+
 /**
- * Parse a date string of any common format into { year, month }.
- * Handles: YYYY-MM-DD, YYYY-MM, DD/MM/YYYY (Indonesian), D MonthName YYYY,
- * MonthName YYYY, and native JS Date parsing as a last resort.
+ * Parse a date string into { year, month, day }.
+ * Handles: YYYY-MM-DD, YYYY-MM, DD/MM/YYYY, D MonthName YYYY, MonthName YYYY.
+ * When day is not present in the format, day defaults to 1.
  */
-function parseDateToYM(d) {
+function parseDateToYMD(d) {
   if (!d) return null;
   const s = String(d).trim();
-  // YYYY-MM or YYYY-MM-DD (most common — from <input type="date">)
-  let m = s.match(/^(\d{4})-(\d{2})/);
-  if (m) return { year: +m[1], month: +m[2] };
+  // YYYY-MM-DD
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return { year: +m[1], month: +m[2], day: +m[3] };
+  // YYYY-MM (no day)
+  m = s.match(/^(\d{4})-(\d{2})$/);
+  if (m) return { year: +m[1], month: +m[2], day: 1 };
   // DD/MM/YYYY or D/M/YYYY (Indonesian locale — day comes first)
   m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (m) return { year: +m[3], month: +m[2] };
-  // D MonthName YYYY e.g. "1 Juni 2026" or "1 June 2026"
+  if (m) return { year: +m[3], month: +m[2], day: +m[1] };
+  // D MonthName YYYY e.g. "1 Juni 2026"
   m = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
   if (m) {
     const mo = MONTH_ID[m[2].toLowerCase()] ?? MONTH_EN[m[2].toLowerCase()];
-    if (mo) return { year: +m[3], month: mo };
+    if (mo) return { year: +m[3], month: mo, day: +m[1] };
   }
-  // MonthName YYYY e.g. "Juni 2026"
+  // MonthName YYYY e.g. "Juni 2026" (no day)
   m = s.match(/^([A-Za-z]+)\s+(\d{4})$/);
   if (m) {
     const mo = MONTH_ID[m[1].toLowerCase()] ?? MONTH_EN[m[1].toLowerCase()];
-    if (mo) return { year: +m[2], month: mo };
+    if (mo) return { year: +m[2], month: mo, day: 1 };
   }
   // Native Date parsing as last resort
   const dt = new Date(s);
-  if (!isNaN(dt.getTime())) return { year: dt.getFullYear(), month: dt.getMonth() + 1 };
+  if (!isNaN(dt.getTime())) return { year: dt.getFullYear(), month: dt.getMonth() + 1, day: dt.getDate() };
   return null;
 }
 
 /**
- * Filter URL list rows to those published in the given month.
+ * Filter URL list rows to those whose date falls within the given month and
+ * optional day range. startDay / endDay are 1-based day numbers (inclusive);
+ * pass null to leave that end open (defaults to full month).
+ *
  * dateField: 'publish' (BC) or 'publish_date' (Blog)
- * Accepts ISO dates, DD/MM/YYYY, Indonesian month names, and more.
  */
-function filterByMonth(urlList, dateField, year, month) {
+function filterByDateRange(urlList, dateField, year, month, startDay, endDay) {
   return urlList.filter((row) => {
-    const ym = parseDateToYM(row[dateField]);
-    return ym !== null && ym.year === year && ym.month === month;
+    const ymd = parseDateToYMD(row[dateField]);
+    if (!ymd || ymd.year !== year || ymd.month !== month) return false;
+    if (startDay !== null && ymd.day < startDay) return false;
+    if (endDay !== null && ymd.day > endDay) return false;
+    return true;
   });
 }
 
@@ -114,17 +129,36 @@ function sumGA4(slugs, ga4Map) {
 }
 
 /**
- * Compute BC Leads Summary block for a given month.
+ * Compute BC Leads Summary block for a given month and optional date range.
+ *
+ * Only rows with a published-related status (Published, Published Create,
+ * Published Upgrade) and a publish date within the selected range are counted.
+ * GA4 metrics are pulled for those exact slugs.
+ *
+ * dateRange: { startDay: number|null, endDay: number|null } — null means open
  */
-export function computeBCLeads(bcUrls, flow1Data, flow2Data, slot) {
+export function computeBCLeads(bcUrls, flow1Data, flow2Data, slot, dateRange) {
   const { key: monthKey, year, month } = slot;
-  const published = filterByMonth(bcUrls, "publish", year, month);
+  const startDay = dateRange?.startDay ?? null;
+  const endDay = dateRange?.endDay ?? null;
+
+  // Step 1: filter by date range, then by published-related status
+  const published = filterByDateRange(
+    bcUrls,
+    "publish",
+    year,
+    month,
+    startDay,
+    endDay,
+  ).filter((u) => PUBLISHED_STATUSES.has(u.status));
+
   const ga4Map = getGA4MetricsMap(flow1Data, monthKey, "bc");
 
+  // Steps 4 & 5: GA4 metrics summed only for the filtered slug set
   const slugs = published.map((u) => u.slug).filter(Boolean);
   const traffic = sumGA4(slugs, ga4Map);
 
-  // Lead rates from Flow 2
+  // Lead rates from Flow 2 (site-wide totals — unchanged)
   const ga4Free = flow2Data[`ga4_free_${monthKey}`];
   const ga4Leads = flow2Data[`ga4_leads_${monthKey}`];
 
@@ -154,19 +188,39 @@ export function computeBCLeads(bcUrls, flow1Data, flow2Data, slot) {
 }
 
 /**
- * Compute Blog Leads Summary block for a given month.
- * Splits into Create vs Update sub-blocks.
+ * Compute Blog Leads Summary block for a given month and optional date range.
+ *
+ * - Creates: rows with published-related status (Published / Published Create /
+ *   Published Upgrade) within the date range.
+ * - Updates: rows with "Update" status within the date range.
+ * - GA4 metrics (steps 4 & 5) use the exact slug sets from steps 1–3.
+ *
+ * dateRange: { startDay: number|null, endDay: number|null }
  */
-export function computeBlogLeads(blogUrls, flow1Data, flow2Data, slot) {
+export function computeBlogLeads(blogUrls, flow1Data, flow2Data, slot, dateRange) {
   const { key: monthKey, year, month } = slot;
-  const published = filterByMonth(blogUrls, "publish_date", year, month);
+  const startDay = dateRange?.startDay ?? null;
+  const endDay = dateRange?.endDay ?? null;
+
   const ga4Map = getGA4MetricsMap(flow1Data, monthKey, "blog");
 
-  const creates = published.filter((u) => u.content_type === "Create");
-  const updates = published.filter(
-    (u) => u.content_type === "Update" || u.content_type === "Optimize",
+  // Step 1: all in-range rows
+  const inRange = filterByDateRange(
+    blogUrls,
+    "publish_date",
+    year,
+    month,
+    startDay,
+    endDay,
   );
 
+  // Step 2: Creates — published-related status only
+  const creates = inRange.filter((u) => PUBLISHED_STATUSES.has(u.status));
+
+  // Step 3: Updates — "Update" status only
+  const updates = inRange.filter((u) => u.status === "Update");
+
+  // Steps 4 & 5: GA4 metrics for each group's exact slug set
   const createTraffic = sumGA4(
     creates.map((u) => u.slug),
     ga4Map,
@@ -176,7 +230,7 @@ export function computeBlogLeads(blogUrls, flow1Data, flow2Data, slot) {
     ga4Map,
   );
 
-  // Lead rates from Flow 2
+  // Lead rates from Flow 2 (site-wide totals — unchanged)
   const ga4Free = flow2Data[`ga4_free_${monthKey}`];
   const ga4Leads = flow2Data[`ga4_leads_${monthKey}`];
 
@@ -212,7 +266,7 @@ export function computeBlogLeads(blogUrls, flow1Data, flow2Data, slot) {
       estimated: estimated(updateTraffic),
     },
     grandTotal: {
-      count: published.length,
+      count: creates.length + updates.length,
       traffic: sumGA4(
         [...creates, ...updates].map((u) => u.slug),
         ga4Map,
