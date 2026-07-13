@@ -153,6 +153,10 @@ export function useStorage(key, defaultValue) {
 
   const timerRef = useRef(null);
   const pendingRef = useRef(undefined);
+  // Mirrors the current state value so functional updaters can read it
+  // synchronously in setValue without going through the state updater.
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   const persist = useCallback(
     (next) => {
@@ -171,16 +175,18 @@ export function useStorage(key, defaultValue) {
 
   const setValue = useCallback(
     (newValue) => {
-      setValueState((prev) => {
-        const next = typeof newValue === "function" ? newValue(prev) : newValue;
-        pendingRef.current = next;
-        clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => {
-          persist(pendingRef.current);
-          pendingRef.current = undefined;
-        }, WRITE_DEBOUNCE_MS);
-        return next;
-      });
+      // Compute next synchronously so pendingRef and the timer are set
+      // immediately — not deferred to whenever React runs the state updater.
+      // This guarantees flush() on unmount always has the latest value.
+      const next =
+        typeof newValue === "function" ? newValue(valueRef.current) : newValue;
+      setValueState(next);
+      pendingRef.current = next;
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        persist(pendingRef.current);
+        pendingRef.current = undefined;
+      }, WRITE_DEBOUNCE_MS);
     },
     [persist],
   );
