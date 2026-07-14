@@ -458,11 +458,12 @@ function GatingState({ Icon, title, desc, to, btnLabel }) {
 
 function UploadGuide() {
   const rows = [
-    { label: "BC GSC Export", detail: "One file per segment: dijual, disewa" },
-    { label: "Blog GSC Export", detail: "Page filter set to /articles-all/" },
-    { label: "Blog GA4 Export", detail: "Query string set to /articles-all/" },
-    { label: "BC GA4 Export /dijual/", detail: "Segment-specific file for /dijual/ URLs" },
-    { label: "BC GA4 Export /disewa/", detail: "Segment-specific file for /disewa/ URLs" },
+    { label: "BC GSC Export Dijual", detail: "Page filter set to /dijual/ in GSC" },
+    { label: "BC GSC Export Disewa", detail: "Page filter set to /disewa/ in GSC" },
+    { label: "Blog GSC Export", detail: "Page filter set to /articles-all/ in GSC" },
+    { label: "BC GA4 Export Dijual", detail: "Query string set to /dijual/ in GA4" },
+    { label: "BC GA4 Export Disewa", detail: "Query string set to /disewa/ in GA4" },
+    { label: "Blog GA4 Export", detail: "Query string set to /articles-all/ in GA4" },
   ];
   return (
     <div className="card p-4">
@@ -471,16 +472,16 @@ function UploadGuide() {
         Upload either the original export file or a sheet URL. Just drop the
         file as-is, it auto-detects the right sheet.
       </p>
-      <ul className="space-y-1.5">
-        {rows.map((r) => (
+      <ol className="space-y-1.5">
+        {rows.map((r, i) => (
           <li key={r.label} className="flex items-start gap-2 text-xs text-ink">
-            <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
+            <span className="flex-shrink-0 text-muted w-4 text-right">{i + 1}.</span>
             <span>
               {r.label} <span className="text-muted">— {r.detail}</span>
             </span>
           </li>
         ))}
-      </ul>
+      </ol>
     </div>
   );
 }
