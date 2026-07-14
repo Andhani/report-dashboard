@@ -202,14 +202,6 @@ export function computeBlogLeads(blogUrls, flow1Data, flow2Data, slot, dateRange
   const startDay = dateRange?.startDay ?? null;
   const endDay = dateRange?.endDay ?? null;
 
-  // PHASE 3 DIAGNOSTIC — remove after confirming
-  const distinctStatus = [...new Set(blogUrls.map((u) => u.status))];
-  const distinctContentType = [...new Set(blogUrls.map((u) => u.content_type))];
-  console.log("[Flow3 diagnostic] distinct status values:", distinctStatus);
-  console.log("[Flow3 diagnostic] distinct content_type values:", distinctContentType);
-  console.log("[Flow3 diagnostic] rows with status==='Update':", blogUrls.filter((u) => u.status === "Update").length);
-  console.log("[Flow3 diagnostic] rows with content_type==='Update':", blogUrls.filter((u) => u.content_type === "Update").length);
-
   const ga4Map = getGA4MetricsMap(flow1Data, monthKey, "blog");
 
   // Step 1: all in-range rows
@@ -225,8 +217,8 @@ export function computeBlogLeads(blogUrls, flow1Data, flow2Data, slot, dateRange
   // Step 2: Creates — published-related status only
   const creates = inRange.filter((u) => PUBLISHED_STATUSES.has(u.status));
 
-  // Step 3: Updates — "Update" status only
-  const updates = inRange.filter((u) => u.status === "Update");
+  // Step 3: Updates — "Update" content type only
+  const updates = inRange.filter((u) => u.content_type === "Update");
 
   // Steps 4 & 5: GA4 metrics for each group's exact slug set
   const createTraffic = sumGA4(
