@@ -337,43 +337,43 @@ export default function Flow2() {
             What to upload
           </div>
           <p className="text-xs text-muted mb-2">Upload fresh each month</p>
-          <ul className="space-y-1.5 mb-3">
+          <ol className="space-y-1.5 mb-3">
             {[
               {
-                label: "GSC Export (All Segments)",
-                desc: "Site-wide Chart sheet — grand total clicks, impressions, position",
+                label: "GSC Export All Segments",
+                desc: "Traffic overview, all segments in GSC",
               },
               {
-                label: "GA4 Export (All Segments)",
-                desc: "Full-site organic — grand total row for All Organic Traffic",
+                label: "GA4 Export All Segments",
+                desc: "Traffic overview, all segments in GA4",
               },
               {
                 label: "Event GA4 Export",
-                desc: "Click_Contact_Agent event count",
+                desc: "Event set to click_contact_agent in GA4",
               },
-            ].map((r) => (
+            ].map((r, i) => (
               <li
                 key={r.label}
                 className="flex items-start gap-2 text-xs text-ink"
               >
-                <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
+                <span className="flex-shrink-0 text-muted w-4 text-right">{i + 1}.</span>
                 <span>
                   {r.label} <span className="text-muted">— {r.desc}</span>
                 </span>
               </li>
             ))}
-          </ul>
+          </ol>
           <p className="text-xs text-muted mb-1.5">
             Reuse from Traffic (Optimized)
           </p>
-          <ul className="space-y-1.5">
+          <ol className="space-y-1.5" start={4}>
             {[
               {
-                label: "BC GSC Export (/dijual/)",
+                label: "BC GSC Export Dijual",
                 desc: "auto-pulled, no upload",
               },
               {
-                label: "BC GSC Export (/disewa/)",
+                label: "BC GSC Export Disewa",
                 desc: "auto-pulled, no upload",
               },
               {
@@ -381,29 +381,29 @@ export default function Flow2() {
                 desc: "auto-pulled, no upload",
               },
               {
-                label: "BC GA4 Export (/dijual/)",
+                label: "BC GA4 Export Dijual",
                 desc: "auto-pulled, no upload",
               },
               {
-                label: "BC GA4 Export (/disewa/)",
+                label: "BC GA4 Export Disewa",
                 desc: "auto-pulled, no upload",
               },
               {
                 label: "Blog GA4 Export",
                 desc: "auto-pulled, no upload",
               },
-            ].map((r) => (
+            ].map((r, i) => (
               <li
                 key={r.label}
                 className="flex items-start gap-2 text-xs text-ink"
               >
-                <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-muted" />
+                <span className="flex-shrink-0 text-muted w-4 text-right">{i + 4}.</span>
                 <span>
                   {r.label} <span className="text-muted">— {r.desc}</span>
                 </span>
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
 
         {/* Import section with mode toggle */}
