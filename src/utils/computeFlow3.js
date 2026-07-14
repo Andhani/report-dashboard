@@ -214,8 +214,8 @@ export function computeBlogLeads(blogUrls, flow1Data, flow2Data, slot, dateRange
     endDay,
   );
 
-  // Step 2: Creates — published-related status only
-  const creates = inRange.filter((u) => PUBLISHED_STATUSES.has(u.status));
+  // Step 2: Creates — "Create" content type only
+  const creates = inRange.filter((u) => u.content_type === "Create");
 
   // Step 3: Updates — "Update" content type only
   const updates = inRange.filter((u) => u.content_type === "Update");
