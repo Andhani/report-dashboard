@@ -15,7 +15,7 @@ import {
 const FLOW_CARDS = [
   {
     id: "flow1",
-    to: "/flow1",
+    to: "/traffic-optimized",
     title: "Traffic (Optimized)",
     description:
       "Upload GSC and GA4 Export per project segment to display data per URL. Auto-detected — no need to adjust the export file.",
@@ -23,7 +23,7 @@ const FLOW_CARDS = [
   },
   {
     id: "flow2",
-    to: "/flow2",
+    to: "/traffic-overview",
     title: "Traffic Overview",
     description:
       "Upload GSC and GA4 Export per segment, plus overall site-wide data, to summarize traffic across all segments.",
@@ -31,7 +31,7 @@ const FLOW_CARDS = [
   },
   {
     id: "flow3",
-    to: "/flow3",
+    to: "/leads-summary",
     title: "Leads Summary",
     description:
       "Computed automatically from Traffic (Optimized) + Traffic Overview. No uploads needed.",
