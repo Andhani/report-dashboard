@@ -214,13 +214,6 @@ export function computeBlogLeads(blogUrls, flow1Data, flow2Data, slot, dateRange
     endDay,
   );
 
-  // DIAGNOSTIC — remove after confirming
-  console.log("[diag] inRange count:", inRange.length);
-  console.log("[diag] status+content_type combos:", inRange.map((u) => `status="${u.status}" / content_type="${u.content_type}"`));
-  console.log("[diag] current creates (status in PUBLISHED_STATUSES && content_type!==Update):", inRange.filter((u) => PUBLISHED_STATUSES.has(u.status) && u.content_type !== "Update").length);
-  console.log("[diag] content_type==='Create' count:", inRange.filter((u) => u.content_type === "Create").length);
-  console.log("[diag] content_type==='Update' count:", inRange.filter((u) => u.content_type === "Update").length);
-
   // Step 2: Creates — published-related status, excluding Update content type
   const creates = inRange.filter((u) => PUBLISHED_STATUSES.has(u.status) && u.content_type !== "Update");
 
