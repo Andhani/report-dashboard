@@ -17,9 +17,9 @@ export default function App() {
       {/* All other pages use the main layout */}
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/flow1" element={<Flow1 />} />
-        <Route path="/flow2" element={<Flow2 />} />
-        <Route path="/flow3" element={<Flow3 />} />
+        <Route path="/traffic-optimized" element={<Flow1 />} />
+        <Route path="/traffic-overview" element={<Flow2 />} />
+        <Route path="/leads-summary" element={<Flow3 />} />
         <Route path="/urls" element={<UrlManager />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

@@ -22,17 +22,17 @@ const navItems = [
     icon: LayoutDashboard,
   },
   {
-    to: "/flow1",
+    to: "/traffic-optimized",
     label: "Traffic (Optimized)",
     icon: Upload,
   },
   {
-    to: "/flow2",
+    to: "/traffic-overview",
     label: "Traffic Overview",
     icon: BarChart2,
   },
   {
-    to: "/flow3",
+    to: "/leads-summary",
     label: "Leads Summary",
     icon: Users,
   },
@@ -248,15 +248,15 @@ function PageTitle({ pathname }) {
       title: "Dashboard",
       sub: "Overview of all flows and slot status",
     },
-    "/flow1": {
+    "/traffic-optimized": {
       title: "Traffic (Optimized)",
       sub: "Upload GSC and GA4 Export per project segment to display data per URL",
     },
-    "/flow2": {
+    "/traffic-overview": {
       title: "Traffic Overview",
       sub: "Upload GSC and GA4 Export to summarize traffic",
     },
-    "/flow3": {
+    "/leads-summary": {
       title: "Leads Summary",
       sub: "Computed from Traffic (Optimized) + Traffic Overview — no uploads needed",
     },
