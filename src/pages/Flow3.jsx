@@ -36,13 +36,15 @@ export default function Flow3() {
 
   const [pushStatus, setPushStatus] = useState(null);
   const [pushModal, setPushModal] = useState(false);
-  const [selectedSlotIdx, setSelectedSlotIdx] = useState(null);
-  const [dateRange, setDateRange] = useState({ startDay: null, endDay: null });
+  const [selectedSlotIdx, setSelectedSlotIdx] = useStorage("flow3_selected_slot", null);
+  const [dateRange, setDateRange] = useStorage("flow3_date_range", { startDay: null, endDay: null });
 
   const slots = flow1Window ? getMonthSlots(flow1Window, 6) : [];
   const defaultSlot = getLeadsMonth(slots);
   const currentSlot =
-    selectedSlotIdx !== null ? slots[selectedSlotIdx] : defaultSlot;
+    selectedSlotIdx !== null && selectedSlotIdx < slots.length
+      ? slots[selectedSlotIdx]
+      : defaultSlot;
 
   const hasFlow1 = Object.keys(flow1Data).length > 0;
   const hasFlow2 = Object.keys(flow2Data).length > 0;
