@@ -217,8 +217,8 @@ export function computeBlogLeads(blogUrls, flow1Data, flow2Data, slot, dateRange
   // Step 2: Creates — published-related status only
   const creates = inRange.filter((u) => PUBLISHED_STATUSES.has(u.status));
 
-  // Step 3: Updates — "Update" status only
-  const updates = inRange.filter((u) => u.status === "Update");
+  // Step 3: Updates — "Update" content type only
+  const updates = inRange.filter((u) => u.content_type === "Update");
 
   // Steps 4 & 5: GA4 metrics for each group's exact slug set
   const createTraffic = sumGA4(
