@@ -127,7 +127,7 @@ export default function Flow1() {
         const monthKey = formatMonthKey(result.month.year, result.month.month);
         const inWindow = slotKeys.has(monthKey);
 
-        newEntries[key] = { rows: result.rows, file: file.name };
+        newEntries[key] = { rows: result.rows, file: file.name, chartAgg: result.chartAgg, grandTotal: result.grandTotal };
         newLog.push({
           file: file.name,
           status: inWindow ? "ok" : "warn",
@@ -179,7 +179,7 @@ export default function Flow1() {
 
     setFlow1Data((prev) => ({
       ...prev,
-      [key]: { rows: result.rows, file: "Google Sheet" },
+      [key]: { rows: result.rows, file: "Google Sheet", chartAgg: result.chartAgg, grandTotal: result.grandTotal },
     }));
     setLog((prev) =>
       [
