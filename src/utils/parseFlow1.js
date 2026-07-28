@@ -362,13 +362,13 @@ function findGA4Sheet(wb) {
   // used by buildWorkbookFromSheet in sheetsApi.js).
   const byName = wb.SheetNames.find((n) => /free.?form/i.test(n));
   if (byName) return byName;
-  // Structural fallback: tab where row 3 (index 3) holds the GA4 date range
-  // "# 20260501-20260531" (with or without the leading hash/space).
+  // Structural fallback: tab where row 3 (index 3) holds any recognised GA4
+  // date range format (delegates to parseGA4DateRange for format coverage).
   return (
     wb.SheetNames.find((n) => {
       const rows = toRows(wb.Sheets[n]);
       const dateStr = String(rows[3]?.[0] ?? "").trim();
-      return /^#?\s*\d{8}-\d{8}$/.test(dateStr);
+      return parseGA4DateRange(dateStr) !== null;
     }) ?? null
   );
 }
@@ -403,6 +403,11 @@ function parseGSCDate(str) {
     const month = MONTH_MAP[m[1].toLowerCase()];
     const year = parseInt(m[2], 10);
     if (month && year) return { year, month };
+  }
+  // Format C: "2026-06-01 – 2026-06-30" (ISO date range)
+  m = str.match(/(\d{4})-(\d{2})-\d{2}/);
+  if (m) {
+    return { year: parseInt(m[1], 10), month: parseInt(m[2], 10) };
   }
   return null;
 }

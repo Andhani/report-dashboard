@@ -451,7 +451,8 @@ function findGA4Sheet(wb) {
   // Fast path: any tab whose name contains the free-form pattern.
   const byName = wb.SheetNames.find((n) => /free.?form/i.test(n));
   if (byName) return byName;
-  // Structural fallback: tab where row 3 (index 3) holds the GA4 date range.
+  // Structural fallback: tab where row 3 (index 3) holds any recognised GA4
+  // date range format (delegates to parseGA4DateRange for format coverage).
   return (
     wb.SheetNames.find((n) => {
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], {
@@ -460,7 +461,7 @@ function findGA4Sheet(wb) {
         raw: true,
       });
       const dateStr = String(rows[3]?.[0] ?? "").trim();
-      return /^#?\s*\d{8}-\d{8}$/.test(dateStr);
+      return parseGA4DateRange(dateStr) !== null;
     }) ?? null
   );
 }
@@ -494,11 +495,17 @@ function extractMonthFromDate(dateVal) {
   const m =
     s.match(/^(\d{4})-(\d{2})-(\d{2})/) || s.match(/(\d{4})\/(\d{2})\/(\d{2})/);
   if (m) return { year: parseInt(m[1]), month: parseInt(m[2]) };
-  // Try "1 May 2026" format
+  // Day-first: "1 May 2026"
   const m2 = s.match(/\d+\s+([A-Za-z]+)\s+(\d{4})/);
   if (m2) {
     const month = MONTH_MAP[m2[1].toLowerCase()];
-    return month ? { year: parseInt(m2[2]), month } : null;
+    if (month) return { year: parseInt(m2[2]), month };
+  }
+  // Month-first: "May 1, 2026"
+  const m3 = s.match(/([A-Za-z]+)\s+\d+,?\s+(\d{4})/);
+  if (m3) {
+    const month = MONTH_MAP[m3[1].toLowerCase()];
+    if (month) return { year: parseInt(m3[2]), month };
   }
   return null;
 }
