@@ -390,12 +390,21 @@ function toCTR(v) {
 }
 
 function parseGSCDate(str) {
-  // "1 May 2026-31 May 2026"
-  const m = str.match(/\d+\s+([A-Za-z]+)\s+(\d{4})/);
-  if (!m) return null;
-  const month = MONTH_MAP[m[1].toLowerCase()];
-  const year = parseInt(m[2], 10);
-  return month && year ? { year, month } : null;
+  // Format A: "1 Jun 2026-30 Jun 2026" (day-first: D MMM YYYY)
+  let m = str.match(/\d+\s+([A-Za-z]+)\s+(\d{4})/);
+  if (m) {
+    const month = MONTH_MAP[m[1].toLowerCase()];
+    const year = parseInt(m[2], 10);
+    if (month && year) return { year, month };
+  }
+  // Format B: "May 1, 2026-May 31, 2026" (month-first: MMM D, YYYY)
+  m = str.match(/([A-Za-z]+)\s+\d+,?\s+(\d{4})/);
+  if (m) {
+    const month = MONTH_MAP[m[1].toLowerCase()];
+    const year = parseInt(m[2], 10);
+    if (month && year) return { year, month };
+  }
+  return null;
 }
 
 function detectSegment(val) {
