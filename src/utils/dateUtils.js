@@ -76,20 +76,55 @@ export function getMonthSlots(startKey, count) {
   return slots;
 }
 
+const MONTH_NAME_MAP = {
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+  july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7,
+  aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
 /**
  * Parse a date range string from GA4 header row.
- * Accepts: "# 20260501-20260531" or "20260501-20260531"
- * Returns: { year, month } from start date.
+ * Handles all known GA4/GSC export date formats:
+ *   "# 20260501-20260531"   — standard GA4 compact (with or without #)
+ *   "2026-05-01 – 2026-05-31" — ISO range (hyphen or en/em dash)
+ *   "1 May 2026 – 31 May 2026" — human-readable, day-first
+ *   "May 1, 2026 – May 31, 2026" — human-readable, month-first
+ * Returns: { year, month } from start date, or null.
  */
 export function parseGA4DateRange(str) {
-  const clean = str.replace(/^#\s*/, "").trim();
-  const match = clean.match(/^(\d{8})-(\d{8})$/);
-  if (!match) return null;
-  const start = match[1];
-  return {
-    year: parseInt(start.slice(0, 4), 10),
-    month: parseInt(start.slice(4, 6), 10),
-  };
+  const s = str.replace(/^#\s*/, "").trim();
+
+  // Compact YYYYMMDD: "20260501-20260531" (hyphen or en/em dash, optional spaces)
+  let m = s.match(/^(\d{8})\s*[-–—]\s*\d{8}$/);
+  if (m) {
+    const start = m[1];
+    return { year: parseInt(start.slice(0, 4), 10), month: parseInt(start.slice(4, 6), 10) };
+  }
+
+  // ISO range: "2026-05-01 – 2026-05-31"
+  m = s.match(/^(\d{4})-(\d{2})-\d{2}\s*[-–—]\s*\d{4}-\d{2}-\d{2}$/);
+  if (m) {
+    return { year: parseInt(m[1], 10), month: parseInt(m[2], 10) };
+  }
+
+  // Human-readable, day-first: "1 May 2026"
+  m = s.match(/\d+\s+([A-Za-z]+)\s+(\d{4})/);
+  if (m) {
+    const month = MONTH_NAME_MAP[m[1].toLowerCase()];
+    const year = parseInt(m[2], 10);
+    if (month && year) return { year, month };
+  }
+
+  // Human-readable, month-first: "May 1, 2026"
+  m = s.match(/([A-Za-z]+)\s+\d+,?\s+(\d{4})/);
+  if (m) {
+    const month = MONTH_NAME_MAP[m[1].toLowerCase()];
+    const year = parseInt(m[2], 10);
+    if (month && year) return { year, month };
+  }
+
+  return null;
 }
 
 /**
