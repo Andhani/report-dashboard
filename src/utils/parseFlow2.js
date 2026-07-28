@@ -285,9 +285,11 @@ export function parseGA4FreeWorkbook(wb) {
       String(rows[2]?.[0] ?? "")
         .toLowerCase()
         .includes("leads") ||
-      String(rows[6]?.[0] ?? "")
-        .toLowerCase()
-        .includes("key events");
+      (rows[6] ?? []).some((c) =>
+        String(c ?? "")
+          .toLowerCase()
+          .includes("key events"),
+      );
     if (isLeads) return parseGA4LeadsRows(rows);
     const segment = detectGA4Segment(rows);
     if (segment) return parseGA4SegmentRows(rows, segment);
@@ -448,8 +450,8 @@ function findFiltersSheet(wb) {
 }
 
 function findGA4Sheet(wb) {
-  // Fast path: any tab whose name contains the free-form pattern.
-  const byName = wb.SheetNames.find((n) => /free.?form/i.test(n));
+  // Fast path: any tab whose name contains the free-form or events pattern.
+  const byName = wb.SheetNames.find((n) => /free.?form|events?/i.test(n));
   if (byName) return byName;
   // Structural fallback: tab where row 3 (index 3) holds any recognised GA4
   // date range format (delegates to parseGA4DateRange for format coverage).
