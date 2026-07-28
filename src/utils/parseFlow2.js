@@ -119,9 +119,9 @@ export function parseGSCChartWorkbook(wb) {
 // ─── GA4 Free-form export (.csv / .xlsx) ─────────────────────────────────────
 
 /**
- * Inspect first 100 data rows (index 8+) and return the dominant URL segment
- * ('dijual', 'disewa', 'blog') when ≥50 % of rows share the same path prefix.
- * Returns null for mixed / all-organic files.
+ * Inspect first 100 data rows (index 8+) and return the single URL segment
+ * ('dijual', 'disewa', 'blog') that is present, if only one is. Returns null
+ * for mixed / all-organic files.
  */
 function detectGA4Segment(rows) {
   let dijual = 0,
@@ -137,10 +137,16 @@ function detectGA4Segment(rows) {
     else if (path.includes("/articles-all/")) blog++;
   }
   if (total < 3) return null;
-  const max = Math.max(dijual, disewa, blog);
-  if (max === 0 || max / total < 0.5) return null;
-  if (dijual === max) return "dijual";
-  if (disewa === max) return "disewa";
+  // A segment-filtered GA4 export only ever contains paths from ONE segment
+  // (GA4's page-path filter excludes the rest). If more than one segment has
+  // real presence in the sample, this is an All Segments / mixed export, not
+  // a single-segment file — regardless of which segment has the most rows
+  // (long-tail blog URLs can outnumber BC's aggregated property paths by row
+  // count alone).
+  const present = [dijual, disewa, blog].filter((c) => c > 0).length;
+  if (present !== 1) return null;
+  if (dijual > 0) return "dijual";
+  if (disewa > 0) return "disewa";
   return "blog";
 }
 

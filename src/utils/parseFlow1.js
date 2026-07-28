@@ -302,10 +302,16 @@ function detectGA4Project(rows) {
     else if (path.includes("/articles-all/")) blog++;
   }
   if (total < 3) return null;
-  const max = Math.max(dijual, disewa, blog);
-  if (max === 0 || max / total < 0.5) return null;
-  if (dijual === max) return "bc_dijual";
-  if (disewa === max) return "bc_disewa";
+  // A segment-filtered GA4 export only ever contains paths from ONE segment
+  // (GA4's page-path filter excludes the rest). If more than one segment has
+  // real presence in the sample, this is an All Segments / mixed export, not
+  // a single-segment file — regardless of which segment has the most rows
+  // (long-tail blog URLs can outnumber BC's aggregated property paths by row
+  // count alone).
+  const present = [dijual, disewa, blog].filter((c) => c > 0).length;
+  if (present !== 1) return null;
+  if (dijual > 0) return "bc_dijual";
+  if (disewa > 0) return "bc_disewa";
   return "blog";
 }
 
