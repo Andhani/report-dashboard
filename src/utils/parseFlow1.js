@@ -57,11 +57,12 @@ export function parseFlow1Workbook(wb) {
 
 function tryParseGSC(wb) {
   try {
-    if (!wb.SheetNames.includes("Filters") || !wb.SheetNames.includes("Pages"))
-      return null;
+    const filtersName = findFiltersSheet(wb);
+    const pagesName = findPagesSheet(wb);
+    if (!filtersName || !pagesName) return null;
 
     // Parse Filters sheet for metadata
-    const filterRows = toRows(wb.Sheets["Filters"]);
+    const filterRows = toRows(wb.Sheets[filtersName]);
     let month = null;
     let segment = null;
 
@@ -77,7 +78,7 @@ function tryParseGSC(wb) {
     if (!month) return null;
 
     // Parse Pages sheet
-    const pageRows = toRows(wb.Sheets["Pages"]);
+    const pageRows = toRows(wb.Sheets[pagesName]);
     const rows = [];
     for (let i = 1; i < pageRows.length; i++) {
       const r = pageRows[i];
@@ -98,8 +99,9 @@ function tryParseGSC(wb) {
     // to match the same method as a direct Chart file upload: simple daily average position).
     let chartAgg = null;
     try {
-      if (wb.SheetNames.includes("Chart")) {
-        const chartRows = toRows(wb.Sheets["Chart"]);
+      const chartName = findChartSheet(wb);
+      if (chartName) {
+        const chartRows = toRows(wb.Sheets[chartName]);
         let cClicks = 0, cImpressions = 0, posWeightedSum = 0;
         for (let i = 1; i < chartRows.length; i++) {
           const r = chartRows[i];
@@ -131,11 +133,7 @@ function tryParseGSC(wb) {
 
 function tryParseGA4(wb) {
   try {
-    const sheetName = wb.SheetNames.find(
-      (s) =>
-        s.toLowerCase().includes("free-form") ||
-        s.toLowerCase().includes("freeform"),
-    );
+    const sheetName = findGA4Sheet(wb);
     if (!sheetName) return null;
 
     const allRows = toRows(wb.Sheets[sheetName]);
@@ -310,6 +308,72 @@ function detectGA4Project(rows) {
   if (disewa === max) return "bc_disewa";
   return "blog";
 }
+
+// ─── Sheet-finder helpers (name-based with structural fallback) ───────────────
+
+function findFiltersSheet(wb) {
+  const byName = wb.SheetNames.find((n) => /filters/i.test(n));
+  if (byName) return byName;
+  // Structural fallback: sheet has a "date" row with a parseable GSC date range.
+  return (
+    wb.SheetNames.find((n) => {
+      const rows = toRows(wb.Sheets[n]);
+      return rows.some(
+        (r) =>
+          String(r[0] ?? "").trim().toLowerCase() === "date" &&
+          parseGSCDate(String(r[1] ?? "").trim()) !== null,
+      );
+    }) ?? null
+  );
+}
+
+function findPagesSheet(wb) {
+  const byName = wb.SheetNames.find((n) => /pages/i.test(n));
+  if (byName) return byName;
+  // Structural fallback: sheet has data rows where col A starts with "http".
+  return (
+    wb.SheetNames.find((n) => {
+      const rows = toRows(wb.Sheets[n]);
+      return rows.some((r) => String(r[0] ?? "").trim().startsWith("http"));
+    }) ?? null
+  );
+}
+
+function findChartSheet(wb) {
+  const byName = wb.SheetNames.find((n) => /chart/i.test(n));
+  if (byName) return byName;
+  // Structural fallback: sheet header row contains a "date" column and at least
+  // one of clicks / impressions.
+  return (
+    wb.SheetNames.find((n) => {
+      const rows = toRows(wb.Sheets[n]);
+      if (rows.length < 2) return false;
+      const headers = (rows[0] ?? []).map((h) => String(h ?? "").toLowerCase());
+      return (
+        headers.some((h) => h === "date") &&
+        headers.some((h) => h.includes("click") || h.includes("impression"))
+      );
+    }) ?? null
+  );
+}
+
+function findGA4Sheet(wb) {
+  // Fast path: any tab whose name contains the free-form pattern (same regex
+  // used by buildWorkbookFromSheet in sheetsApi.js).
+  const byName = wb.SheetNames.find((n) => /free.?form/i.test(n));
+  if (byName) return byName;
+  // Structural fallback: tab where row 3 (index 3) holds the GA4 date range
+  // "# 20260501-20260531" (with or without the leading hash/space).
+  return (
+    wb.SheetNames.find((n) => {
+      const rows = toRows(wb.Sheets[n]);
+      const dateStr = String(rows[3]?.[0] ?? "").trim();
+      return /^#?\s*\d{8}-\d{8}$/.test(dateStr);
+    }) ?? null
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function toRows(sheet) {
   return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: true });

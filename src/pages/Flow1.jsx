@@ -156,12 +156,16 @@ export default function Flow1() {
   // ─── Import from a Google Sheet link ────────────────────────────────────────
 
   async function importFromSheetLink(url) {
-    let wb = await buildWorkbookFromSheet(url, ["filters", "pages"]);
-    let result = wb.SheetNames.length ? parseFlow1Workbook(wb) : null;
-    if (!result) {
-      wb = await buildWorkbookFromSheet(url, ["freeform"]);
-      result = wb.SheetNames.length ? parseFlow1Workbook(wb) : null;
-    }
+    // Request all relevant tab patterns in one call. When any pattern has no
+    // name match, buildWorkbookFromSheet fetches every remaining tab so the
+    // structural fallback helpers in the parsers can identify the right sheet
+    // by column/row content rather than by name.
+    const wb = await buildWorkbookFromSheet(url, [
+      "filters",
+      "pages",
+      "freeform",
+    ]);
+    const result = parseFlow1Workbook(wb);
     if (!result) {
       throw new Error(
         "Could not find a GSC (Filters + Pages) or GA4 (Free-form) tab in that sheet.",

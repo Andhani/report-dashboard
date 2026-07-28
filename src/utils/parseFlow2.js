@@ -36,12 +36,14 @@ const MONTH_MAP = {
  */
 export function parseGSCChartWorkbook(wb) {
   try {
-    if (!wb.SheetNames.includes("Chart")) return null;
+    const chartName = findChartSheet(wb);
+    if (!chartName) return null;
 
     // Segment from Filters sheet (same logic as Flow 1)
     let segment = "all_organic";
-    if (wb.SheetNames.includes("Filters")) {
-      const filterRows = XLSX.utils.sheet_to_json(wb.Sheets["Filters"], {
+    const filtersName = findFiltersSheet(wb);
+    if (filtersName) {
+      const filterRows = XLSX.utils.sheet_to_json(wb.Sheets[filtersName], {
         header: 1,
         defval: "",
         raw: true,
@@ -70,7 +72,7 @@ export function parseGSCChartWorkbook(wb) {
 
     // Parse Chart sheet: headers in row 0, data in row 1+
     // Columns: Date | Clicks | Impressions | CTR | Position
-    const chartRows = XLSX.utils.sheet_to_json(wb.Sheets["Chart"], {
+    const chartRows = XLSX.utils.sheet_to_json(wb.Sheets[chartName], {
       header: 1,
       defval: "",
       raw: true,
@@ -272,11 +274,7 @@ export function parseGA4FreeFile(csvText) {
  */
 export function parseGA4FreeWorkbook(wb) {
   try {
-    const sheetName = wb.SheetNames.find(
-      (s) =>
-        s.toLowerCase().includes("free-form") ||
-        s.toLowerCase().includes("freeform"),
-    );
+    const sheetName = findGA4Sheet(wb);
     if (!sheetName) return null;
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {
       header: 1,
@@ -404,6 +402,67 @@ export function formatFlow2DetectionLabel(result) {
     return `Event GA4 Export — ${month} · ${result.clickContactAgent.toLocaleString()} Click_Contact_Agent`;
   }
   return "Unknown";
+}
+
+// ─── Sheet-finder helpers (name-based with structural fallback) ───────────────
+
+function findChartSheet(wb) {
+  const byName = wb.SheetNames.find((n) => /chart/i.test(n));
+  if (byName) return byName;
+  // Structural fallback: header row has a "date" column + clicks/impressions.
+  return (
+    wb.SheetNames.find((n) => {
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], {
+        header: 1,
+        defval: "",
+        raw: true,
+      });
+      if (rows.length < 2) return false;
+      const headers = (rows[0] ?? []).map((h) => String(h ?? "").toLowerCase());
+      return (
+        headers.some((h) => h === "date") &&
+        headers.some((h) => h.includes("click") || h.includes("impression"))
+      );
+    }) ?? null
+  );
+}
+
+function findFiltersSheet(wb) {
+  const byName = wb.SheetNames.find((n) => /filters/i.test(n));
+  if (byName) return byName;
+  // Structural fallback: sheet has a "date" row (col A) with a non-empty value (col B).
+  return (
+    wb.SheetNames.find((n) => {
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], {
+        header: 1,
+        defval: "",
+        raw: true,
+      });
+      return rows.some(
+        (r) =>
+          String(r[0] ?? "").trim().toLowerCase() === "date" &&
+          String(r[1] ?? "").trim().length > 0,
+      );
+    }) ?? null
+  );
+}
+
+function findGA4Sheet(wb) {
+  // Fast path: any tab whose name contains the free-form pattern.
+  const byName = wb.SheetNames.find((n) => /free.?form/i.test(n));
+  if (byName) return byName;
+  // Structural fallback: tab where row 3 (index 3) holds the GA4 date range.
+  return (
+    wb.SheetNames.find((n) => {
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], {
+        header: 1,
+        defval: "",
+        raw: true,
+      });
+      const dateStr = String(rows[3]?.[0] ?? "").trim();
+      return /^#?\s*\d{8}-\d{8}$/.test(dateStr);
+    }) ?? null
+  );
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

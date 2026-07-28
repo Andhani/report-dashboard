@@ -244,6 +244,10 @@ export async function buildWorkbookFromSheet(sheetUrl, wantedKeys) {
   const availableTabs = await getSpreadsheetTabNames(sheetId, token);
 
   const wb = { SheetNames: [], Sheets: {} };
+  const fetchedTabs = new Set();
+
+  // Fast path: fetch pattern-matched tabs under their canonical names so existing
+  // parsers that check for "Filters", "Pages", etc. find them immediately.
   for (const wantKey of wantedKeys) {
     const match = availableTabs.find((t) => TAB_PATTERNS[wantKey].test(t));
     if (!match) continue;
@@ -251,7 +255,25 @@ export async function buildWorkbookFromSheet(sheetUrl, wantedKeys) {
     const name = CANONICAL_TAB_NAMES[wantKey];
     wb.Sheets[name] = XLSX.utils.aoa_to_sheet(values);
     wb.SheetNames.push(name);
+    fetchedTabs.add(match);
   }
+
+  // Structural fallback: when any requested pattern found no match (i.e. tabs are
+  // renamed), fetch every remaining tab under its actual name so the parser helpers
+  // (findFiltersSheet, findGA4Sheet, etc.) can inspect content and identify the
+  // right tab by column/row structure rather than by name.
+  const anyMissed = wantedKeys.some(
+    (k) => !availableTabs.some((t) => TAB_PATTERNS[k].test(t)),
+  );
+  if (anyMissed) {
+    for (const tabName of availableTabs) {
+      if (fetchedTabs.has(tabName)) continue;
+      const values = await getTabValues(sheetId, tabName, token);
+      wb.Sheets[tabName] = XLSX.utils.aoa_to_sheet(values);
+      wb.SheetNames.push(tabName);
+    }
+  }
+
   return wb;
 }
 

@@ -229,10 +229,9 @@ export default function Flow2() {
   // ─── Import from a Google Sheet link ────────────────────────────────────────
 
   async function importFromSheetLink(url) {
-    let wb = await buildWorkbookFromSheet(url, ["chart", "filters"]);
-    let result = wb.SheetNames.includes("Chart")
-      ? parseGSCChartWorkbook(wb)
-      : null;
+    const wb = await buildWorkbookFromSheet(url, ["chart", "filters"]);
+    // parseGSCChartWorkbook now uses flexible name + structure detection internally.
+    let result = parseGSCChartWorkbook(wb);
 
     if (!result) {
       const csvText = await fetchFirstTabAsCSV(url);
