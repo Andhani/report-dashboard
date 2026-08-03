@@ -108,23 +108,23 @@ function sumGA4(slugs, ga4Map) {
   let views = 0,
     users = 0,
     sessions = 0,
-    aetSum = 0,
-    aetCount = 0;
+    aetWeightedSum = 0;
   for (const slug of slugs) {
     const d = ga4Map[slug] || Z_GA4;
     views += d.views;
     users += d.users;
-    sessions += d.sessions;
-    if (d.aet_seconds > 0) {
-      aetSum += d.aet_seconds;
-      aetCount++;
-    }
+    const s = d.sessions;
+    sessions += s;
+    // Session-weighted average, not a plain mean of per-URL AET — matches how
+    // GA4 aggregates "Average engagement time" across a multi-page filter
+    // (same approach as aggregateGA4Rows in Flow2.jsx).
+    if (d.aet_seconds > 0 && s > 0) aetWeightedSum += d.aet_seconds * s;
   }
   return {
     views,
     users,
     sessions,
-    aet_seconds: aetCount > 0 ? aetSum / aetCount : 0,
+    aet_seconds: sessions > 0 ? aetWeightedSum / sessions : 0,
   };
 }
 
