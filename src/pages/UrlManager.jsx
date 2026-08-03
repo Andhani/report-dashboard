@@ -996,13 +996,25 @@ function ColumnFilter({
         <div className="flex items-center justify-between text-2xs mb-1.5">
           <button
             className="text-accent hover:underline"
-            onClick={() => setDraft(new Set(allValues))}
+            onClick={() =>
+              setDraft((prev) => {
+                const next = new Set(prev);
+                visible.forEach(([v]) => next.add(v));
+                return next;
+              })
+            }
           >
             Select all
           </button>
           <button
             className="text-accent hover:underline"
-            onClick={() => setDraft(new Set())}
+            onClick={() =>
+              setDraft((prev) => {
+                const next = new Set(prev);
+                visible.forEach(([v]) => next.delete(v));
+                return next;
+              })
+            }
           >
             Clear
           </button>
