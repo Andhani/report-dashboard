@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useLayoutEffect } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { useStorage } from "../hooks/useStorage";
@@ -90,10 +90,23 @@ export default function UrlManager() {
   const [csvLoading, setCsvLoading] = useState(false);
   const csvRef = useRef();
 
+  // Column filters (Sheets/Excel-style), kept per tab since BC and Blog
+  // share some column keys (url, status, pic, slug) but hold unrelated data.
+  const [bcFilters, setBcFilters] = useState({});
+  const [blogFilters, setBlogFilters] = useState({});
+
   const urls = activeTab === "bc" ? bcUrls : blogUrls;
   const setUrls = activeTab === "bc" ? setBcUrls : setBlogUrls;
   const cols = activeTab === "bc" ? BC_COLS : BLOG_COLS;
-  const pagination = usePagination(urls, 100);
+  const filters = activeTab === "bc" ? bcFilters : blogFilters;
+  const setFilters = activeTab === "bc" ? setBcFilters : setBlogFilters;
+
+  const filteredUrls = useMemo(
+    () => applyColumnFilters(urls, filters),
+    [urls, filters],
+  );
+  const activeFilterCount = Object.keys(filters).length;
+  const pagination = usePagination(filteredUrls, 100);
 
   function handleAddRow() {
     setUrls((prev) => [...prev, emptyRow(activeTab)]);
@@ -121,6 +134,7 @@ export default function UrlManager() {
       )
     ) {
       setUrls([]);
+      setFilters({});
     }
   }
 
@@ -132,6 +146,7 @@ export default function UrlManager() {
         )
       ) {
         setUrls(rows);
+        setFilters({});
       }
     } else {
       setUrls((prev) => [...prev, ...rows]);
@@ -330,7 +345,19 @@ export default function UrlManager() {
           </button>
           {urls.length > 0 && (
             <>
-              <span className="text-2xs text-muted">{urls.length} rows</span>
+              <span className="text-2xs text-muted">
+                {activeFilterCount > 0
+                  ? `${filteredUrls.length} of ${urls.length} rows`
+                  : `${urls.length} rows`}
+              </span>
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={() => setFilters({})}
+                  className="btn-ghost text-accent"
+                >
+                  Clear filters ({activeFilterCount})
+                </button>
+              )}
               <button
                 onClick={handleClearAll}
                 className="btn-ghost text-danger hover:bg-danger/5"
@@ -410,7 +437,10 @@ export default function UrlManager() {
         <>
           <UrlTable
             rows={pagination.pageItems}
+            allRows={urls}
             cols={cols}
+            filters={filters}
+            onFilterChange={setFilters}
             onUpdate={handleUpdateRow}
             onDelete={handleDeleteRow}
             startIndex={
@@ -419,6 +449,11 @@ export default function UrlManager() {
                 : (pagination.page - 1) * pagination.pageSize
             }
           />
+          {filteredUrls.length === 0 && (
+            <div className="text-center text-xs text-muted py-6">
+              No rows match the current filters.
+            </div>
+          )}
           <PaginationControls
             page={pagination.page}
             pageCount={pagination.pageCount}
@@ -442,8 +477,18 @@ export default function UrlManager() {
 // elements for the one row being edited. With thousands of imported rows,
 // always-live inputs meant tens of thousands of interactive DOM nodes
 // mounted at once — this cuts that down to a handful.
-function UrlTable({ rows, cols, onUpdate, onDelete, startIndex = 0 }) {
+function UrlTable({
+  rows,
+  allRows,
+  cols,
+  filters,
+  onFilterChange,
+  onUpdate,
+  onDelete,
+  startIndex = 0,
+}) {
   const [editingId, setEditingId] = useState(null);
+  const [openFilterKey, setOpenFilterKey] = useState(null);
 
   return (
     <div className="card overflow-x-auto">
@@ -456,9 +501,33 @@ function UrlTable({ rows, cols, onUpdate, onDelete, startIndex = 0 }) {
             {cols.map((col) => (
               <th
                 key={col.key}
-                className={`text-left py-3 px-2 text-muted font-medium uppercase tracking-wide text-xs ${col.width}`}
+                className={`relative text-left py-3 px-2 text-muted font-medium uppercase tracking-wide text-xs ${col.width}`}
               >
-                {col.label}
+                <div className="flex items-center gap-1">
+                  <span className="truncate">{col.label}</span>
+                  <ColumnFilter
+                    col={col}
+                    allRows={allRows}
+                    activeValues={filters[col.key]}
+                    open={openFilterKey === col.key}
+                    onToggle={() =>
+                      setOpenFilterKey((k) => (k === col.key ? null : col.key))
+                    }
+                    onClose={() => setOpenFilterKey(null)}
+                    onApply={(values) => {
+                      onFilterChange((prev) => {
+                        const next = { ...prev };
+                        if (values === null) {
+                          delete next[col.key];
+                        } else {
+                          next[col.key] = values;
+                        }
+                        return next;
+                      });
+                      setOpenFilterKey(null);
+                    }}
+                  />
+                </div>
               </th>
             ))}
             <th className="py-3 px-3 w-10" />
@@ -813,4 +882,190 @@ function parseImportedRow(raw, type, cols) {
 
   row.slug = urlToSlug(row.url);
   return row;
+}
+
+// ─── Column filters (Sheets/Excel-style) ───────────────────────────────────────
+
+const BLANK_VALUE = "";
+const BLANK_LABEL = "(Blanks)";
+
+function cellValue(row, key) {
+  const v = row[key];
+  return v === undefined || v === null ? "" : String(v);
+}
+
+// filters: { [colKey]: Set<string> } — a column present in the map keeps only
+// rows whose value is in the set; a column absent from the map is unfiltered.
+function applyColumnFilters(rows, filters) {
+  const entries = Object.entries(filters);
+  if (entries.length === 0) return rows;
+  return rows.filter((row) =>
+    entries.every(([key, values]) => values.has(cellValue(row, key))),
+  );
+}
+
+function ColumnFilter({
+  col,
+  allRows,
+  activeValues,
+  open,
+  onToggle,
+  onClose,
+  onApply,
+}) {
+  const [search, setSearch] = useState("");
+  const [draft, setDraft] = useState(
+    () => new Set(activeValues || []),
+  );
+
+  const counts = useMemo(() => {
+    const map = new Map();
+    allRows.forEach((row) => {
+      const v = cellValue(row, col.key);
+      map.set(v, (map.get(v) || 0) + 1);
+    });
+    return [...map.entries()].sort((a, b) => {
+      if (a[0] === BLANK_VALUE) return -1;
+      if (b[0] === BLANK_VALUE) return 1;
+      return a[0].localeCompare(b[0]);
+    });
+  }, [allRows, col.key]);
+
+  const allValues = useMemo(() => counts.map(([v]) => v), [counts]);
+
+  // Reset the draft selection each time the popover opens.
+  useLayoutEffect(() => {
+    if (open) {
+      setDraft(new Set(activeValues ? activeValues : allValues));
+      setSearch("");
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!open) {
+    const isFiltered = activeValues && activeValues.size < allValues.length;
+    return (
+      <button
+        onClick={onToggle}
+        title="Filter"
+        className={`shrink-0 p-0.5 rounded hover:bg-accent/10 ${isFiltered ? "text-accent" : "text-muted"}`}
+      >
+        <FilterIcon filled={isFiltered} />
+      </button>
+    );
+  }
+
+  const q = search.trim().toLowerCase();
+  const visible = q
+    ? counts.filter(([v]) =>
+        (v === BLANK_VALUE ? BLANK_LABEL : v).toLowerCase().includes(q),
+      )
+    : counts;
+
+  function toggleValue(v) {
+    setDraft((prev) => {
+      const next = new Set(prev);
+      if (next.has(v)) next.delete(v);
+      else next.add(v);
+      return next;
+    });
+  }
+
+  return (
+    <>
+      <button
+        onClick={onToggle}
+        title="Filter"
+        className="shrink-0 p-0.5 rounded text-accent bg-accent/10"
+      >
+        <FilterIcon filled />
+      </button>
+      {/* Backdrop closes the popover on outside click */}
+      <div className="fixed inset-0 z-20" onClick={onClose} />
+      <div
+        className="absolute left-0 top-full mt-1 z-30 w-60 bg-surface border border-border rounded-card shadow-card p-2 normal-case font-normal tracking-normal"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          type="text"
+          autoFocus
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search values…"
+          className="input text-xs w-full mb-1.5"
+        />
+        <div className="flex items-center justify-between text-2xs mb-1.5">
+          <button
+            className="text-accent hover:underline"
+            onClick={() => setDraft(new Set(allValues))}
+          >
+            Select all
+          </button>
+          <button
+            className="text-accent hover:underline"
+            onClick={() => setDraft(new Set())}
+          >
+            Clear
+          </button>
+        </div>
+        <div className="max-h-52 overflow-y-auto space-y-0.5 border-t border-b border-border py-1">
+          {visible.length === 0 && (
+            <div className="text-2xs text-muted px-1 py-2 text-center">
+              No matching values
+            </div>
+          )}
+          {visible.map(([v, count]) => (
+            <label
+              key={v || "__blank__"}
+              className="flex items-center gap-1.5 text-xs px-1 py-0.5 rounded hover:bg-accent/5 cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                checked={draft.has(v)}
+                onChange={() => toggleValue(v)}
+                className="shrink-0"
+              />
+              <span className="truncate flex-1" title={v || BLANK_LABEL}>
+                {v === BLANK_VALUE ? (
+                  <span className="text-muted italic">{BLANK_LABEL}</span>
+                ) : (
+                  v
+                )}
+              </span>
+              <span className="text-2xs text-muted shrink-0">{count}</span>
+            </label>
+          ))}
+        </div>
+        <div className="flex items-center justify-end gap-2 mt-1.5">
+          <button
+            className="btn-ghost text-2xs"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            className="btn-primary text-2xs px-2 py-1"
+            onClick={() =>
+              onApply(draft.size === allValues.length ? null : draft)
+            }
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function FilterIcon({ filled }) {
+  return (
+    <svg
+      className="w-3 h-3"
+      viewBox="0 0 20 20"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={filled ? 0 : 1.5}
+    >
+      <path d="M3 4h14l-5.5 6.5v5l-3 1.5v-6.5z" strokeLinejoin="round" />
+    </svg>
+  );
 }
