@@ -1,6 +1,35 @@
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import { parseGA4DateRange, formatMonthKey } from "./dateUtils";
+import { formatMonthKey } from "./dateUtils";
+import {
+  PAGE_PATH_ALIASES,
+  VIEWS_ALIASES,
+  USERS_ALIASES,
+  SESSIONS_ALIASES,
+  AET_ALIASES,
+  KEY_EVENTS_ALIASES,
+  findDateRowIndex,
+  findColumnIndex,
+  parseGA4Preamble,
+} from "./ga4ExportUtils";
+
+const FREE_FORM_ALIAS_GROUPS = [VIEWS_ALIASES, SESSIONS_ALIASES];
+const LEADS_ALIAS_GROUPS = [KEY_EVENTS_ALIASES];
+const FIXED_ROWS = { fixedDateRow: 3, fixedHeaderRow: 6, fixedTotalRow: 7 };
+
+/**
+ * True if any of the first ~15 rows contains a cell naming this a Leads/Event
+ * report ("Leads" or "Key events"). Scans a range rather than fixed rows 2/6
+ * so a shifted banner or extra dimension column doesn't defeat detection.
+ */
+function isLeadsExport(rows) {
+  const scanLimit = Math.min(15, rows.length);
+  for (let i = 0; i < scanLimit; i++) {
+    if (findColumnIndex(rows[i] ?? [], [/leads/i, ...KEY_EVENTS_ALIASES]) !== -1)
+      return true;
+  }
+  return false;
+}
 
 const MONTH_MAP = {
   january: 1,
@@ -124,12 +153,18 @@ export function parseGSCChartWorkbook(wb) {
  * for mixed / all-organic files.
  */
 function detectGA4Segment(rows) {
+  const pre = parseGA4Preamble(rows, FREE_FORM_ALIAS_GROUPS, FIXED_ROWS);
+  const dataStartIndex = pre ? pre.dataStartIndex : 8;
+  let pathCol = pre ? findColumnIndex(pre.headerRow, PAGE_PATH_ALIASES) : -1;
+  if (pathCol === -1) pathCol = 0;
+
   let dijual = 0,
     disewa = 0,
     blog = 0,
     total = 0;
-  for (let i = 8; i < rows.length && i < 108; i++) {
-    const path = String(rows[i]?.[0] ?? "").trim();
+  const scanLimit = Math.min(rows.length, dataStartIndex + 100);
+  for (let i = dataStartIndex; i < scanLimit; i++) {
+    const path = String(rows[i]?.[pathCol] ?? "").trim();
     if (!path.startsWith("/")) continue;
     total++;
     if (path.includes("/dijual/")) dijual++;
@@ -156,20 +191,29 @@ function detectGA4Segment(rows) {
  * Returns: { type: 'ga4_dijual'|'ga4_disewa'|'ga4_blog', month, views, users, sessions, aet_seconds }
  */
 function parseGA4SegmentRows(rows, segment) {
-  const month = parseGA4DateRange(String(rows[3]?.[0] ?? "").trim());
-  if (!month) return null;
+  const pre = parseGA4Preamble(rows, FREE_FORM_ALIAS_GROUPS, FIXED_ROWS);
+  if (!pre) return null;
 
-  const totRow = rows[7];
+  const totRow = rows[pre.totalRowIndex];
   if (!totRow) return null;
 
-  const views = toNum(totRow[1]);
-  const users = toNum(totRow[2]);
-  const sessions = toNum(totRow[3]);
-  const aet_seconds = toNum(totRow[4]);
+  let viewsCol = findColumnIndex(pre.headerRow, VIEWS_ALIASES);
+  if (viewsCol === -1) viewsCol = 1;
+  let usersCol = findColumnIndex(pre.headerRow, USERS_ALIASES);
+  if (usersCol === -1) usersCol = 2;
+  let sessionsCol = findColumnIndex(pre.headerRow, SESSIONS_ALIASES);
+  if (sessionsCol === -1) sessionsCol = 3;
+  let aetCol = findColumnIndex(pre.headerRow, AET_ALIASES);
+  if (aetCol === -1) aetCol = 4;
+
+  const views = toNum(totRow[viewsCol]);
+  const users = toNum(totRow[usersCol]);
+  const sessions = toNum(totRow[sessionsCol]);
+  const aet_seconds = toNum(totRow[aetCol]);
 
   return {
     type: `ga4_${segment}`,
-    month,
+    month: pre.month,
     views,
     users,
     sessions,
@@ -183,28 +227,39 @@ function parseGA4SegmentRows(rows, segment) {
  * Row layout: index 3 = date range, index 7 = grand total, index 8+ = URL rows.
  */
 function parseGA4FreeRows(rows) {
-  const month = parseGA4DateRange(String(rows[3]?.[0] ?? "").trim());
-  if (!month) return null;
+  const pre = parseGA4Preamble(rows, FREE_FORM_ALIAS_GROUPS, FIXED_ROWS);
+  if (!pre) return null;
 
-  const totRow = rows[7];
+  const totRow = rows[pre.totalRowIndex];
   if (!totRow) return null;
 
-  const views = toNum(totRow[1]);
-  const users = toNum(totRow[2]);
-  const sessions = toNum(totRow[3]);
-  const aet_seconds = toNum(totRow[4]);
+  let pathCol = findColumnIndex(pre.headerRow, PAGE_PATH_ALIASES);
+  if (pathCol === -1) pathCol = 0;
+  let viewsCol = findColumnIndex(pre.headerRow, VIEWS_ALIASES);
+  if (viewsCol === -1) viewsCol = 1;
+  let usersCol = findColumnIndex(pre.headerRow, USERS_ALIASES);
+  if (usersCol === -1) usersCol = 2;
+  let sessionsCol = findColumnIndex(pre.headerRow, SESSIONS_ALIASES);
+  if (sessionsCol === -1) sessionsCol = 3;
+  let aetCol = findColumnIndex(pre.headerRow, AET_ALIASES);
+  if (aetCol === -1) aetCol = 4;
+
+  const views = toNum(totRow[viewsCol]);
+  const users = toNum(totRow[usersCol]);
+  const sessions = toNum(totRow[sessionsCol]);
+  const aet_seconds = toNum(totRow[aetCol]);
 
   const segmentTotals = { dijual: z(), disewa: z(), blog: z() };
 
-  for (let i = 8; i < rows.length; i++) {
+  for (let i = pre.dataStartIndex; i < rows.length; i++) {
     const r = rows[i];
-    const path = String(r[0] ?? "").trim();
+    const path = String(r[pathCol] ?? "").trim();
     if (!path.startsWith("/")) continue;
 
-    const v = toNum(r[1]),
-      u = toNum(r[2]),
-      s = toNum(r[3]),
-      a = toNum(r[4]);
+    const v = toNum(r[viewsCol]),
+      u = toNum(r[usersCol]),
+      s = toNum(r[sessionsCol]),
+      a = toNum(r[aetCol]);
 
     if (path.includes("/dijual/")) {
       segmentTotals.dijual.views += v;
@@ -239,7 +294,7 @@ function parseGA4FreeRows(rows) {
 
   return {
     type: "ga4_free",
-    month,
+    month: pre.month,
     all_organic: { views, users, sessions, aet_seconds },
     dijual: {
       views: segmentTotals.dijual.views,
@@ -287,16 +342,7 @@ export function parseGA4FreeWorkbook(wb) {
       defval: "",
       raw: true,
     });
-    const isLeads =
-      String(rows[2]?.[0] ?? "")
-        .toLowerCase()
-        .includes("leads") ||
-      (rows[6] ?? []).some((c) =>
-        String(c ?? "")
-          .toLowerCase()
-          .includes("key events"),
-      );
-    if (isLeads) return parseGA4LeadsRows(rows);
+    if (isLeadsExport(rows)) return parseGA4LeadsRows(rows);
     const segment = detectGA4Segment(rows);
     if (segment) return parseGA4SegmentRows(rows, segment);
     return parseGA4FreeRows(rows);
@@ -312,14 +358,17 @@ export function parseGA4FreeWorkbook(wb) {
  * Accepts a 2D array of values (from Papa.parse or SheetJS sheet_to_json).
  */
 function parseGA4LeadsRows(rows) {
-  const month = parseGA4DateRange(String(rows[3]?.[0] ?? "").trim());
-  if (!month) return null;
+  const pre = parseGA4Preamble(rows, LEADS_ALIAS_GROUPS, FIXED_ROWS);
+  if (!pre) return null;
 
-  const totRow = rows[7];
+  const totRow = rows[pre.totalRowIndex];
   if (!totRow) return null;
 
-  const clickContactAgent = toNum(totRow[2]);
-  return { type: "ga4_leads", month, clickContactAgent };
+  let keyEventsCol = findColumnIndex(pre.headerRow, KEY_EVENTS_ALIASES);
+  if (keyEventsCol === -1) keyEventsCol = 2;
+
+  const clickContactAgent = toNum(totRow[keyEventsCol]);
+  return { type: "ga4_leads", month: pre.month, clickContactAgent };
 }
 
 /**
@@ -350,14 +399,11 @@ export async function parseFlow2File(file, arrayBuffer) {
     // Strip UTF-8 BOM if present
     const raw = new TextDecoder("utf-8").decode(arrayBuffer);
     const text = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
-    // Distinguish GA4 Free-form vs Leads:
-    // Leads report has "Leads" in row 2 OR headers row contains "Key events"
-    const lines = text.split("\n");
-    const row2 = lines[2] ?? "";
-    const row6 = lines[6] ?? "";
-    const isLeads =
-      row2.toLowerCase().includes("leads") ||
-      row6.toLowerCase().includes("key events");
+    // Distinguish GA4 Free-form vs Leads: scan the banner/header lines for
+    // "Leads" or "Key events" — a wider net than a single fixed line, since
+    // banner length and column layout both vary across exports.
+    const bannerText = text.split("\n").slice(0, 15).join("\n").toLowerCase();
+    const isLeads = /leads/.test(bannerText) || /key events?/.test(bannerText);
     if (isLeads) return parseGA4LeadsFile(text);
     return parseGA4FreeFile(text);
   }
@@ -459,8 +505,10 @@ function findGA4Sheet(wb) {
   // Fast path: any tab whose name contains the free-form or events pattern.
   const byName = wb.SheetNames.find((n) => /free.?form|events?/i.test(n));
   if (byName) return byName;
-  // Structural fallback: tab where row 3 (index 3) holds any recognised GA4
-  // date range format (delegates to parseGA4DateRange for format coverage).
+  // Structural fallback: tab where any of the first few rows holds a
+  // recognised GA4 date range (delegates to parseGA4DateRange for format
+  // coverage, and scans instead of assuming a fixed row so a shifted banner
+  // still resolves).
   return (
     wb.SheetNames.find((n) => {
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], {
@@ -468,8 +516,7 @@ function findGA4Sheet(wb) {
         defval: "",
         raw: true,
       });
-      const dateStr = String(rows[3]?.[0] ?? "").trim();
-      return parseGA4DateRange(dateStr) !== null;
+      return findDateRowIndex(rows) !== -1;
     }) ?? null
   );
 }

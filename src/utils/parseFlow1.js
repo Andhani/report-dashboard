@@ -1,6 +1,19 @@
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import { parseGA4DateRange, urlToSlug, formatMonthKey } from "./dateUtils";
+import { urlToSlug, formatMonthKey } from "./dateUtils";
+import {
+  PAGE_PATH_ALIASES,
+  VIEWS_ALIASES,
+  USERS_ALIASES,
+  SESSIONS_ALIASES,
+  AET_ALIASES,
+  findDateRowIndex,
+  findColumnIndex,
+  parseGA4Preamble,
+} from "./ga4ExportUtils";
+
+const FREE_FORM_ALIAS_GROUPS = [VIEWS_ALIASES, SESSIONS_ALIASES];
+const FIXED_ROWS = { fixedDateRow: 3, fixedHeaderRow: 6, fixedTotalRow: 7 };
 
 const MONTH_MAP = {
   january: 1,
@@ -138,46 +151,56 @@ function tryParseGA4(wb) {
 
     const allRows = toRows(wb.Sheets[sheetName]);
 
-    // Row index 3: "# 20260501-20260531"
-    const month = parseGA4DateRange(String(allRows[3]?.[0] ?? "").trim());
-    if (!month) return null;
+    const pre = parseGA4Preamble(allRows, FREE_FORM_ALIAS_GROUPS, FIXED_ROWS);
+    if (!pre) return null;
 
-    const project = detectGA4Project(allRows);
+    let pathCol = findColumnIndex(pre.headerRow, PAGE_PATH_ALIASES);
+    if (pathCol === -1) pathCol = 0;
+    let viewsCol = findColumnIndex(pre.headerRow, VIEWS_ALIASES);
+    if (viewsCol === -1) viewsCol = 1;
+    let usersCol = findColumnIndex(pre.headerRow, USERS_ALIASES);
+    if (usersCol === -1) usersCol = 2;
+    let sessionsCol = findColumnIndex(pre.headerRow, SESSIONS_ALIASES);
+    if (sessionsCol === -1) sessionsCol = 3;
+    let aetCol = findColumnIndex(pre.headerRow, AET_ALIASES);
+    if (aetCol === -1) aetCol = 4;
+
+    const project = detectGA4Project(allRows, pre.dataStartIndex, pathCol);
     if (!project) return null;
 
     const rows = [];
-    for (let i = 8; i < allRows.length; i++) {
+    for (let i = pre.dataStartIndex; i < allRows.length; i++) {
       const r = allRows[i];
-      const path = String(r[0] ?? "").trim();
+      const path = String(r[pathCol] ?? "").trim();
       if (!path.startsWith("/")) continue;
       rows.push({
         slug: path,
-        views: toNum(r[1]),
-        users: toNum(r[2]),
-        sessions: toNum(r[3]),
-        aet_seconds: toNum(r[4]),
+        views: toNum(r[viewsCol]),
+        users: toNum(r[usersCol]),
+        sessions: toNum(r[sessionsCol]),
+        aet_seconds: toNum(r[aetCol]),
       });
     }
 
     if (rows.length === 0) return null;
 
-    // Store grand total row (index 7) so the Traffic Overview reuse path can read
-    // exact totals instead of approximating from URL-level averages.
+    // Store grand total row so the Traffic Overview reuse path can read exact
+    // totals instead of approximating from URL-level averages.
     let grandTotal = null;
-    const totRow = allRows[7];
+    const totRow = allRows[pre.totalRowIndex];
     if (totRow) {
-      const totSessions = toNum(totRow[3]);
+      const totSessions = toNum(totRow[sessionsCol]);
       if (totSessions > 0) {
         grandTotal = {
-          views: toNum(totRow[1]),
-          users: toNum(totRow[2]),
+          views: toNum(totRow[viewsCol]),
+          users: toNum(totRow[usersCol]),
           sessions: totSessions,
-          aet_seconds: toNum(totRow[4]),
+          aet_seconds: toNum(totRow[aetCol]),
         };
       }
     }
 
-    return { type: "ga4", project, month, rows, grandTotal };
+    return { type: "ga4", project, month: pre.month, rows, grandTotal };
   } catch {
     return null;
   }
@@ -186,29 +209,39 @@ function tryParseGA4(wb) {
 // ─── CSV parsers ──────────────────────────────────────────────────────────────
 
 function tryParseGA4CSV(rows) {
-  // Row index 3: "# 20260501-20260531"
-  const month = parseGA4DateRange(String(rows[3]?.[0] ?? "").trim());
-  if (!month) return null;
+  const pre = parseGA4Preamble(rows, FREE_FORM_ALIAS_GROUPS, FIXED_ROWS);
+  if (!pre) return null;
 
-  const project = detectGA4Project(rows);
+  let pathCol = findColumnIndex(pre.headerRow, PAGE_PATH_ALIASES);
+  if (pathCol === -1) pathCol = 0;
+  let viewsCol = findColumnIndex(pre.headerRow, VIEWS_ALIASES);
+  if (viewsCol === -1) viewsCol = 1;
+  let usersCol = findColumnIndex(pre.headerRow, USERS_ALIASES);
+  if (usersCol === -1) usersCol = 2;
+  let sessionsCol = findColumnIndex(pre.headerRow, SESSIONS_ALIASES);
+  if (sessionsCol === -1) sessionsCol = 3;
+  let aetCol = findColumnIndex(pre.headerRow, AET_ALIASES);
+  if (aetCol === -1) aetCol = 4;
+
+  const project = detectGA4Project(rows, pre.dataStartIndex, pathCol);
   if (!project) return null;
 
   const dataRows = [];
-  for (let i = 8; i < rows.length; i++) {
+  for (let i = pre.dataStartIndex; i < rows.length; i++) {
     const r = rows[i];
-    const path = String(r[0] ?? "").trim();
+    const path = String(r[pathCol] ?? "").trim();
     if (!path.startsWith("/")) continue;
     dataRows.push({
       slug: path,
-      views: toNum(r[1]),
-      users: toNum(r[2]),
-      sessions: toNum(r[3]),
-      aet_seconds: toNum(r[4]),
+      views: toNum(r[viewsCol]),
+      users: toNum(r[usersCol]),
+      sessions: toNum(r[sessionsCol]),
+      aet_seconds: toNum(r[aetCol]),
     });
   }
 
   if (dataRows.length === 0) return null;
-  return { type: "ga4", project, month, rows: dataRows };
+  return { type: "ga4", project, month: pre.month, rows: dataRows };
 }
 
 function tryParseGSCCSV(rows) {
@@ -288,13 +321,14 @@ export function formatDetectionLabel(result) {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-function detectGA4Project(rows) {
+function detectGA4Project(rows, dataStartIndex = 8, pathCol = 0) {
   let dijual = 0,
     disewa = 0,
     blog = 0,
     total = 0;
-  for (let i = 8; i < rows.length && i < 108; i++) {
-    const path = String(rows[i]?.[0] ?? "").trim();
+  const scanLimit = Math.min(rows.length, dataStartIndex + 100);
+  for (let i = dataStartIndex; i < scanLimit; i++) {
+    const path = String(rows[i]?.[pathCol] ?? "").trim();
     if (!path.startsWith("/")) continue;
     total++;
     if (path.includes("/dijual/")) dijual++;
@@ -368,13 +402,14 @@ function findGA4Sheet(wb) {
   // used by buildWorkbookFromSheet in sheetsApi.js).
   const byName = wb.SheetNames.find((n) => /free.?form/i.test(n));
   if (byName) return byName;
-  // Structural fallback: tab where row 3 (index 3) holds any recognised GA4
-  // date range format (delegates to parseGA4DateRange for format coverage).
+  // Structural fallback: tab where any of the first few rows holds a
+  // recognised GA4 date range (delegates to parseGA4DateRange for format
+  // coverage, and scans instead of assuming a fixed row so a shifted banner
+  // still resolves).
   return (
     wb.SheetNames.find((n) => {
       const rows = toRows(wb.Sheets[n]);
-      const dateStr = String(rows[3]?.[0] ?? "").trim();
-      return parseGA4DateRange(dateStr) !== null;
+      return findDateRowIndex(rows) !== -1;
     }) ?? null
   );
 }
