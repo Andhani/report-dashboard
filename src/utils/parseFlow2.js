@@ -148,15 +148,13 @@ export function parseGSCChartWorkbook(wb) {
 // ─── GA4 Free-form export (.csv / .xlsx) ─────────────────────────────────────
 
 /**
- * Inspect first 100 data rows (index 8+) and return the single URL segment
- * ('dijual', 'disewa', 'blog') that is present, if only one is. Returns null
- * for mixed / all-organic files.
+ * Scan rows[dataStartIndex..] for the single URL segment ('dijual', 'disewa',
+ * 'blog') present in the sample, if only one is. Returns null when there's no
+ * usable path column, too few path rows, or more than one segment present
+ * (mixed / all-organic file).
  */
-function detectGA4Segment(rows) {
-  const pre = parseGA4Preamble(rows, FREE_FORM_ALIAS_GROUPS, FIXED_ROWS);
-  const dataStartIndex = pre ? pre.dataStartIndex : 8;
-  let pathCol = pre ? findColumnIndex(pre.headerRow, PAGE_PATH_ALIASES) : -1;
-  if (pathCol === -1) pathCol = 0;
+function scanSingleSegment(rows, dataStartIndex, pathCol) {
+  if (pathCol === -1) return null;
 
   let dijual = 0,
     disewa = 0,
@@ -183,6 +181,34 @@ function detectGA4Segment(rows) {
   if (dijual > 0) return "dijual";
   if (disewa > 0) return "disewa";
   return "blog";
+}
+
+/**
+ * Inspect first 100 data rows (index 8+) and return the single URL segment
+ * ('dijual', 'disewa', 'blog') that is present, if only one is. Returns null
+ * for mixed / all-organic files.
+ */
+function detectGA4Segment(rows) {
+  const pre = parseGA4Preamble(rows, FREE_FORM_ALIAS_GROUPS, FIXED_ROWS);
+  const dataStartIndex = pre ? pre.dataStartIndex : 8;
+  let pathCol = pre ? findColumnIndex(pre.headerRow, PAGE_PATH_ALIASES) : -1;
+  if (pathCol === -1) pathCol = 0;
+  return scanSingleSegment(rows, dataStartIndex, pathCol);
+}
+
+/**
+ * Same idea as detectGA4Segment but for GA4 Leads/Key events exports, which
+ * have no Views/Sessions columns to anchor the header row on. Unlike
+ * detectGA4Segment, an unresolved path column means the export has no
+ * per-URL breakdown at all (e.g. the per-date Key events layout) — there's
+ * no column-0 fallback here, since guessing wrong would misattribute leads
+ * to the wrong segment rather than just to the wrong URL.
+ */
+function detectLeadsSegment(rows) {
+  const pre = parseGA4Preamble(rows, LEADS_ALIAS_GROUPS, FIXED_ROWS);
+  const dataStartIndex = pre ? pre.dataStartIndex : 8;
+  const pathCol = pre ? findColumnIndex(pre.headerRow, PAGE_PATH_ALIASES) : -1;
+  return scanSingleSegment(rows, dataStartIndex, pathCol);
 }
 
 /**
@@ -368,13 +394,15 @@ function parseGA4LeadsRows(rows) {
   if (keyEventsCol === -1) keyEventsCol = 2;
 
   const clickContactAgent = toNum(totRow[keyEventsCol]);
-  return { type: "ga4_leads", month: pre.month, clickContactAgent };
+  const segment = detectLeadsSegment(rows);
+  const type = segment ? `ga4_leads_${segment}` : "ga4_leads";
+  return { type, month: pre.month, clickContactAgent };
 }
 
 /**
  * Parse a Flow 2 GA4 Leads export (.csv).
  * Extracts Click_Contact_Agent count from grand total row (index 7).
- * Returns: { type: 'ga4_leads', month, clickContactAgent }
+ * Returns: { type: 'ga4_leads' | 'ga4_leads_dijual' | 'ga4_leads_disewa' | 'ga4_leads_blog', month, clickContactAgent }
  */
 export function parseGA4LeadsFile(csvText) {
   const rows = Papa.parse(csvText, { skipEmptyLines: false }).data;
@@ -421,6 +449,9 @@ export function getFlow2DataKey(result) {
   if (result.type === "ga4_disewa") return `ga4_disewa_${mk}`;
   if (result.type === "ga4_blog") return `ga4_blog_${mk}`;
   if (result.type === "ga4_leads") return `ga4_leads_${mk}`;
+  if (result.type === "ga4_leads_dijual") return `ga4_leads_dijual_${mk}`;
+  if (result.type === "ga4_leads_disewa") return `ga4_leads_disewa_${mk}`;
+  if (result.type === "ga4_leads_blog") return `ga4_leads_blog_${mk}`;
   return null;
 }
 
@@ -454,6 +485,15 @@ export function formatFlow2DetectionLabel(result) {
   }
   if (result.type === "ga4_leads") {
     return `Event GA4 Export — ${month} · ${result.clickContactAgent.toLocaleString()} Click_Contact_Agent`;
+  }
+  if (result.type === "ga4_leads_dijual") {
+    return `BC Event GA4 Export (/dijual/) — ${month} · ${result.clickContactAgent.toLocaleString()} Click_Contact_Agent`;
+  }
+  if (result.type === "ga4_leads_disewa") {
+    return `BC Event GA4 Export (/disewa/) — ${month} · ${result.clickContactAgent.toLocaleString()} Click_Contact_Agent`;
+  }
+  if (result.type === "ga4_leads_blog") {
+    return `Event GA4 Export (Blog) — ${month} · ${result.clickContactAgent.toLocaleString()} Click_Contact_Agent`;
   }
   return "Unknown";
 }

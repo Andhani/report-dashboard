@@ -403,6 +403,35 @@ export default function Flow2() {
               </li>
             ))}
           </ol>
+          <p className="text-xs text-muted mb-1.5">
+            Optional — adds Click_Contact_Agent / Lead per Views per segment
+          </p>
+          <ol className="space-y-1.5" start={10}>
+            {[
+              {
+                label: "BC Event GA4 Export Dijual",
+                desc: "Event set to click_contact_agent, /dijual/ filtered",
+              },
+              {
+                label: "BC Event GA4 Export Disewa",
+                desc: "Event set to click_contact_agent, /disewa/ filtered",
+              },
+              {
+                label: "Blog Event GA4 Export",
+                desc: "Event set to click_contact_agent, Blog filtered",
+              },
+            ].map((r, i) => (
+              <li
+                key={r.label}
+                className="flex items-start gap-2 text-xs text-ink"
+              >
+                <span className="flex-shrink-0 text-muted w-4 text-right">{i + 10}.</span>
+                <span>
+                  {r.label} <span className="text-muted">— {r.desc}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
         </div>
 
         {/* Import section with mode toggle */}
@@ -712,6 +741,30 @@ const SLOT_ROWS_F2 = [
     store: "flow2",
     prefix: "ga4_leads",
     subtitle: "Organic Google",
+  },
+  {
+    id: "ga4_leads_dijual",
+    source: "BC Event GA4 Export",
+    segment: "/dijual/",
+    store: "flow2",
+    prefix: "ga4_leads_dijual",
+    subtitle: "click_contact_agent",
+  },
+  {
+    id: "ga4_leads_disewa",
+    source: "BC Event GA4 Export",
+    segment: "/disewa/",
+    store: "flow2",
+    prefix: "ga4_leads_disewa",
+    subtitle: "click_contact_agent",
+  },
+  {
+    id: "ga4_leads_blog",
+    source: "Blog Event GA4 Export",
+    segment: "/articles-all/",
+    store: "flow2",
+    prefix: "ga4_leads_blog",
+    subtitle: "click_contact_agent",
   },
 ];
 
