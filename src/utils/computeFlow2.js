@@ -45,13 +45,13 @@ export const METRICS = [
     id: "clickContactAgent",
     label: "Click_Contact_Agent",
     source: "leads",
-    allOnly: true,
+    allOnly: false,
   },
   {
     id: "leadPerViews",
     label: "Lead per Views",
     source: "calc",
-    allOnly: true,
+    allOnly: false,
   },
 ];
 
@@ -81,8 +81,13 @@ export function computeFlow2Output(flow2Data, slots) {
       // GA4 Free-form — one file per month, sub-segment values pre-computed
       const ga4Free = flow2Data[`ga4_free_${mk}`];
 
-      // GA4 Leads — always all_organic
-      const leads = flow2Data[`ga4_leads_${mk}`];
+      // GA4 Leads — all_organic reads the site-wide Key events file; other
+      // segments read their own dedicated segment-filtered Key events file.
+      const leadsKey =
+        seg.id === "all_organic"
+          ? `ga4_leads_${mk}`
+          : `ga4_leads_${seg.id}_${mk}`;
+      const leads = flow2Data[leadsKey];
 
       // GA4: all_organic uses grand total; segments prefer dedicated file, fall back to ga4_free row-filtered sums
       let ga4;
@@ -112,12 +117,9 @@ export function computeFlow2Output(flow2Data, slots) {
       const users = ga4?.users ?? 0;
       const sessions = ga4?.sessions ?? 0;
       const aet_seconds = ga4?.aet_seconds ?? 0;
-      const clickContactAgent =
-        seg.id === "all_organic" ? (leads?.clickContactAgent ?? 0) : null;
+      const clickContactAgent = leads?.clickContactAgent ?? 0;
       const leadPerViews =
-        seg.id === "all_organic" && views > 0 && clickContactAgent
-          ? clickContactAgent / views
-          : null;
+        views > 0 && clickContactAgent ? clickContactAgent / views : null;
 
       result[seg.id][mk] = {
         clicks,
