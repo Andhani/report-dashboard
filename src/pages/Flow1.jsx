@@ -882,9 +882,9 @@ function PreviewTable({ output, slots, urlCols }) {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-auto max-h-[70vh]">
       <table className="text-xs w-full">
-        <thead className="bg-surface-2 sticky top-0">
+        <thead className="bg-surface-2 sticky top-0 z-20">
           <tr>
             {urlCols.map((col, ci) => (
               <th
