@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo, useLayoutEffect } from "react";
 import { Link } from "react-router-dom";
 import { useStorage } from "../hooks/useStorage";
 import { useDataContext } from "../context/DataContext";
@@ -754,7 +754,20 @@ function PreviewSection({
     (r) =>
       r.metrics.clicks.some((v) => v > 0) || r.metrics.views.some((v) => v > 0),
   ).length;
-  const pagination = usePagination(output, 100);
+
+  // Column filters (Sheets/Excel-style, same behavior as the URL Manager tab),
+  // scoped to this preview table only.
+  const [filters, setFilters] = useState({});
+  const columns = useMemo(
+    () => buildPreviewColumns(urlCols, slots),
+    [urlCols, slots],
+  );
+  const filteredOutput = useMemo(
+    () => applyPreviewFilters(output, columns, filters),
+    [output, columns, filters],
+  );
+  const activeFilterCount = Object.keys(filters).length;
+  const pagination = usePagination(filteredOutput, 100);
 
   return (
     <div className="space-y-4">
@@ -814,14 +827,32 @@ function PreviewSection({
               </button>
             ))}
           </div>
-          <span className="text-2xs text-muted">
-            {matchCount}/{urlList.length} matched
-          </span>
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xs text-muted">
+              {matchCount}/{urlList.length} matched
+            </span>
+            {activeFilterCount > 0 && (
+              <>
+                <span className="text-2xs text-muted">
+                  · {filteredOutput.length} of {output.length} rows
+                </span>
+                <button
+                  onClick={() => setFilters({})}
+                  className="text-2xs text-accent hover:underline"
+                >
+                  Clear filters ({activeFilterCount})
+                </button>
+              </>
+            )}
+          </div>
         </div>
         <PreviewTable
           output={pagination.pageItems}
+          allOutput={output}
           slots={slots}
           urlCols={urlCols}
+          filters={filters}
+          onFilterChange={setFilters}
         />
         <div className="px-4 border-t border-border">
           <PaginationControls
@@ -874,30 +905,68 @@ const PREVIEW_METRICS = [
   },
 ];
 
-function PreviewTable({ output, slots, urlCols }) {
-  if (output.length === 0) {
+function PreviewTable({
+  output,
+  allOutput,
+  slots,
+  urlCols,
+  filters,
+  onFilterChange,
+}) {
+  const [openFilterKey, setOpenFilterKey] = useState(null);
+
+  if (allOutput.length === 0) {
     return (
       <div className="p-8 text-center text-xs text-muted">No URLs in list</div>
     );
   }
+
+  function applyFilter(colId, values) {
+    onFilterChange((prev) => {
+      const next = { ...prev };
+      if (values === null) delete next[colId];
+      else next[colId] = values;
+      return next;
+    });
+    setOpenFilterKey(null);
+  }
+
+  const totalCols = urlCols.length + PREVIEW_METRICS.length * slots.length;
 
   return (
     <div className="overflow-auto max-h-[70vh]">
       <table className="text-xs w-full">
         <thead className="bg-surface-2 sticky top-0 z-20">
           <tr>
-            {urlCols.map((col, ci) => (
-              <th
-                key={col.key}
-                className={`text-center py-2 px-2 text-2xs uppercase tracking-wider text-muted ${
-                  ci === 0
-                    ? "sticky left-0 bg-surface-2 z-10 min-w-[140px]"
-                    : "min-w-[80px]"
-                }`}
-              >
-                {col.label}
-              </th>
-            ))}
+            {urlCols.map((col, ci) => {
+              const colId = `url:${col.key}`;
+              return (
+                <th
+                  key={col.key}
+                  className={`relative text-center py-2 px-2 text-2xs uppercase tracking-wider text-muted ${
+                    ci === 0
+                      ? "sticky left-0 bg-surface-2 z-10 min-w-[140px]"
+                      : "min-w-[80px]"
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="truncate">{col.label}</span>
+                    <PreviewColumnFilter
+                      colId={colId}
+                      allItems={allOutput}
+                      getValue={(item) => getUrlColValue(item, col)}
+                      activeValues={filters[colId]}
+                      open={openFilterKey === colId}
+                      onToggle={() =>
+                        setOpenFilterKey((k) => (k === colId ? null : colId))
+                      }
+                      onClose={() => setOpenFilterKey(null)}
+                      onApply={(values) => applyFilter(colId, values)}
+                    />
+                  </div>
+                </th>
+              );
+            })}
             {PREVIEW_METRICS.map((m) => (
               <th
                 key={m.key}
@@ -919,57 +988,85 @@ function PreviewTable({ output, slots, urlCols }) {
               />
             ))}
             {PREVIEW_METRICS.flatMap((m) =>
-              slots.map((s, si) => (
-                <th
-                  key={`${m.key}_${s.key}`}
-                  className={`text-center py-1 px-1.5 text-2xs text-muted border-l ${
-                    si === 0 ? "border-border" : "border-border/50"
-                  }`}
-                >
-                  {s.label.split(" ")[0]}
-                </th>
-              )),
+              slots.map((s, si) => {
+                const colId = `metric:${m.key}:${s.key}`;
+                return (
+                  <th
+                    key={colId}
+                    className={`relative text-center py-1 px-1.5 text-2xs text-muted border-l whitespace-nowrap ${
+                      si === 0 ? "border-border" : "border-border/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{s.label.split(" ")[0]}</span>
+                      <PreviewColumnFilter
+                        colId={colId}
+                        allItems={allOutput}
+                        getValue={(item) => getMetricColValue(item, m, si)}
+                        activeValues={filters[colId]}
+                        open={openFilterKey === colId}
+                        onToggle={() =>
+                          setOpenFilterKey((k) => (k === colId ? null : colId))
+                        }
+                        onClose={() => setOpenFilterKey(null)}
+                        onApply={(values) => applyFilter(colId, values)}
+                      />
+                    </div>
+                  </th>
+                );
+              }),
             )}
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {output.map(({ urlRow, metrics }, i) => {
-            const hasData =
-              metrics.clicks.some((v) => v > 0) ||
-              metrics.views.some((v) => v > 0);
-            return (
-              <tr
-                key={i}
-                className={`hover:bg-surface-2/50 ${!hasData ? "opacity-40" : ""}`}
+          {output.length === 0 ? (
+            <tr>
+              <td
+                colSpan={totalCols}
+                className="p-8 text-center text-xs text-muted"
               >
-                {urlCols.map((col, ci) => (
-                  <td
-                    key={col.key}
-                    className={`py-1.5 px-2 truncate max-w-[160px] ${
-                      ci === 0
-                        ? "sticky left-0 bg-surface z-10 text-ink px-3"
-                        : "text-muted"
-                    }`}
-                    title={urlRow[col.key]}
-                  >
-                    {urlRow[col.key] || "—"}
-                  </td>
-                ))}
-                {PREVIEW_METRICS.flatMap((m) =>
-                  metrics[m.key].map((v, si) => (
+                No rows match the current filters.
+              </td>
+            </tr>
+          ) : (
+            output.map(({ urlRow, metrics }, i) => {
+              const hasData =
+                metrics.clicks.some((v) => v > 0) ||
+                metrics.views.some((v) => v > 0);
+              return (
+                <tr
+                  key={i}
+                  className={`hover:bg-surface-2/50 ${!hasData ? "opacity-40" : ""}`}
+                >
+                  {urlCols.map((col, ci) => (
                     <td
-                      key={`${m.key}_${si}`}
-                      className={`py-1.5 px-1.5 text-center tabular-nums ${m.dim ? "text-muted" : "text-ink"} border-l ${
-                        si === 0 ? "border-border" : "border-border/50"
+                      key={col.key}
+                      className={`py-1.5 px-2 truncate max-w-[160px] ${
+                        ci === 0
+                          ? "sticky left-0 bg-surface z-10 text-ink px-3"
+                          : "text-muted"
                       }`}
+                      title={urlRow[col.key]}
                     >
-                      {m.fmt(v) ?? <Dash />}
+                      {urlRow[col.key] || "—"}
                     </td>
-                  )),
-                )}
-              </tr>
-            );
-          })}
+                  ))}
+                  {PREVIEW_METRICS.flatMap((m) =>
+                    metrics[m.key].map((v, si) => (
+                      <td
+                        key={`${m.key}_${si}`}
+                        className={`py-1.5 px-1.5 text-center tabular-nums ${m.dim ? "text-muted" : "text-ink"} border-l ${
+                          si === 0 ? "border-border" : "border-border/50"
+                        }`}
+                      >
+                        {m.fmt(v) ?? <Dash />}
+                      </td>
+                    )),
+                  )}
+                </tr>
+              );
+            })
+          )}
         </tbody>
       </table>
     </div>
@@ -978,4 +1075,226 @@ function PreviewTable({ output, slots, urlCols }) {
 
 function Dash() {
   return <span className="text-empty">—</span>;
+}
+
+// ─── Column filters (Sheets/Excel-style, same behavior as the URL Manager
+// tab's ColumnFilter) — kept local to this preview table only. ────────────────
+
+function getUrlColValue(item, col) {
+  return item.urlRow[col.key] ?? "";
+}
+
+function getMetricColValue(item, m, si) {
+  const formatted = m.fmt(item.metrics[m.key][si]);
+  return formatted === null || formatted === undefined ? "" : String(formatted);
+}
+
+function buildPreviewColumns(urlCols, slots) {
+  const urlColumns = urlCols.map((col) => ({
+    id: `url:${col.key}`,
+    get: (item) => getUrlColValue(item, col),
+  }));
+  const metricColumns = PREVIEW_METRICS.flatMap((m) =>
+    slots.map((s, si) => ({
+      id: `metric:${m.key}:${s.key}`,
+      get: (item) => getMetricColValue(item, m, si),
+    })),
+  );
+  return [...urlColumns, ...metricColumns];
+}
+
+function applyPreviewFilters(items, columns, filters) {
+  const entries = Object.entries(filters);
+  if (entries.length === 0) return items;
+  return items.filter((item) =>
+    entries.every(([colId, values]) => {
+      const col = columns.find((c) => c.id === colId);
+      return col ? values.has(col.get(item)) : true;
+    }),
+  );
+}
+
+const PREVIEW_FILTER_BLANK_VALUE = "";
+const PREVIEW_FILTER_BLANK_LABEL = "(Blanks)";
+
+function PreviewColumnFilter({
+  allItems,
+  getValue,
+  activeValues,
+  open,
+  onToggle,
+  onClose,
+  onApply,
+}) {
+  const [search, setSearch] = useState("");
+  const [draft, setDraft] = useState(() => new Set(activeValues || []));
+
+  const counts = useMemo(() => {
+    const map = new Map();
+    allItems.forEach((item) => {
+      const v = getValue(item);
+      map.set(v, (map.get(v) || 0) + 1);
+    });
+    return [...map.entries()].sort((a, b) => {
+      if (a[0] === PREVIEW_FILTER_BLANK_VALUE) return -1;
+      if (b[0] === PREVIEW_FILTER_BLANK_VALUE) return 1;
+      return a[0].localeCompare(b[0], undefined, { numeric: true });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allItems]);
+
+  const allValues = useMemo(() => counts.map(([v]) => v), [counts]);
+
+  // Reset the draft selection each time the popover opens.
+  useLayoutEffect(() => {
+    if (open) {
+      setDraft(new Set(activeValues ? activeValues : allValues));
+      setSearch("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  if (!open) {
+    const isFiltered = activeValues && activeValues.size < allValues.length;
+    return (
+      <button
+        onClick={onToggle}
+        title="Filter"
+        className={`shrink-0 p-0.5 rounded hover:bg-accent/10 ${isFiltered ? "text-accent" : "text-muted"}`}
+      >
+        <PreviewFilterIcon filled={isFiltered} />
+      </button>
+    );
+  }
+
+  const q = search.trim().toLowerCase();
+  const visible = q
+    ? counts.filter(([v]) =>
+        (v === PREVIEW_FILTER_BLANK_VALUE ? PREVIEW_FILTER_BLANK_LABEL : v)
+          .toLowerCase()
+          .includes(q),
+      )
+    : counts;
+
+  function toggleValue(v) {
+    setDraft((prev) => {
+      const next = new Set(prev);
+      if (next.has(v)) next.delete(v);
+      else next.add(v);
+      return next;
+    });
+  }
+
+  return (
+    <>
+      <button
+        onClick={onToggle}
+        title="Filter"
+        className="shrink-0 p-0.5 rounded text-accent bg-accent/10"
+      >
+        <PreviewFilterIcon filled />
+      </button>
+      {/* Backdrop closes the popover on outside click */}
+      <div className="fixed inset-0 z-20" onClick={onClose} />
+      <div
+        className="absolute left-0 top-full mt-1 z-30 w-60 bg-surface border border-border rounded-card shadow-card p-2 normal-case font-normal tracking-normal text-left"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          type="text"
+          autoFocus
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search values…"
+          className="input text-xs w-full mb-1.5"
+        />
+        <div className="flex items-center justify-between text-2xs mb-1.5">
+          <button
+            className="text-accent hover:underline"
+            onClick={() =>
+              setDraft((prev) => {
+                const next = new Set(prev);
+                visible.forEach(([v]) => next.add(v));
+                return next;
+              })
+            }
+          >
+            Select all
+          </button>
+          <button
+            className="text-accent hover:underline"
+            onClick={() =>
+              setDraft((prev) => {
+                const next = new Set(prev);
+                visible.forEach(([v]) => next.delete(v));
+                return next;
+              })
+            }
+          >
+            Clear
+          </button>
+        </div>
+        <div className="max-h-52 overflow-y-auto space-y-0.5 border-t border-b border-border py-1">
+          {visible.length === 0 && (
+            <div className="text-2xs text-muted px-1 py-2 text-center">
+              No matching values
+            </div>
+          )}
+          {visible.map(([v, count]) => (
+            <label
+              key={v || "__blank__"}
+              className="flex items-center gap-1.5 text-xs px-1 py-0.5 rounded hover:bg-accent/5 cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                checked={draft.has(v)}
+                onChange={() => toggleValue(v)}
+                className="shrink-0"
+              />
+              <span
+                className="truncate flex-1"
+                title={v || PREVIEW_FILTER_BLANK_LABEL}
+              >
+                {v === PREVIEW_FILTER_BLANK_VALUE ? (
+                  <span className="text-muted italic">
+                    {PREVIEW_FILTER_BLANK_LABEL}
+                  </span>
+                ) : (
+                  v
+                )}
+              </span>
+              <span className="text-2xs text-muted shrink-0">{count}</span>
+            </label>
+          ))}
+        </div>
+        <div className="flex items-center justify-end gap-2 mt-1.5">
+          <button className="btn-ghost text-2xs" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="btn-primary text-2xs px-2 py-1"
+            onClick={() =>
+              onApply(draft.size === allValues.length ? null : draft)
+            }
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PreviewFilterIcon({ filled }) {
+  return (
+    <svg
+      className="w-3 h-3"
+      viewBox="0 0 20 20"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={filled ? 0 : 1.5}
+    >
+      <path d="M3 4h14l-5.5 6.5v5l-3 1.5v-6.5z" strokeLinejoin="round" />
+    </svg>
+  );
 }
