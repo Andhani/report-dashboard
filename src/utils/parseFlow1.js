@@ -241,7 +241,26 @@ function tryParseGA4CSV(rows) {
   }
 
   if (dataRows.length === 0) return null;
-  return { type: "ga4", project, month: pre.month, rows: dataRows };
+
+  // Store grand total row so the Traffic Overview reuse path can read exact
+  // totals instead of approximating from URL-level sums — Active Users and
+  // Sessions are deduplicated GA4 metrics, so summing them across per-URL
+  // rows double-counts anyone who touched more than one page in the segment.
+  let grandTotal = null;
+  const totRow = rows[pre.totalRowIndex];
+  if (totRow) {
+    const totSessions = toNum(totRow[sessionsCol]);
+    if (totSessions > 0) {
+      grandTotal = {
+        views: toNum(totRow[viewsCol]),
+        users: toNum(totRow[usersCol]),
+        sessions: totSessions,
+        aet_seconds: toNum(totRow[aetCol]),
+      };
+    }
+  }
+
+  return { type: "ga4", project, month: pre.month, rows: dataRows, grandTotal };
 }
 
 function tryParseGSCCSV(rows) {
