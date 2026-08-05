@@ -300,42 +300,45 @@ export default function UrlManager() {
       </div>
 
       {/* Import mode toggle */}
-      <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5 gap-0.5">
-        <button
-          onClick={() => setImportMode("sheets")}
-          className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-all ${
-            importMode === "sheets"
-              ? "bg-surface text-ink shadow-card"
-              : "text-muted hover:text-ink"
-          }`}
-        >
-          From Sheets
-        </button>
-        <button
-          onClick={() => setImportMode("csv")}
-          className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-all ${
-            importMode === "csv"
-              ? "bg-surface text-ink shadow-card"
-              : "text-muted hover:text-ink"
-          }`}
-        >
-          Upload File
-        </button>
+      <div className="card p-3">
+        <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5 gap-0.5">
+          <button
+            onClick={() => setImportMode("sheets")}
+            className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-all ${importMode === "sheets" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
+          >
+            🔗 From Sheets
+          </button>
+          <button
+            onClick={() => setImportMode("csv")}
+            className={`px-3 py-1 rounded-[5px] text-xs font-medium transition-all ${importMode === "csv" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
+          >
+            📂 Upload File
+          </button>
+        </div>
       </div>
 
       {/* Import panel */}
       {importMode === "sheets" && (
         <div className="card p-4 space-y-3">
-          <input
-            type="url"
-            className="input"
-            placeholder="https://docs.google.com/spreadsheets/d/...#gid=..."
-            value={importSheetUrl}
-            onChange={(e) => {
-              setImportSheetUrl(e.target.value);
-              setSheetError(null);
-            }}
-          />
+          <div className="flex gap-2">
+            <input
+              type="url"
+              className="input flex-1"
+              placeholder="https://docs.google.com/spreadsheets/d/...#gid=..."
+              value={importSheetUrl}
+              onChange={(e) => {
+                setImportSheetUrl(e.target.value);
+                setSheetError(null);
+              }}
+            />
+            <button
+              onClick={handleSheetImport}
+              disabled={!importSheetUrl || sheetLoading}
+              className="btn-primary disabled:opacity-50 flex-shrink-0"
+            >
+              {sheetLoading ? "Loading…" : "Import"}
+            </button>
+          </div>
           <p className="text-xs text-muted">
             Paste the link to the exact tab (its <code>gid</code> is detected
             automatically). The sheet must be shared with{" "}
@@ -344,41 +347,34 @@ export default function UrlManager() {
           {sheetError && (
             <div className="text-xs text-danger">{sheetError}</div>
           )}
-          <button
-            onClick={handleSheetImport}
-            disabled={!importSheetUrl || sheetLoading}
-            className="btn-primary disabled:opacity-50"
-          >
-            {sheetLoading ? "Loading…" : "Import"}
-          </button>
         </div>
       )}
       {importMode === "csv" && (
-        <>
+        <div className="card p-3 flex justify-center">
           <div
             onClick={() => !csvLoading && csvRef.current.click()}
-            className="border-2 border-dashed rounded-card transition-colors cursor-pointer select-none py-5 px-6 flex flex-col items-center text-center border-border hover:border-muted hover:bg-surface-2/40"
+            className="flex items-center gap-2.5 border-2 border-dashed border-border rounded-card px-3.5 py-2 cursor-pointer hover:border-muted hover:bg-surface-2/40 transition-colors"
           >
+            <div className="w-6 h-6 rounded-md bg-accent/10 text-accent flex items-center justify-center flex-shrink-0">
+              <Upload size={13} strokeWidth={1.75} />
+            </div>
+            <div>
+              <div className="text-2xs font-semibold text-ink leading-tight">
+                Upload .csv or .xlsx
+              </div>
+              <div className="text-2xs text-muted leading-tight">
+                Columns matched by header name
+              </div>
+            </div>
             {csvLoading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin mb-2" />
-                <div className="text-xs font-medium text-muted">
-                  Importing…
-                </div>
-              </>
+              <span className="btn-secondary text-2xs h-7 px-3 pointer-events-none inline-flex items-center gap-1.5">
+                <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                Importing…
+              </span>
             ) : (
-              <>
-                <Upload size={16} className="text-muted mb-2" strokeWidth={1.5} />
-                <div className="text-xs font-semibold text-ink mb-1">
-                  Upload .csv or .xlsx
-                </div>
-                <div className="text-2xs text-muted mb-2">
-                  Columns matched by header name
-                </div>
-                <span className="btn-secondary pointer-events-none text-2xs h-7 px-3">
-                  Choose file
-                </span>
-              </>
+              <span className="btn-secondary text-2xs h-7 px-3 pointer-events-none">
+                Choose file
+              </span>
             )}
           </div>
           <input
@@ -388,7 +384,7 @@ export default function UrlManager() {
             className="hidden"
             onChange={handleFileImport}
           />
-        </>
+        </div>
       )}
 
       {/* Table actions */}
