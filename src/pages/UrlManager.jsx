@@ -455,17 +455,19 @@ export default function UrlManager() {
               No rows match the current filters.
             </div>
           )}
-          <PaginationControls
-            page={pagination.page}
-            pageCount={pagination.pageCount}
-            pageSize={pagination.pageSize}
-            total={pagination.total}
-            onPageSizeChange={pagination.setPageSize}
-            onFirst={pagination.goFirst}
-            onPrev={pagination.goPrev}
-            onNext={pagination.goNext}
-            onLast={pagination.goLast}
-          />
+          <div className="mb-8">
+            <PaginationControls
+              page={pagination.page}
+              pageCount={pagination.pageCount}
+              pageSize={pagination.pageSize}
+              total={pagination.total}
+              onPageSizeChange={pagination.setPageSize}
+              onFirst={pagination.goFirst}
+              onPrev={pagination.goPrev}
+              onNext={pagination.goNext}
+              onLast={pagination.goLast}
+            />
+          </div>
         </>
       )}
     </div>
