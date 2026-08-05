@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useLayoutEffect } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
+import { Upload } from "lucide-react";
 import { useStorage } from "../hooks/useStorage";
 import { usePagination } from "../hooks/usePagination";
 import { urlToSlug } from "../utils/dateUtils";
@@ -83,7 +84,6 @@ export default function UrlManager() {
 
   // Import toolbar state
   const [importMode, setImportMode] = useStorage("urls_import_mode", "sheets");
-  const [replaceMode, setReplaceMode] = useStorage("urls_replace_mode", "replace");
   const [importSheetUrl, setImportSheetUrl] = useStorage("urls_import_sheet_url", "");
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState(null);
@@ -139,17 +139,13 @@ export default function UrlManager() {
   }
 
   function applyImport(rows) {
-    if (replaceMode === "replace") {
-      if (
-        confirm(
-          `Replace all existing ${activeTab.toUpperCase()} URLs with ${rows.length} imported rows?`,
-        )
-      ) {
-        setUrls(rows);
-        setFilters({});
-      }
-    } else {
-      setUrls((prev) => [...prev, ...rows]);
+    if (
+      confirm(
+        `Replace all existing ${activeTab.toUpperCase()} URLs with ${rows.length} imported rows?`,
+      )
+    ) {
+      setUrls(rows);
+      setFilters({});
     }
   }
 
@@ -303,69 +299,21 @@ export default function UrlManager() {
         })}
       </div>
 
-      {/* Toolbar */}
-      <div className="card p-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Import mode toggle */}
-          <div className="inline-flex bg-surface-2 rounded-btn p-0.5">
-            <button
-              onClick={() => setImportMode("sheets")}
-              className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${importMode === "sheets" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
-            >
-              🔗 From Sheets
-            </button>
-            <button
-              onClick={() => setImportMode("csv")}
-              className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${importMode === "csv" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
-            >
-              📂 Upload File
-            </button>
-          </div>
-          {/* Replace/Append dropdown */}
-          <select
-            className="text-xs border border-border rounded-btn px-2 py-1.5 bg-surface text-ink hover:border-border focus:outline-none focus:ring-2 focus:ring-accent/20"
-            value={replaceMode}
-            onChange={(e) => setReplaceMode(e.target.value)}
+      {/* Import mode toggle */}
+      <div className="card p-3">
+        <div className="inline-flex bg-surface-2 rounded-btn p-0.5">
+          <button
+            onClick={() => setImportMode("sheets")}
+            className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${importMode === "sheets" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
           >
-            <option value="replace">Replace</option>
-            <option value="append">Add to existing</option>
-          </select>
-        </div>
-        <div className="flex items-center gap-3">
-          {urls.length > 0 && (
-            <button
-              onClick={handleExportCSV}
-              className="btn-ghost text-muted"
-            >
-              ⬇ Export CSV
-            </button>
-          )}
-          <button onClick={handleAddRow} className="btn-secondary">
-            + Add Row
+            🔗 From Sheets
           </button>
-          {urls.length > 0 && (
-            <>
-              <span className="text-2xs text-muted">
-                {activeFilterCount > 0
-                  ? `${filteredUrls.length} of ${urls.length} rows`
-                  : `${urls.length} rows`}
-              </span>
-              {activeFilterCount > 0 && (
-                <button
-                  onClick={() => setFilters({})}
-                  className="btn-ghost text-accent"
-                >
-                  Clear filters ({activeFilterCount})
-                </button>
-              )}
-              <button
-                onClick={handleClearAll}
-                className="btn-ghost text-danger hover:bg-danger/5"
-              >
-                Clear all
-              </button>
-            </>
-          )}
+          <button
+            onClick={() => setImportMode("csv")}
+            className={`px-3 py-1.5 rounded-btn text-xs font-medium transition-colors ${importMode === "csv" ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink"}`}
+          >
+            📂 Upload File
+          </button>
         </div>
       </div>
 
@@ -402,24 +350,33 @@ export default function UrlManager() {
         </div>
       )}
       {importMode === "csv" && (
-        <div className="card p-4 flex items-center gap-3">
-          <button
-            onClick={() => csvRef.current.click()}
-            disabled={csvLoading}
-            className="btn-secondary disabled:opacity-50"
+        <div className="card p-3 flex justify-center">
+          <div
+            onClick={() => !csvLoading && csvRef.current.click()}
+            className="flex items-center gap-2.5 border border-dashed border-border rounded-btn px-3.5 py-2 cursor-pointer hover:border-muted hover:bg-surface-2/40 transition-colors"
           >
+            <div className="w-6 h-6 rounded-md bg-accent/10 text-accent flex items-center justify-center flex-shrink-0">
+              <Upload size={13} strokeWidth={1.75} />
+            </div>
+            <div>
+              <div className="text-2xs font-semibold text-ink leading-tight">
+                Upload .csv or .xlsx
+              </div>
+              <div className="text-2xs text-muted leading-tight">
+                Columns matched by header name
+              </div>
+            </div>
             {csvLoading ? (
-              <span className="inline-flex items-center gap-1.5">
+              <span className="btn-secondary text-2xs h-7 px-3 pointer-events-none inline-flex items-center gap-1.5">
                 <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                 Importing…
               </span>
             ) : (
-              "Choose file"
+              <span className="btn-secondary text-2xs h-7 px-3 pointer-events-none">
+                Choose file
+              </span>
             )}
-          </button>
-          <span className="text-xs text-muted">
-            Accepts .csv or .xlsx — columns are matched by header name.
-          </span>
+          </div>
           <input
             ref={csvRef}
             type="file"
@@ -429,6 +386,45 @@ export default function UrlManager() {
           />
         </div>
       )}
+
+      {/* Table actions */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-2xs text-muted">
+          {urls.length > 0 &&
+            (activeFilterCount > 0
+              ? `${filteredUrls.length} of ${urls.length} rows`
+              : `${urls.length} rows`)}
+        </span>
+        <div className="flex items-center gap-3">
+          {urls.length > 0 && (
+            <button
+              onClick={handleExportCSV}
+              className="btn-ghost text-muted"
+            >
+              ⬇ Export CSV
+            </button>
+          )}
+          <button onClick={handleAddRow} className="btn-secondary">
+            + Add Row
+          </button>
+          {urls.length > 0 && activeFilterCount > 0 && (
+            <button
+              onClick={() => setFilters({})}
+              className="btn-ghost text-accent"
+            >
+              Clear filters ({activeFilterCount})
+            </button>
+          )}
+          {urls.length > 0 && (
+            <button
+              onClick={handleClearAll}
+              className="btn-ghost text-danger hover:bg-danger/5"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Table */}
       {urls.length === 0 ? (
