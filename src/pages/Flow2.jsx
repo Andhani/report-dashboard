@@ -559,7 +559,7 @@ function DropZone({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onClick={onClick}
-      className={`border-2 border-dashed rounded-card transition-colors cursor-pointer select-none py-10 px-8 flex flex-col items-center text-center ${
+      className={`border-2 border-dashed rounded-card transition-colors cursor-pointer select-none py-5 px-6 flex flex-col items-center text-center ${
         dragging
           ? "border-accent bg-accent-subtle"
           : "border-border hover:border-muted hover:bg-surface-2/40"
@@ -567,23 +567,23 @@ function DropZone({
     >
       {processing ? (
         <>
-          <div className="w-7 h-7 border-2 border-accent border-t-transparent rounded-full animate-spin mb-3" />
+          <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin mb-2" />
           <div className="text-xs font-medium text-muted">
             Processing files…
           </div>
         </>
       ) : (
         <>
-          <Upload size={22} className="text-muted mb-3" strokeWidth={1.5} />
+          <Upload size={16} className="text-muted mb-2" strokeWidth={1.5} />
           <div className="text-xs font-semibold text-ink mb-1">
             {dragging
               ? "Drop files here"
               : "Drag & drop Traffic Overview files"}
           </div>
-          <p className="text-xs text-muted mb-4">
+          <p className="text-2xs text-muted mb-2">
             Original GSC or GA4 export, no restructure. Sheets auto-detected.
           </p>
-          <span className="btn-secondary pointer-events-none">
+          <span className="btn-secondary pointer-events-none text-2xs h-7 px-3">
             Browse files
           </span>
         </>
