@@ -204,7 +204,7 @@ export function computeBlogLeads(blogUrls, flow1Data, flow2Data, slot, dateRange
 
   const ga4Map = getGA4MetricsMap(flow1Data, monthKey, "blog");
 
-  // Step 1: all in-range rows
+  // Step 1: all in-range, published-related rows
   const inRange = filterByDateRange(
     blogUrls,
     "publish_date",
@@ -212,7 +212,7 @@ export function computeBlogLeads(blogUrls, flow1Data, flow2Data, slot, dateRange
     month,
     startDay,
     endDay,
-  );
+  ).filter((u) => PUBLISHED_STATUSES.has(u.status));
 
   // Step 2: Creates — "Create" content type only
   const creates = inRange.filter((u) => u.content_type === "Create");
