@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
-  Upload,
+  Gauge,
   BarChart2,
   Users,
   Link2,
@@ -24,7 +24,7 @@ const navItems = [
   {
     to: "/traffic-optimized",
     label: "Traffic (Optimized)",
-    icon: Upload,
+    icon: Gauge,
   },
   {
     to: "/traffic-overview",

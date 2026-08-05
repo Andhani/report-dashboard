@@ -3,7 +3,7 @@ import { useStorage } from "../hooks/useStorage";
 import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
 import {
-  Upload,
+  Gauge,
   BarChart2,
   Users,
   Link2,
@@ -19,7 +19,7 @@ const FLOW_CARDS = [
     title: "Traffic (Optimized)",
     description:
       "Upload GSC and GA4 Export per project segment to display data per URL. Auto-detected — no need to adjust the export file.",
-    Icon: Upload,
+    Icon: Gauge,
   },
   {
     id: "flow2",
