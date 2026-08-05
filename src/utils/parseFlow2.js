@@ -148,10 +148,15 @@ export function parseGSCChartWorkbook(wb) {
 // ─── GA4 Free-form export (.csv / .xlsx) ─────────────────────────────────────
 
 /**
- * Scan rows[dataStartIndex..] for the single URL segment ('dijual', 'disewa',
- * 'blog') present in the sample, if only one is. Returns null when there's no
+ * Scan all of rows[dataStartIndex..] for the single URL segment ('dijual',
+ * 'disewa', 'blog') present, if only one is. Returns null when there's no
  * usable path column, too few path rows, or more than one segment present
  * (mixed / all-organic file).
+ *
+ * Scans the full range rather than a fixed-size prefix: large mixed exports
+ * are often sorted such that one segment's paths cluster early (e.g.
+ * alphabetically), so a prefix sample can miss segments that are real but
+ * appear later in the file, causing a false single-segment detection.
  */
 function scanSingleSegment(rows, dataStartIndex, pathCol) {
   if (pathCol === -1) return null;
@@ -160,8 +165,7 @@ function scanSingleSegment(rows, dataStartIndex, pathCol) {
     disewa = 0,
     blog = 0,
     total = 0;
-  const scanLimit = Math.min(rows.length, dataStartIndex + 100);
-  for (let i = dataStartIndex; i < scanLimit; i++) {
+  for (let i = dataStartIndex; i < rows.length; i++) {
     const path = String(rows[i]?.[pathCol] ?? "").trim();
     if (!path.startsWith("/")) continue;
     total++;
@@ -184,7 +188,7 @@ function scanSingleSegment(rows, dataStartIndex, pathCol) {
 }
 
 /**
- * Inspect first 100 data rows (index 8+) and return the single URL segment
+ * Inspect all data rows (index 8+) and return the single URL segment
  * ('dijual', 'disewa', 'blog') that is present, if only one is. Returns null
  * for mixed / all-organic files.
  */
