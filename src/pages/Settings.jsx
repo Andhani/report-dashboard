@@ -387,7 +387,7 @@ function SlotPreview({ window, count }) {
 function buildMonthOptions() {
   const options = [];
   const now = new Date();
-  for (let i = 24; i >= 0; i--) {
+  for (let i = 0; i <= 24; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const label = d.toLocaleDateString("en-US", {
