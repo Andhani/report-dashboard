@@ -142,76 +142,112 @@ export function CloudDataProvider({ children }) {
   }, [uid, active]);
 
   // ── Flat key/value state (mirrors useStorage) ──────────────────────────
+  // stateDocRef mirrors `stateDoc` synchronously so setStateKey can resolve
+  // functional updaters and issue writes OUTSIDE the React state updater —
+  // updater functions must be pure, and React 18 StrictMode deliberately
+  // double-invokes them in dev to catch exactly this kind of side effect,
+  // which was silently sending every sync write to Firestore twice.
+  const stateDocRef = useRef(stateDoc);
+  stateDocRef.current = stateDoc;
   const timersRef = useRef({});
   const pendingRef = useRef({});
+  const pendingWritesRef = useRef(new Set());
+
+  function trackWrite(promise) {
+    pendingWritesRef.current.add(promise);
+    const untrack = () => pendingWritesRef.current.delete(promise);
+    promise.then(untrack, untrack);
+    return promise;
+  }
 
   const persistStateKey = useCallback(
     (key, next) => {
       if (!uid) return;
-      setDoc(doc(db, "users", uid, "data", key), {
-        value: sanitizeForFirestore(next),
-      }).catch((err) => console.error(`CloudData: write "${key}" failed:`, err));
+      trackWrite(
+        setDoc(doc(db, "users", uid, "data", key), {
+          value: sanitizeForFirestore(next),
+        }).catch((err) => console.error(`CloudData: write "${key}" failed:`, err)),
+      );
     },
     [uid],
   );
 
   const setStateKey = useCallback(
     (key, newValue, { sync = false, defaultValue } = {}) => {
-      setStateDocState((prev) => {
-        const base = Object.prototype.hasOwnProperty.call(prev, key)
-          ? prev[key]
-          : defaultValue;
-        const next = typeof newValue === "function" ? newValue(base) : newValue;
-        if (sync) {
-          persistStateKey(key, next);
-        } else {
-          pendingRef.current[key] = next;
-          clearTimeout(timersRef.current[key]);
-          timersRef.current[key] = setTimeout(() => {
-            persistStateKey(key, pendingRef.current[key]);
-            delete pendingRef.current[key];
-          }, WRITE_DEBOUNCE_MS);
-        }
-        return { ...prev, [key]: next };
-      });
+      const prevAll = stateDocRef.current;
+      const base = Object.prototype.hasOwnProperty.call(prevAll, key)
+        ? prevAll[key]
+        : defaultValue;
+      const next = typeof newValue === "function" ? newValue(base) : newValue;
+      setStateDocState((prev) => ({ ...prev, [key]: next }));
+      if (sync) {
+        persistStateKey(key, next);
+      } else {
+        pendingRef.current[key] = next;
+        clearTimeout(timersRef.current[key]);
+        timersRef.current[key] = setTimeout(() => {
+          persistStateKey(key, pendingRef.current[key]);
+          delete pendingRef.current[key];
+        }, WRITE_DEBOUNCE_MS);
+      }
     },
     [persistStateKey],
   );
 
+  const flushPendingWrites = useCallback(async () => {
+    Object.entries(pendingRef.current).forEach(([key, next]) => {
+      clearTimeout(timersRef.current[key]);
+      persistStateKey(key, next);
+    });
+    pendingRef.current = {};
+    await Promise.all([...pendingWritesRef.current]);
+  }, [persistStateKey]);
+
   useEffect(() => {
-    function flush() {
+    function handleBeforeUnload(e) {
+      const hadPending =
+        Object.keys(pendingRef.current).length > 0 ||
+        pendingWritesRef.current.size > 0;
       Object.entries(pendingRef.current).forEach(([key, next]) => {
         clearTimeout(timersRef.current[key]);
         persistStateKey(key, next);
       });
       pendingRef.current = {};
+      // Can't await inside beforeunload — this is the best available
+      // signal: warn so the user can choose to wait a moment before
+      // actually leaving, instead of losing a write silently.
+      if (hadPending) {
+        e.preventDefault();
+        e.returnValue = "Changes are still saving.";
+      }
     }
-    window.addEventListener("beforeunload", flush);
-    return () => {
-      flush();
-      window.removeEventListener("beforeunload", flush);
-    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [persistStateKey]);
 
   // ── Chunked collections (mirrors useChunkedStorage) ────────────────────
+  const chunkedRef = useRef(chunked);
+  chunkedRef.current = chunked;
+
   const setChunkedValue = useCallback(
     (prefix, newValue, defaultValue = {}) => {
-      setChunkedState((prevAll) => {
-        const prev = prevAll[prefix] ?? defaultValue;
-        const next = typeof newValue === "function" ? newValue(prev) : newValue;
-        writeErrorsRef.current[prefix] = null;
+      const prev = chunkedRef.current[prefix] ?? defaultValue;
+      const next = typeof newValue === "function" ? newValue(prev) : newValue;
+      writeErrorsRef.current[prefix] = null;
 
-        if (!uid) return prevAll;
+      if (!uid) return;
 
-        if (next === null || next === undefined) {
-          Object.keys(prev).forEach((k) => {
-            deleteDoc(doc(db, "users", uid, prefix, k)).catch(() => {});
-          });
-          return { ...prevAll, [prefix]: {} };
-        }
+      if (next === null || next === undefined) {
+        Object.keys(prev).forEach((k) => {
+          trackWrite(deleteDoc(doc(db, "users", uid, prefix, k)).catch(() => {}));
+        });
+        setChunkedState((prevAll) => ({ ...prevAll, [prefix]: {} }));
+        return;
+      }
 
-        for (const [k, v] of Object.entries(next)) {
-          if (prev[k] !== v) {
+      for (const [k, v] of Object.entries(next)) {
+        if (prev[k] !== v) {
+          trackWrite(
             setDoc(doc(db, "users", uid, prefix, k), {
               value: sanitizeForFirestore(v),
             }).catch((err) => {
@@ -219,17 +255,17 @@ export function CloudDataProvider({ children }) {
                 "Cloud sync failed for some data — kept in memory but may not survive a refresh.";
               console.error(`CloudData: chunk write "${prefix}/${k}" failed:`, err);
               bump((n) => n + 1);
-            });
-          }
+            }),
+          );
         }
-        for (const k of Object.keys(prev)) {
-          if (!Object.prototype.hasOwnProperty.call(next, k)) {
-            deleteDoc(doc(db, "users", uid, prefix, k)).catch(() => {});
-          }
+      }
+      for (const k of Object.keys(prev)) {
+        if (!Object.prototype.hasOwnProperty.call(next, k)) {
+          trackWrite(deleteDoc(doc(db, "users", uid, prefix, k)).catch(() => {}));
         }
+      }
 
-        return { ...prevAll, [prefix]: next };
-      });
+      setChunkedState((prevAll) => ({ ...prevAll, [prefix]: next }));
     },
     [uid],
   );
@@ -252,6 +288,7 @@ export function CloudDataProvider({ children }) {
         setChunkedValue,
         writeErrors: writeErrorsRef.current,
         clearAll,
+        flushPendingWrites,
       }}
     >
       {children}

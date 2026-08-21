@@ -16,6 +16,7 @@ import {
   ChevronsRight,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useCloudData } from "../context/CloudDataContext";
 
 const navItems = [
   {
@@ -53,6 +54,7 @@ const navItems = [
 export default function Layout() {
   const location = useLocation();
   const { user, role, signOut } = useAuth();
+  const { flushPendingWrites } = useCloudData();
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const saved = localStorage.getItem("sidebarOpen");
@@ -96,6 +98,15 @@ export default function Layout() {
       localStorage.setItem("sidebarOpen", String(!v));
       return !v;
     });
+  }
+
+  async function handleSignOut() {
+    if (!confirm("Sign out?")) return;
+    // Wait for any in-flight/debounced writes to actually reach Firestore
+    // before tearing down the session — otherwise a save triggered right
+    // before signing out can lose the race.
+    await flushPendingWrites();
+    await signOut();
   }
 
   const items =
@@ -169,7 +180,7 @@ export default function Layout() {
               {user.email}
             </span>
             <button
-              onClick={() => confirm("Sign out?") && signOut()}
+              onClick={handleSignOut}
               title="Sign out"
               className="flex-shrink-0 text-muted hover:text-ink transition-colors"
             >
