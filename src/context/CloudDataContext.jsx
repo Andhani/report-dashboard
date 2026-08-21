@@ -25,6 +25,16 @@ function emptyChunked() {
   return Object.fromEntries(CHUNKED_PREFIXES.map((p) => [p, {}]));
 }
 
+// Firestore's setDoc() throws synchronously on any `undefined` field, even
+// nested deep inside an array/object — unlike JSON.stringify (what the old
+// localStorage code used), which just drops undefined values silently. Real
+// imported rows commonly have undefined for a metric a file didn't report,
+// so writes must be sanitized the same forgiving way before reaching
+// Firestore, or a single bad row can throw mid-render and blank the page.
+function sanitizeForFirestore(value) {
+  return value === undefined ? null : JSON.parse(JSON.stringify(value));
+}
+
 /**
  * Firestore-backed replacement for the localStorage data layer
  * (useStorage/useChunkedStorage). Loads a signed-in, approved user's report
@@ -138,9 +148,9 @@ export function CloudDataProvider({ children }) {
   const persistStateKey = useCallback(
     (key, next) => {
       if (!uid) return;
-      setDoc(doc(db, "users", uid, "data", key), { value: next ?? null }).catch(
-        (err) => console.error(`CloudData: write "${key}" failed:`, err),
-      );
+      setDoc(doc(db, "users", uid, "data", key), {
+        value: sanitizeForFirestore(next),
+      }).catch((err) => console.error(`CloudData: write "${key}" failed:`, err));
     },
     [uid],
   );
@@ -202,7 +212,9 @@ export function CloudDataProvider({ children }) {
 
         for (const [k, v] of Object.entries(next)) {
           if (prev[k] !== v) {
-            setDoc(doc(db, "users", uid, prefix, k), { value: v }).catch((err) => {
+            setDoc(doc(db, "users", uid, prefix, k), {
+              value: sanitizeForFirestore(v),
+            }).catch((err) => {
               writeErrorsRef.current[prefix] =
                 "Cloud sync failed for some data — kept in memory but may not survive a refresh.";
               console.error(`CloudData: chunk write "${prefix}/${k}" failed:`, err);
