@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useStorage } from "../hooks/useStorage";
 import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
@@ -9,9 +9,9 @@ export default function Settings() {
   const [flow1Window, setFlow1Window] = useStorage("flow1_window", null);
   const [flow2Window, setFlow2Window] = useStorage("flow2_window", null);
   const [sheetsUrl, setSheetsUrl] = useStorage("sheets_report_url", "");
+  const [, setBcUrls] = useStorage("bc_urls", [], { sync: true });
+  const [, setBlogUrls] = useStorage("blog_urls", [], { sync: true });
   const { setFlow1Data, setFlow2Data } = useDataContext();
-
-  const [clearConfirm, setClearConfirm] = useState(null);
 
   // Fetch email from Google userinfo if token exists but email not yet stored
   useEffect(() => {
@@ -67,21 +67,27 @@ export default function Settings() {
     }
   }
 
+  const clearConfirmMessages = {
+    flow1: "Clear Traffic (Optimized) data? This cannot be undone.",
+    flow2: "Clear Traffic Overview data? This cannot be undone.",
+    urls: "Clear the URL List (BC and Blog)? This cannot be undone.",
+    all: "Clear everything? This deletes all report data across every tab and all settings. This cannot be undone.",
+  };
+
   function handleClearData(target) {
-    if (clearConfirm !== target) {
-      setClearConfirm(target);
-      return;
-    }
-    if (target === "flow1") setFlow1Data({});
-    else if (target === "flow2") setFlow2Data({});
-    else if (target === "all") {
+    if (!confirm(clearConfirmMessages[target])) return;
+
+    if (target === "flow1") {
       setFlow1Data({});
+    } else if (target === "flow2") {
       setFlow2Data({});
-      setFlow1Window(null);
-      setFlow2Window(null);
-      setSheetsUrl("");
+    } else if (target === "urls") {
+      setBcUrls([]);
+      setBlogUrls([]);
+    } else if (target === "all") {
+      localStorage.clear();
+      window.location.reload();
     }
-    setClearConfirm(null);
   }
 
   const tokenExpiry = oauthToken?.expires_at
@@ -338,6 +344,7 @@ export default function Settings() {
           {[
             { key: "flow1", label: "Clear Traffic (Optimized) data" },
             { key: "flow2", label: "Clear Traffic Overview data" },
+            { key: "urls", label: "Clear URL List" },
             { key: "all", label: "Clear everything", danger: true },
           ].map(({ key, label, danger }) => (
             <button
@@ -347,17 +354,9 @@ export default function Settings() {
                 danger ? "text-danger border-danger/30 hover:bg-danger/5" : ""
               }`}
             >
-              {clearConfirm === key ? `Confirm: ${label}?` : label}
+              {label}
             </button>
           ))}
-          {clearConfirm && (
-            <button
-              onClick={() => setClearConfirm(null)}
-              className="btn-ghost"
-            >
-              Cancel
-            </button>
-          )}
         </div>
       </div>
     </div>
