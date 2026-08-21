@@ -12,6 +12,7 @@ import { useAuth } from "./AuthContext";
 import {
   CHUNKED_PREFIXES,
   clearChunkedCollection,
+  markLegacyMigrationAttempted,
   persistLegacyMigration,
   readLegacyLocalStorage,
 } from "../utils/migrateLocalStorage";
@@ -68,6 +69,7 @@ export function CloudDataProvider({ children }) {
 
       if (finalState === null) {
         const legacy = readLegacyLocalStorage();
+        markLegacyMigrationAttempted();
         if (legacy) {
           finalState = legacy.state;
           finalChunks = { ...chunkResults, ...legacy.chunks };

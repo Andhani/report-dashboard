@@ -73,9 +73,16 @@ function readChunkedPrefix(prefix) {
 /**
  * Reads legacy localStorage report data (from before the Firebase migration)
  * so a user's first cloud login doesn't lose in-progress work.
- * Returns null if there's nothing to migrate.
+ * Returns null if there's nothing to migrate, or if this browser has
+ * already had a migration attempt (localStorage is shared by the browser,
+ * not by account, so this must only ever be attempted once per browser —
+ * otherwise a second person signing in on the same machine would inherit
+ * the first person's leftover local data).
  */
+const MIGRATION_FLAG_KEY = "cloud_migration_attempted";
+
 export function readLegacyLocalStorage() {
+  if (localStorage.getItem(MIGRATION_FLAG_KEY)) return null;
   const state = readSimpleKeys();
   const chunks = {};
   let hasChunks = false;
@@ -88,6 +95,18 @@ export function readLegacyLocalStorage() {
   }
   if (!state && !hasChunks) return null;
   return { state: state || {}, chunks };
+}
+
+/**
+ * Marks this browser as having had a migration attempt, so no future
+ * login (by this account or any other) re-checks localStorage again.
+ * Call this exactly once, right after the first empty-Firestore login
+ * this browser encounters — regardless of whether anything was found.
+ */
+export function markLegacyMigrationAttempted() {
+  try {
+    localStorage.setItem(MIGRATION_FLAG_KEY, "1");
+  } catch {}
 }
 
 /** Writes a one-time legacy migration payload up to Firestore for `uid`. */
