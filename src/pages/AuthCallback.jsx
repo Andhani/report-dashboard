@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { doc, setDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
 import { useAuth } from "../context/AuthContext";
+import { useCloudData } from "../context/CloudDataContext";
 
 export default function AuthCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { setStateKey } = useCloudData();
   const [status, setStatus] = useState("Exchanging code for tokens…");
   const [error, setError] = useState(null);
 
@@ -32,11 +32,11 @@ export default function AuthCallback() {
       return;
     }
 
-    exchangeCode(code, user.uid);
+    exchangeCode(code);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
 
-  async function exchangeCode(code, uid) {
+  async function exchangeCode(code) {
     try {
       const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
       const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
@@ -84,11 +84,7 @@ export default function AuthCallback() {
         // email is optional
       }
 
-      await setDoc(
-        doc(db, "users", uid, "data", "state"),
-        { google_oauth: tokenData },
-        { merge: true },
-      );
+      setStateKey("google_oauth", tokenData, { sync: true });
 
       setStatus("Connected! Redirecting…");
       setTimeout(() => navigate("/settings"), 1500);

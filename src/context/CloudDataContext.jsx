@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { collection, deleteDoc, doc, getDoc, getDocs, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, setDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "./AuthContext";
 import {
@@ -31,6 +31,13 @@ function emptyChunked() {
  * data once (gating ProtectedRoute's <Outlet/> via `ready`), then serves
  * useCloudStorage/useChunkedCloudStorage from this single in-memory copy so
  * sibling hook instances on the same page don't each issue their own reads.
+ *
+ * Each simple key (bc_urls, flow1_window, google_oauth, ...) gets its own
+ * document in the `users/{uid}/data` subcollection rather than sharing one
+ * document — Firestore caps a single document at 1 MiB, and a large URL
+ * list sharing that budget with other settings can silently push the whole
+ * document over the limit, failing writes for keys that had nothing to do
+ * with the oversized one.
  */
 export function CloudDataProvider({ children }) {
   const { user, role } = useAuth();
@@ -52,7 +59,14 @@ export function CloudDataProvider({ children }) {
     }
     let cancelled = false;
     (async () => {
-      const stateSnap = await getDoc(doc(db, "users", uid, "data", "state"));
+      const dataSnap = await getDocs(collection(db, "users", uid, "data"));
+      let hasAnyKey = false;
+      const fetchedState = {};
+      dataSnap.forEach((d) => {
+        hasAnyKey = true;
+        fetchedState[d.id] = d.data().value;
+      });
+
       const chunkResults = {};
       for (const prefix of CHUNKED_PREFIXES) {
         const snap = await getDocs(collection(db, "users", uid, prefix));
@@ -64,7 +78,7 @@ export function CloudDataProvider({ children }) {
       }
       if (cancelled) return;
 
-      let finalState = stateSnap.exists() ? stateSnap.data() : null;
+      let finalState = hasAnyKey ? fetchedState : null;
       let finalChunks = chunkResults;
 
       if (finalState === null) {
@@ -100,9 +114,9 @@ export function CloudDataProvider({ children }) {
   const persistStateKey = useCallback(
     (key, next) => {
       if (!uid) return;
-      setDoc(doc(db, "users", uid, "data", "state"), { [key]: next ?? null }, {
-        merge: true,
-      }).catch((err) => console.error(`CloudData: write "${key}" failed:`, err));
+      setDoc(doc(db, "users", uid, "data", key), { value: next ?? null }).catch(
+        (err) => console.error(`CloudData: write "${key}" failed:`, err),
+      );
     },
     [uid],
   );
@@ -186,7 +200,7 @@ export function CloudDataProvider({ children }) {
 
   const clearAll = useCallback(async () => {
     if (!uid) return;
-    await setDoc(doc(db, "users", uid, "data", "state"), {});
+    await clearChunkedCollection(uid, "data");
     await Promise.all(CHUNKED_PREFIXES.map((prefix) => clearChunkedCollection(uid, prefix)));
     setStateDocState({});
     setChunkedState(emptyChunked());

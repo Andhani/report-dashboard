@@ -1,8 +1,8 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 
-function stateDocRef(uid) {
-  return doc(db, "users", uid, "data", "state");
+function oauthDocRef(uid) {
+  return doc(db, "users", uid, "data", "google_oauth");
 }
 
 /**
@@ -15,8 +15,8 @@ export async function getValidToken() {
   const uid = auth.currentUser?.uid;
   if (!uid) return null;
 
-  const snap = await getDoc(stateDocRef(uid));
-  const oauth = snap.exists() ? snap.data().google_oauth : null;
+  const snap = await getDoc(oauthDocRef(uid));
+  const oauth = snap.exists() ? snap.data().value : null;
   if (!oauth) return null;
 
   if (Date.now() < oauth.expires_at) return oauth.access_token;
@@ -45,7 +45,7 @@ export async function getValidToken() {
       access_token: data.access_token,
       expires_at: Date.now() + (data.expires_in - 60) * 1000,
     };
-    await setDoc(stateDocRef(uid), { google_oauth: updated }, { merge: true });
+    await setDoc(oauthDocRef(uid), { value: updated });
     return data.access_token;
   } catch {
     return null;
@@ -55,6 +55,6 @@ export async function getValidToken() {
 export async function isConnected() {
   const uid = auth.currentUser?.uid;
   if (!uid) return false;
-  const snap = await getDoc(stateDocRef(uid));
-  return !!(snap.exists() && snap.data().google_oauth);
+  const snap = await getDoc(oauthDocRef(uid));
+  return !!(snap.exists() && snap.data().value);
 }

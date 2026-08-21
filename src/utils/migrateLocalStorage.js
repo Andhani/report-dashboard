@@ -109,12 +109,18 @@ export function markLegacyMigrationAttempted() {
   } catch {}
 }
 
-/** Writes a one-time legacy migration payload up to Firestore for `uid`. */
+/**
+ * Writes a one-time legacy migration payload up to Firestore for `uid`.
+ * Each key gets its own document (users/{uid}/data/{key}) so a large URL
+ * list doesn't share — and potentially blow — another key's 1 MiB budget.
+ */
 export async function persistLegacyMigration(uid, legacy) {
   if (Object.keys(legacy.state).length > 0) {
-    await setDoc(doc(db, "users", uid, "data", "state"), legacy.state, {
-      merge: true,
-    });
+    await Promise.all(
+      Object.entries(legacy.state).map(([key, value]) =>
+        setDoc(doc(db, "users", uid, "data", key), { value }),
+      ),
+    );
   }
   for (const [prefix, obj] of Object.entries(legacy.chunks)) {
     await Promise.all(
