@@ -1,17 +1,22 @@
 import { useEffect } from "react";
 import { useStorage } from "../hooks/useStorage";
+import { useCloudStorage } from "../hooks/useCloudStorage";
+import { useCloudData } from "../context/CloudDataContext";
 import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
 import { getValidToken } from "../utils/googleAuth";
 
 export default function Settings() {
+  // Google Sheets OAuth token stays in localStorage — it's inherently
+  // per-browser and unrelated to the per-user report data below.
   const [oauthToken, setOauthToken] = useStorage("google_oauth", null);
-  const [flow1Window, setFlow1Window] = useStorage("flow1_window", null);
-  const [flow2Window, setFlow2Window] = useStorage("flow2_window", null);
-  const [sheetsUrl, setSheetsUrl] = useStorage("sheets_report_url", "");
-  const [, setBcUrls] = useStorage("bc_urls", [], { sync: true });
-  const [, setBlogUrls] = useStorage("blog_urls", [], { sync: true });
+  const [flow1Window, setFlow1Window] = useCloudStorage("flow1_window", null);
+  const [flow2Window, setFlow2Window] = useCloudStorage("flow2_window", null);
+  const [sheetsUrl, setSheetsUrl] = useCloudStorage("sheets_report_url", "");
+  const [, setBcUrls] = useCloudStorage("bc_urls", [], { sync: true });
+  const [, setBlogUrls] = useCloudStorage("blog_urls", [], { sync: true });
   const { setFlow1Data, setFlow2Data } = useDataContext();
+  const { clearAll } = useCloudData();
 
   // Fetch email from Google userinfo if token exists but email not yet stored
   useEffect(() => {
@@ -74,7 +79,7 @@ export default function Settings() {
     all: "Clear everything? This deletes all report data across every tab and all settings. This cannot be undone.",
   };
 
-  function handleClearData(target) {
+  async function handleClearData(target) {
     if (!confirm(clearConfirmMessages[target])) return;
 
     if (target === "flow1") {
@@ -85,6 +90,7 @@ export default function Settings() {
       setBcUrls([]);
       setBlogUrls([]);
     } else if (target === "all") {
+      await clearAll();
       localStorage.clear();
       window.location.reload();
     }

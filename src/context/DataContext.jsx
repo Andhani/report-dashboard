@@ -1,14 +1,14 @@
 import { createContext, useContext } from "react";
-import { useChunkedStorage } from "../hooks/useStorage";
+import { useChunkedCloudStorage } from "../hooks/useCloudStorage";
 
 const DataContext = createContext(null);
 
 export function DataProvider({ children }) {
-  const [flow1Data, setFlow1Data, flow1Storage] = useChunkedStorage(
+  const [flow1Data, setFlow1Data, flow1Storage] = useChunkedCloudStorage(
     "flow1_data",
     {},
   );
-  const [flow2Data, setFlow2Data, flow2Storage] = useChunkedStorage(
+  const [flow2Data, setFlow2Data, flow2Storage] = useChunkedCloudStorage(
     "flow2_data",
     {},
   );

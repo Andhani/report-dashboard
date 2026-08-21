@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useStorage } from "../hooks/useStorage";
+import { useCloudStorage as useStorage } from "../hooks/useCloudStorage";
 import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
 import {

@@ -7,13 +7,15 @@ import {
   Users,
   Link2,
   Settings,
+  ShieldCheck,
+  LogOut,
   ChevronUp,
   Moon,
   Sun,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
-
+import { useAuth } from "../context/AuthContext";
 
 const navItems = [
   {
@@ -50,6 +52,7 @@ const navItems = [
 
 export default function Layout() {
   const location = useLocation();
+  const { user, role, signOut } = useAuth();
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const saved = localStorage.getItem("sidebarOpen");
@@ -95,6 +98,11 @@ export default function Layout() {
     });
   }
 
+  const items =
+    role === "admin"
+      ? [...navItems, { to: "/admin", label: "Admin", icon: ShieldCheck }]
+      : navItems;
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
@@ -118,7 +126,7 @@ export default function Layout() {
 
         {/* Nav */}
         <nav className="flex-1 px-1.5 py-3 space-y-0.5">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -150,6 +158,25 @@ export default function Layout() {
             );
           })}
         </nav>
+
+        {/* Signed-in user */}
+        {sidebarOpen && user && (
+          <div className="px-2.5 py-2 border-t border-border flex items-center justify-between gap-2 overflow-hidden">
+            <span
+              className="text-2xs text-muted truncate"
+              title={user.email}
+            >
+              {user.email}
+            </span>
+            <button
+              onClick={signOut}
+              title="Sign out"
+              className="flex-shrink-0 text-muted hover:text-ink transition-colors"
+            >
+              <LogOut size={13} strokeWidth={1.75} />
+            </button>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="px-2.5 py-3 border-t border-border flex items-center justify-between overflow-hidden">
@@ -267,6 +294,10 @@ function PageTitle({ pathname }) {
     "/settings": {
       title: "Settings",
       sub: "OAuth connection, rolling window, and Sheets URL",
+    },
+    "/admin": {
+      title: "Admin",
+      sub: "Manage who can access this dashboard",
     },
   };
   const info = pages[pathname] ?? { title: "Report Dashboard", sub: "" };

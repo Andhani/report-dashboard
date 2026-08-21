@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Each signed-in user's report data (URL lists, imported Flow 1/2/3
+    // data, settings) lives under their own uid and is invisible to
+    // everyone else — no shared documents, no cross-user sync.
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Access allow-list: who may sign in at all, and who is an admin.
+    // Any signed-in user may read it (to check their own access), but only
+    // an existing admin may write to it.
+    match /allowedUsers/{email} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email)).data.role == "admin";
+    }
+  }
+}

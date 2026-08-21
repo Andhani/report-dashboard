@@ -2,7 +2,7 @@ import { useState, useRef, useMemo, useLayoutEffect } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { Upload } from "lucide-react";
-import { useStorage } from "../hooks/useStorage";
+import { useCloudStorage as useStorage } from "../hooks/useCloudStorage";
 import { usePagination } from "../hooks/usePagination";
 import { urlToSlug } from "../utils/dateUtils";
 import { getValidToken } from "../utils/googleAuth";
