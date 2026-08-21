@@ -169,7 +169,7 @@ export default function Layout() {
               {user.email}
             </span>
             <button
-              onClick={signOut}
+              onClick={() => confirm("Sign out?") && signOut()}
               title="Sign out"
               className="flex-shrink-0 text-muted hover:text-ink transition-colors"
             >
