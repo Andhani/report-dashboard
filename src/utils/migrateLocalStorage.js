@@ -2,9 +2,11 @@ import { collection, deleteDoc, doc, getDocs, setDoc } from "firebase/firestore"
 import { db } from "../lib/firebase";
 
 // Every simple (non-chunked) report-data key previously stored in
-// localStorage via useStorage, excluding "google_oauth" (stays local —
-// see CLAUDE.md decision) and UI-only keys ("sidebarOpen", "theme").
+// localStorage via useStorage, excluding UI-only keys ("sidebarOpen", "theme")
+// which stay local since they're per-browser display preferences, not report
+// data.
 export const REPORT_DATA_KEYS = [
+  "google_oauth",
   "flow1_window",
   "flow2_window",
   "sheets_report_url",

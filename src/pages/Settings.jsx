@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useStorage } from "../hooks/useStorage";
 import { useCloudStorage } from "../hooks/useCloudStorage";
 import { useCloudData } from "../context/CloudDataContext";
 import { useDataContext } from "../context/DataContext";
@@ -7,9 +6,7 @@ import { getMonthSlots } from "../utils/dateUtils";
 import { getValidToken } from "../utils/googleAuth";
 
 export default function Settings() {
-  // Google Sheets OAuth token stays in localStorage — it's inherently
-  // per-browser and unrelated to the per-user report data below.
-  const [oauthToken, setOauthToken] = useStorage("google_oauth", null);
+  const [oauthToken, setOauthToken] = useCloudStorage("google_oauth", null);
   const [flow1Window, setFlow1Window] = useCloudStorage("flow1_window", null);
   const [flow2Window, setFlow2Window] = useCloudStorage("flow2_window", null);
   const [sheetsUrl, setSheetsUrl] = useCloudStorage("sheets_report_url", "");
@@ -67,8 +64,7 @@ export default function Settings() {
 
   function handleDisconnect() {
     if (confirm("Disconnect Google account?")) {
-      localStorage.removeItem("google_oauth");
-      window.location.reload();
+      setOauthToken(null);
     }
   }
 
