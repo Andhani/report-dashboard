@@ -62,7 +62,15 @@ export function CloudDataProvider({ children }) {
       const dataSnap = await getDocs(collection(db, "users", uid, "data"));
       let hasAnyKey = false;
       const fetchedState = {};
+      let legacyStateDoc = null;
       dataSnap.forEach((d) => {
+        // Pre-fix schema: every key lived as a field on one "state" doc
+        // instead of its own document. Handled as a one-time migration
+        // below rather than a normal fetched key.
+        if (d.id === "state") {
+          legacyStateDoc = d.data();
+          return;
+        }
         hasAnyKey = true;
         fetchedState[d.id] = d.data().value;
       });
@@ -82,18 +90,34 @@ export function CloudDataProvider({ children }) {
       let finalChunks = chunkResults;
 
       if (finalState === null) {
-        const legacy = readLegacyLocalStorage();
-        markLegacyMigrationAttempted();
-        if (legacy) {
-          finalState = legacy.state;
-          finalChunks = { ...chunkResults, ...legacy.chunks };
+        if (legacyStateDoc && Object.keys(legacyStateDoc).length > 0) {
+          // Old shared-document schema — adopt it as-is, then migrate each
+          // field to its own document and drop the old one.
+          finalState = legacyStateDoc;
           try {
-            await persistLegacyMigration(uid, legacy);
+            await Promise.all(
+              Object.entries(legacyStateDoc).map(([key, value]) =>
+                setDoc(doc(db, "users", uid, "data", key), { value }),
+              ),
+            );
+            await deleteDoc(doc(db, "users", uid, "data", "state"));
           } catch (err) {
-            console.error("CloudData: legacy migration failed:", err);
+            console.error("CloudData: old-schema migration failed:", err);
           }
         } else {
-          finalState = {};
+          const legacy = readLegacyLocalStorage();
+          markLegacyMigrationAttempted();
+          if (legacy) {
+            finalState = legacy.state;
+            finalChunks = { ...chunkResults, ...legacy.chunks };
+            try {
+              await persistLegacyMigration(uid, legacy);
+            } catch (err) {
+              console.error("CloudData: legacy migration failed:", err);
+            }
+          } else {
+            finalState = {};
+          }
         }
       }
 
