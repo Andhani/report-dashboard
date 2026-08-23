@@ -324,6 +324,28 @@ export function CloudDataProvider({ children }) {
     setChunkedState(emptyChunked());
   }, [uid]);
 
+  // Deletes every row document for an array-chunked key (bc_urls/blog_urls)
+  // by querying Firestore directly, rather than diffing against local React
+  // state like setChunkedValue does — local state and Firestore can briefly
+  // disagree after a race (a debounced write landing late, a fetch that
+  // started before an in-flight write settled), and a "clear" action should
+  // never leave real documents behind just because the local cache didn't
+  // know about them.
+  const clearArrayKey = useCallback(
+    async (key) => {
+      if (!uid) return;
+      await clearChunkedCollection(uid, key);
+      await deleteDoc(doc(db, "users", uid, "data", `${key}_order`)).catch(() => {});
+      setChunkedState((prevAll) => ({ ...prevAll, [key]: {} }));
+      setStateDocState((prev) => {
+        const next = { ...prev };
+        delete next[`${key}_order`];
+        return next;
+      });
+    },
+    [uid],
+  );
+
   return (
     <CloudDataContext.Provider
       value={{
@@ -335,6 +357,7 @@ export function CloudDataProvider({ children }) {
         writeErrors: writeErrorsRef.current,
         clearAll,
         flushPendingWrites,
+        clearArrayKey,
       }}
     >
       {children}

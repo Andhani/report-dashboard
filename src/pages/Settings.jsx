@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useCloudStorage, useCloudArrayStorage } from "../hooks/useCloudStorage";
+import { useCloudStorage } from "../hooks/useCloudStorage";
 import { useCloudData } from "../context/CloudDataContext";
 import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
@@ -10,10 +10,8 @@ export default function Settings() {
   const [flow1Window, setFlow1Window] = useCloudStorage("flow1_window", null);
   const [flow2Window, setFlow2Window] = useCloudStorage("flow2_window", null);
   const [sheetsUrl, setSheetsUrl] = useCloudStorage("sheets_report_url", "");
-  const [, setBcUrls] = useCloudArrayStorage("bc_urls", []);
-  const [, setBlogUrls] = useCloudArrayStorage("blog_urls", []);
   const { setFlow1Data, setFlow2Data } = useDataContext();
-  const { clearAll } = useCloudData();
+  const { clearAll, clearArrayKey } = useCloudData();
 
   // Fetch email from Google userinfo if token exists but email not yet stored
   useEffect(() => {
@@ -83,8 +81,8 @@ export default function Settings() {
     } else if (target === "flow2") {
       setFlow2Data({});
     } else if (target === "urls") {
-      setBcUrls([]);
-      setBlogUrls([]);
+      await clearArrayKey("bc_urls");
+      await clearArrayKey("blog_urls");
     } else if (target === "all") {
       await clearAll();
       localStorage.clear();

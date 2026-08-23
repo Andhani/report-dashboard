@@ -6,6 +6,7 @@ import {
   useCloudStorage as useStorage,
   useCloudArrayStorage,
 } from "../hooks/useCloudStorage";
+import { useCloudData } from "../context/CloudDataContext";
 import { usePagination } from "../hooks/usePagination";
 import { urlToSlug } from "../utils/dateUtils";
 import { getValidToken } from "../utils/googleAuth";
@@ -84,6 +85,7 @@ export default function UrlManager() {
   const [activeTab, setActiveTab] = useStorage("urls_active_tab", "bc");
   const [bcUrls, setBcUrls] = useCloudArrayStorage("bc_urls", []);
   const [blogUrls, setBlogUrls] = useCloudArrayStorage("blog_urls", []);
+  const { clearArrayKey } = useCloudData();
 
   // Import toolbar state
   const [importMode, setImportMode] = useStorage("urls_import_mode", "sheets");
@@ -130,13 +132,13 @@ export default function UrlManager() {
     setUrls((prev) => prev.filter((r) => r.id !== id));
   }
 
-  function handleClearAll() {
+  async function handleClearAll() {
     if (
       confirm(
         `Clear all ${activeTab.toUpperCase()} URLs? This cannot be undone.`,
       )
     ) {
-      setUrls([]);
+      await clearArrayKey(activeTab === "bc" ? "bc_urls" : "blog_urls");
       setFilters({});
     }
   }

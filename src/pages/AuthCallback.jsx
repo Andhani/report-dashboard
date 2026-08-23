@@ -7,12 +7,17 @@ export default function AuthCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const { setStateKey } = useCloudData();
+  const { ready, setStateKey } = useCloudData();
   const [status, setStatus] = useState("Exchanging code for tokens…");
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (loading) return;
+    // This route is reached via a full browser redirect from Google, not
+    // client-side navigation — so CloudDataProvider's own initial Firestore
+    // fetch is running fresh at the same time as this effect. Writing the
+    // token before that fetch resolves would get silently clobbered when it
+    // completes and replaces local state wholesale, so wait for both.
+    if (loading || !ready) return;
 
     const code = searchParams.get("code");
     const errorParam = searchParams.get("error");
@@ -34,7 +39,7 @@ export default function AuthCallback() {
 
     exchangeCode(code);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, [loading, ready]);
 
   async function exchangeCode(code) {
     try {
@@ -94,25 +99,27 @@ export default function AuthCallback() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="card p-8 w-full max-w-sm text-center">
+    <div className="h-screen flex items-center justify-center bg-bg px-4">
+      <div className="card w-full max-w-sm p-10 text-center">
         <div className="text-4xl mb-4">{error ? "❌" : "🔐"}</div>
         {error ? (
           <>
             <div className="font-semibold text-danger mb-2">
               Authentication Failed
             </div>
-            <div className="text-sm text-danger mb-4">{error}</div>
+            <div className="text-xs text-danger mb-6 leading-relaxed">
+              {error}
+            </div>
             <button
               onClick={() => navigate("/settings")}
-              className="btn-secondary"
+              className="btn-secondary mx-auto"
             >
               Back to Settings
             </button>
           </>
         ) : (
           <>
-            <div className="font-semibold text-gray-900 mb-2">{status}</div>
+            <div className="font-semibold text-ink mb-4">{status}</div>
             <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
           </>
         )}
