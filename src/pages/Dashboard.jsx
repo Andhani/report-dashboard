@@ -1,5 +1,8 @@
 import { Link } from "react-router-dom";
-import { useCloudStorage as useStorage } from "../hooks/useCloudStorage";
+import {
+  useCloudStorage as useStorage,
+  useCloudArrayStorage,
+} from "../hooks/useCloudStorage";
 import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
 import {
@@ -43,8 +46,8 @@ export default function Dashboard() {
   const { flow1Data, flow2Data } = useDataContext();
   const [flow1Window] = useStorage("flow1_window", null);
   const [flow2Window] = useStorage("flow2_window", null);
-  const [bcUrls] = useStorage("bc_urls", []);
-  const [blogUrls] = useStorage("blog_urls", []);
+  const [bcUrls] = useCloudArrayStorage("bc_urls", []);
+  const [blogUrls] = useCloudArrayStorage("blog_urls", []);
 
   const flow1Slots = flow1Window ? getMonthSlots(flow1Window, 6) : [];
   const flow2Slots = flow2Window ? getMonthSlots(flow2Window, 6) : [];

@@ -1,6 +1,9 @@
 import { useState, useRef, useCallback, useMemo, useLayoutEffect } from "react";
 import { Link } from "react-router-dom";
-import { useCloudStorage as useStorage } from "../hooks/useCloudStorage";
+import {
+  useCloudStorage as useStorage,
+  useCloudArrayStorage,
+} from "../hooks/useCloudStorage";
 import { useDataContext } from "../context/DataContext";
 import { usePagination } from "../hooks/usePagination";
 import {
@@ -65,8 +68,8 @@ export default function Flow1() {
   const { flow1Data, setFlow1Data, flow1MissingKeys, flow1WriteError } =
     useDataContext();
   const [flow1Window] = useStorage("flow1_window", null);
-  const [bcUrls] = useStorage("bc_urls", []);
-  const [blogUrls] = useStorage("blog_urls", []);
+  const [bcUrls] = useCloudArrayStorage("bc_urls", []);
+  const [blogUrls] = useCloudArrayStorage("blog_urls", []);
   const [sheetsUrl] = useStorage("sheets_report_url", "");
 
   const [log, setLog] = useStorage("flow1_log", []);

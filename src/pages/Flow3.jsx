@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useCloudStorage as useStorage } from "../hooks/useCloudStorage";
+import {
+  useCloudStorage as useStorage,
+  useCloudArrayStorage,
+} from "../hooks/useCloudStorage";
 import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
 import { downloadCSV } from "../utils/exportUtils";
@@ -30,8 +33,8 @@ function toDateStr(year, month, day) {
 export default function Flow3() {
   const { flow1Data, flow2Data } = useDataContext();
   const [flow1Window] = useStorage("flow1_window", null);
-  const [bcUrls] = useStorage("bc_urls", []);
-  const [blogUrls] = useStorage("blog_urls", []);
+  const [bcUrls] = useCloudArrayStorage("bc_urls", []);
+  const [blogUrls] = useCloudArrayStorage("blog_urls", []);
   const [sheetsUrl] = useStorage("sheets_report_url", "");
 
   const [pushStatus, setPushStatus] = useState(null);

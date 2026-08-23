@@ -2,7 +2,10 @@ import { useState, useRef, useMemo, useLayoutEffect } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { Upload } from "lucide-react";
-import { useCloudStorage as useStorage } from "../hooks/useCloudStorage";
+import {
+  useCloudStorage as useStorage,
+  useCloudArrayStorage,
+} from "../hooks/useCloudStorage";
 import { usePagination } from "../hooks/usePagination";
 import { urlToSlug } from "../utils/dateUtils";
 import { getValidToken } from "../utils/googleAuth";
@@ -79,8 +82,8 @@ function withSlug(row) {
 
 export default function UrlManager() {
   const [activeTab, setActiveTab] = useStorage("urls_active_tab", "bc");
-  const [bcUrls, setBcUrls] = useStorage("bc_urls", [], { sync: true });
-  const [blogUrls, setBlogUrls] = useStorage("blog_urls", [], { sync: true });
+  const [bcUrls, setBcUrls] = useCloudArrayStorage("bc_urls", []);
+  const [blogUrls, setBlogUrls] = useCloudArrayStorage("blog_urls", []);
 
   // Import toolbar state
   const [importMode, setImportMode] = useStorage("urls_import_mode", "sheets");

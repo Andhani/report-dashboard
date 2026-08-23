@@ -19,10 +19,19 @@ import {
 
 const WRITE_DEBOUNCE_MS = 400;
 
+// bc_urls/blog_urls are row lists that can grow past Firestore's 1 MiB
+// single-document limit (thousands of rows), so — like flow1_data/flow2_data
+// — they're chunked one document per row instead of living as one array
+// field. Distinct from CHUNKED_PREFIXES (which also governs the legacy
+// localStorage chunked-format reader in migrateLocalStorage.js — these two
+// keys were never stored that way in localStorage, only as a plain array).
+const ARRAY_CHUNK_KEYS = ["bc_urls", "blog_urls"];
+const ALL_CHUNK_PREFIXES = [...CHUNKED_PREFIXES, ...ARRAY_CHUNK_KEYS];
+
 const CloudDataContext = createContext(null);
 
 function emptyChunked() {
-  return Object.fromEntries(CHUNKED_PREFIXES.map((p) => [p, {}]));
+  return Object.fromEntries(ALL_CHUNK_PREFIXES.map((p) => [p, {}]));
 }
 
 // Firestore's setDoc() throws synchronously on any `undefined` field, even
@@ -86,7 +95,7 @@ export function CloudDataProvider({ children }) {
       });
 
       const chunkResults = {};
-      for (const prefix of CHUNKED_PREFIXES) {
+      for (const prefix of ALL_CHUNK_PREFIXES) {
         const snap = await getDocs(collection(db, "users", uid, prefix));
         const obj = {};
         snap.forEach((d) => {
@@ -129,6 +138,43 @@ export function CloudDataProvider({ children }) {
             finalState = {};
           }
         }
+      }
+
+      // One-time per-account migration: bc_urls/blog_urls used to live as a
+      // single flat array field (whichever source it came from above —
+      // the old shared "state" doc, an old regular per-key doc, or a fresh
+      // localStorage import) before being chunked one-document-per-row. A
+      // large list in that flat form could exceed Firestore's 1 MiB
+      // document limit and silently fail to save at all — this is the fix
+      // for that, splitting any surviving flat array into per-row docs.
+      for (const key of ARRAY_CHUNK_KEYS) {
+        const flatArray = finalState[key];
+        if (
+          Array.isArray(flatArray) &&
+          flatArray.length > 0 &&
+          Object.keys(finalChunks[key] || {}).length === 0
+        ) {
+          const rowsObj = {};
+          flatArray.forEach((row) => {
+            if (row && row.id) rowsObj[row.id] = row;
+          });
+          try {
+            await Promise.all(
+              Object.entries(rowsObj).map(([id, row]) =>
+                setDoc(doc(db, "users", uid, key, id), { value: row }),
+              ),
+            );
+            await setDoc(doc(db, "users", uid, "data", `${key}_order`), {
+              value: flatArray.map((r) => r.id),
+            });
+            await deleteDoc(doc(db, "users", uid, "data", key));
+          } catch (err) {
+            console.error(`CloudData: array migration for "${key}" failed:`, err);
+          }
+          finalChunks = { ...finalChunks, [key]: rowsObj };
+          finalState[`${key}_order`] = flatArray.map((r) => r.id);
+        }
+        delete finalState[key];
       }
 
       if (cancelled) return;
@@ -273,7 +319,7 @@ export function CloudDataProvider({ children }) {
   const clearAll = useCallback(async () => {
     if (!uid) return;
     await clearChunkedCollection(uid, "data");
-    await Promise.all(CHUNKED_PREFIXES.map((prefix) => clearChunkedCollection(uid, prefix)));
+    await Promise.all(ALL_CHUNK_PREFIXES.map((prefix) => clearChunkedCollection(uid, prefix)));
     setStateDocState({});
     setChunkedState(emptyChunked());
   }, [uid]);

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useCloudStorage } from "../hooks/useCloudStorage";
+import { useCloudStorage, useCloudArrayStorage } from "../hooks/useCloudStorage";
 import { useCloudData } from "../context/CloudDataContext";
 import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
@@ -10,8 +10,8 @@ export default function Settings() {
   const [flow1Window, setFlow1Window] = useCloudStorage("flow1_window", null);
   const [flow2Window, setFlow2Window] = useCloudStorage("flow2_window", null);
   const [sheetsUrl, setSheetsUrl] = useCloudStorage("sheets_report_url", "");
-  const [, setBcUrls] = useCloudStorage("bc_urls", [], { sync: true });
-  const [, setBlogUrls] = useCloudStorage("blog_urls", [], { sync: true });
+  const [, setBcUrls] = useCloudArrayStorage("bc_urls", []);
+  const [, setBlogUrls] = useCloudArrayStorage("blog_urls", []);
   const { setFlow1Data, setFlow2Data } = useDataContext();
   const { clearAll } = useCloudData();
 
