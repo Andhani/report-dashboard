@@ -682,6 +682,7 @@ const SLOT_ROWS_F2 = [
     store: "flow1",
     prefix: "bc_gsc_dijual",
     flow2Prefix: "gsc_dijual",
+    subtitle: "reuse / manual upload",
   },
   {
     id: "gsc_disewa",
@@ -690,6 +691,7 @@ const SLOT_ROWS_F2 = [
     store: "flow1",
     prefix: "bc_gsc_disewa",
     flow2Prefix: "gsc_disewa",
+    subtitle: "reuse / manual upload",
   },
   {
     id: "gsc_blog",
@@ -698,6 +700,7 @@ const SLOT_ROWS_F2 = [
     store: "flow1",
     prefix: "blog_gsc",
     flow2Prefix: "gsc_blog",
+    subtitle: "reuse / manual upload",
   },
   {
     id: "bc_ga4_dijual_f1",

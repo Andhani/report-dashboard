@@ -6,7 +6,14 @@ import {
   useRef,
   useState,
 } from "react";
-import { collection, deleteDoc, doc, getDocs, setDoc } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  setDoc,
+  writeBatch,
+} from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "./AuthContext";
 import {
@@ -42,6 +49,35 @@ function emptyChunked() {
 // Firestore, or a single bad row can throw mid-render and blank the page.
 function sanitizeForFirestore(value) {
   return value === undefined ? null : JSON.parse(JSON.stringify(value));
+}
+
+// Firestore caps a single batch at 500 writes. Row-chunked collections
+// (bc_urls/blog_urls) can hold thousands of docs, so a full re-import or
+// clear used to fire one setDoc/deleteDoc network round trip per row —
+// thousands of concurrent requests the browser and Firestore SDK both have
+// to queue through, which is what made large lists (7k+ BC URLs) feel
+// laggy on save. Batching collapses that into a handful of round trips.
+const FIRESTORE_BATCH_LIMIT = 500;
+
+async function commitChunkOps(uid, prefix, sets, deletes) {
+  const ops = [
+    ...sets.map(([id, value]) => ({ type: "set", id, value })),
+    ...deletes.map((id) => ({ type: "delete", id })),
+  ];
+  const commits = [];
+  for (let i = 0; i < ops.length; i += FIRESTORE_BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const op of ops.slice(i, i + FIRESTORE_BATCH_LIMIT)) {
+      const ref = doc(db, "users", uid, prefix, op.id);
+      if (op.type === "set") {
+        batch.set(ref, { value: sanitizeForFirestore(op.value) });
+      } else {
+        batch.delete(ref);
+      }
+    }
+    commits.push(batch.commit());
+  }
+  await Promise.all(commits);
 }
 
 /**
@@ -94,15 +130,23 @@ export function CloudDataProvider({ children }) {
         fetchedState[d.id] = d.data().value;
       });
 
+      // Fetched in parallel rather than one collection at a time — with
+      // thousands of row docs in bc_urls/blog_urls, sequential awaits here
+      // meant every other chunked collection sat idle waiting on the
+      // biggest one before the page could even render.
       const chunkResults = {};
-      for (const prefix of ALL_CHUNK_PREFIXES) {
-        const snap = await getDocs(collection(db, "users", uid, prefix));
+      const chunkSnaps = await Promise.all(
+        ALL_CHUNK_PREFIXES.map((prefix) =>
+          getDocs(collection(db, "users", uid, prefix)),
+        ),
+      );
+      ALL_CHUNK_PREFIXES.forEach((prefix, i) => {
         const obj = {};
-        snap.forEach((d) => {
+        chunkSnaps[i].forEach((d) => {
           obj[d.id] = d.data().value;
         });
         chunkResults[prefix] = obj;
-      }
+      });
       if (cancelled) return;
 
       let finalState = hasAnyKey ? fetchedState : null;
@@ -159,11 +203,7 @@ export function CloudDataProvider({ children }) {
             if (row && row.id) rowsObj[row.id] = row;
           });
           try {
-            await Promise.all(
-              Object.entries(rowsObj).map(([id, row]) =>
-                setDoc(doc(db, "users", uid, key, id), { value: row }),
-              ),
-            );
+            await commitChunkOps(uid, key, Object.entries(rowsObj), []);
             await setDoc(doc(db, "users", uid, "data", `${key}_order`), {
               value: flatArray.map((r) => r.id),
             });
@@ -284,31 +324,32 @@ export function CloudDataProvider({ children }) {
       if (!uid) return;
 
       if (next === null || next === undefined) {
-        Object.keys(prev).forEach((k) => {
-          trackWrite(deleteDoc(doc(db, "users", uid, prefix, k)).catch(() => {}));
-        });
+        const keys = Object.keys(prev);
+        if (keys.length > 0) {
+          trackWrite(commitChunkOps(uid, prefix, [], keys).catch(() => {}));
+        }
         setChunkedState((prevAll) => ({ ...prevAll, [prefix]: {} }));
         return;
       }
 
+      const toSet = [];
       for (const [k, v] of Object.entries(next)) {
-        if (prev[k] !== v) {
-          trackWrite(
-            setDoc(doc(db, "users", uid, prefix, k), {
-              value: sanitizeForFirestore(v),
-            }).catch((err) => {
-              writeErrorsRef.current[prefix] =
-                "Cloud sync failed for some data — kept in memory but may not survive a refresh.";
-              console.error(`CloudData: chunk write "${prefix}/${k}" failed:`, err);
-              bump((n) => n + 1);
-            }),
-          );
-        }
+        if (prev[k] !== v) toSet.push([k, v]);
       }
+      const toDelete = [];
       for (const k of Object.keys(prev)) {
-        if (!Object.prototype.hasOwnProperty.call(next, k)) {
-          trackWrite(deleteDoc(doc(db, "users", uid, prefix, k)).catch(() => {}));
-        }
+        if (!Object.prototype.hasOwnProperty.call(next, k)) toDelete.push(k);
+      }
+
+      if (toSet.length > 0 || toDelete.length > 0) {
+        trackWrite(
+          commitChunkOps(uid, prefix, toSet, toDelete).catch((err) => {
+            writeErrorsRef.current[prefix] =
+              "Cloud sync failed for some data — kept in memory but may not survive a refresh.";
+            console.error(`CloudData: chunk write "${prefix}" failed:`, err);
+            bump((n) => n + 1);
+          }),
+        );
       }
 
       setChunkedState((prevAll) => ({ ...prevAll, [prefix]: next }));

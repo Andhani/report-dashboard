@@ -1,5 +1,7 @@
-import { collection, deleteDoc, doc, getDocs, setDoc } from "firebase/firestore";
+import { collection, doc, getDocs, setDoc, writeBatch } from "firebase/firestore";
 import { db } from "../lib/firebase";
+
+const FIRESTORE_BATCH_LIMIT = 500;
 
 // Every simple (non-chunked) report-data key previously stored in
 // localStorage via useStorage, excluding UI-only keys ("sidebarOpen", "theme")
@@ -131,8 +133,22 @@ export async function persistLegacyMigration(uid, legacy) {
   }
 }
 
-/** Deletes every chunk doc in `users/{uid}/{prefix}`. */
+/**
+ * Deletes every chunk doc in `users/{uid}/{prefix}`, batched at Firestore's
+ * 500-write-per-batch limit instead of one deleteDoc per document — a
+ * collection with thousands of rows (e.g. a large bc_urls list) would
+ * otherwise fire thousands of concurrent delete requests for a single
+ * "clear" action.
+ */
 export async function clearChunkedCollection(uid, prefix) {
   const snap = await getDocs(collection(db, "users", uid, prefix));
-  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+  const commits = [];
+  for (let i = 0; i < snap.docs.length; i += FIRESTORE_BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const d of snap.docs.slice(i, i + FIRESTORE_BATCH_LIMIT)) {
+      batch.delete(d.ref);
+    }
+    commits.push(batch.commit());
+  }
+  await Promise.all(commits);
 }
