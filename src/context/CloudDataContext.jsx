@@ -59,24 +59,62 @@ function sanitizeForFirestore(value) {
 // laggy on save. Batching collapses that into a handful of round trips.
 const FIRESTORE_BATCH_LIMIT = 500;
 
+// Firestore also caps a single commit *request* at ~10 MiB, independent of
+// the operation count. flow1_data/flow2_data chunks are whole parsed
+// exports and can each approach the 1 MiB per-document limit, so packing
+// 500 of those into one commit would blow that ceiling — and because a
+// batch is all-or-nothing, it would fail writes that would have succeeded
+// on their own. Batches are therefore capped by payload size as well as
+// count, with any single oversized document committed alone, exactly the
+// way it behaved before batching existed. Half the ceiling leaves room for
+// request overhead and multi-byte characters (length counts UTF-16 units,
+// not bytes).
+const MAX_BATCH_BYTES = 5 * 1024 * 1024;
+
 async function commitChunkOps(uid, prefix, sets, deletes) {
-  const ops = [
-    ...sets.map(([id, value]) => ({ type: "set", id, value })),
-    ...deletes.map((id) => ({ type: "delete", id })),
-  ];
-  const commits = [];
-  for (let i = 0; i < ops.length; i += FIRESTORE_BATCH_LIMIT) {
-    const batch = writeBatch(db);
-    for (const op of ops.slice(i, i + FIRESTORE_BATCH_LIMIT)) {
-      const ref = doc(db, "users", uid, prefix, op.id);
-      if (op.type === "set") {
-        batch.set(ref, { value: sanitizeForFirestore(op.value) });
-      } else {
-        batch.delete(ref);
-      }
-    }
-    commits.push(batch.commit());
+  const ops = [];
+  for (const [id, value] of sets) {
+    // A single stringify does double duty: it strips `undefined` the same
+    // forgiving way sanitizeForFirestore does, and measures the payload so
+    // batches can be packed by size.
+    const json = JSON.stringify(value ?? null) ?? "null";
+    ops.push({ type: "set", id, value: JSON.parse(json), bytes: json.length });
   }
+  for (const id of deletes) {
+    ops.push({ type: "delete", id, bytes: 0 });
+  }
+
+  const commits = [];
+  let batch = null;
+  let count = 0;
+  let bytes = 0;
+
+  const flush = () => {
+    if (batch) commits.push(batch.commit());
+    batch = null;
+    count = 0;
+    bytes = 0;
+  };
+
+  for (const op of ops) {
+    if (
+      batch &&
+      (count >= FIRESTORE_BATCH_LIMIT || bytes + op.bytes > MAX_BATCH_BYTES)
+    ) {
+      flush();
+    }
+    if (!batch) batch = writeBatch(db);
+    const ref = doc(db, "users", uid, prefix, op.id);
+    if (op.type === "set") {
+      batch.set(ref, { value: op.value });
+    } else {
+      batch.delete(ref);
+    }
+    count += 1;
+    bytes += op.bytes;
+  }
+  flush();
+
   await Promise.all(commits);
 }
 
@@ -100,19 +138,25 @@ export function CloudDataProvider({ children }) {
   const active = !!uid && !!role;
 
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [stateDoc, setStateDocState] = useState({});
   const [chunked, setChunkedState] = useState(emptyChunked());
   const writeErrorsRef = useRef({});
   const [, bump] = useState(0);
 
+  const retryLoad = useCallback(() => setReloadNonce((n) => n + 1), []);
+
   useEffect(() => {
     if (!active) {
       setReady(false);
+      setLoadError(null);
       setStateDocState({});
       setChunkedState(emptyChunked());
       return;
     }
     let cancelled = false;
+    setLoadError(null);
     (async () => {
       const dataSnap = await getDocs(collection(db, "users", uid, "data"));
       let hasAnyKey = false;
@@ -221,11 +265,20 @@ export function CloudDataProvider({ children }) {
       setStateDocState(finalState);
       setChunkedState(finalChunks);
       setReady(true);
-    })();
+    })().catch((err) => {
+      if (cancelled) return;
+      // A failed load must never fall through to ready-with-empty-data:
+      // the app would render as though this account had no reports, and
+      // the next debounced write would persist that emptiness over real
+      // cloud data. Surface it and let the user retry instead — an
+      // explicit error beats both silent data loss and an endless spinner.
+      console.error("CloudData: initial load failed:", err);
+      setLoadError(err?.message || "Could not load your data.");
+    });
     return () => {
       cancelled = true;
     };
-  }, [uid, active]);
+  }, [uid, active, reloadNonce]);
 
   // ── Flat key/value state (mirrors useStorage) ──────────────────────────
   // stateDocRef mirrors `stateDoc` synchronously so setStateKey can resolve
@@ -391,6 +444,8 @@ export function CloudDataProvider({ children }) {
     <CloudDataContext.Provider
       value={{
         ready,
+        loadError,
+        retryLoad,
         stateDoc,
         setStateKey,
         chunked,

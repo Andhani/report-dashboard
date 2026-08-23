@@ -1,11 +1,11 @@
 import { Outlet } from "react-router-dom";
-import { Clock } from "lucide-react";
+import { AlertTriangle, Clock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useCloudData } from "../context/CloudDataContext";
 
 export default function ProtectedRoute() {
   const { user, role, loading, signIn, signOut } = useAuth();
-  const { ready } = useCloudData();
+  const { ready, loadError, retryLoad } = useCloudData();
 
   if (loading) {
     return (
@@ -54,6 +54,29 @@ export default function ProtectedRoute() {
         </p>
         <button onClick={signOut} className="btn-secondary mx-auto">
           Sign out
+        </button>
+      </CenteredCard>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <CenteredCard>
+        <div className="w-12 h-12 bg-danger/10 rounded-xl flex items-center justify-center mx-auto mb-5">
+          <AlertTriangle size={20} className="text-danger" strokeWidth={1.75} />
+        </div>
+        <h1 className="text-base font-semibold text-ink mb-2">
+          Couldn't load your data
+        </h1>
+        <p className="text-xs text-muted leading-relaxed mb-2">
+          Your reports are safe in the cloud — this device just couldn't
+          reach them. Check your connection and try again.
+        </p>
+        <p className="text-xs text-muted/70 leading-relaxed mb-6 break-words">
+          {loadError}
+        </p>
+        <button onClick={retryLoad} className="btn-primary mx-auto">
+          Try again
         </button>
       </CenteredCard>
     );
