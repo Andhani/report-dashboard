@@ -94,8 +94,10 @@ export default function Settings() {
         await setFlow2Data({});
         setClearNotice("Traffic Overview data cleared.");
       } else if (target === "urls") {
-        await clearArrayKey("bc_urls");
-        await clearArrayKey("blog_urls");
+        // In parallel — two independent collections, and BC alone can be
+        // thousands of rows, so running them one after the other doubled
+        // the wait for no reason.
+        await Promise.all([clearArrayKey("bc_urls"), clearArrayKey("blog_urls")]);
         setClearNotice("URL lists cleared.");
       } else if (target === "all") {
         await clearAll();

@@ -1,4 +1,12 @@
-import { collection, doc, getDocs, setDoc, writeBatch } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  limit,
+  query,
+  setDoc,
+  writeBatch,
+} from "firebase/firestore";
 import { db } from "../lib/firebase";
 
 const FIRESTORE_BATCH_LIMIT = 500;
@@ -133,34 +141,63 @@ export async function persistLegacyMigration(uid, legacy) {
   }
 }
 
-/**
- * Deletes every chunk doc in `users/{uid}/{prefix}`, batched at Firestore's
- * 500-write-per-batch limit instead of one deleteDoc per document — a
- * collection with thousands of rows (e.g. a large bc_urls list) would
- * otherwise fire thousands of concurrent delete requests for a single
- * "clear" action.
- */
-export async function clearChunkedCollection(uid, prefix, onProgress) {
-  const snap = await getDocs(collection(db, "users", uid, prefix));
-  const total = snap.docs.length;
-  onProgress?.(0, total);
-  if (total === 0) return;
-
+/** Commits `refs` as delete batches, reporting each batch as it lands. */
+async function deleteRefs(refs, report) {
   const batches = [];
-  for (let i = 0; i < total; i += FIRESTORE_BATCH_LIMIT) {
-    const slice = snap.docs.slice(i, i + FIRESTORE_BATCH_LIMIT);
+  for (let i = 0; i < refs.length; i += FIRESTORE_BATCH_LIMIT) {
+    const slice = refs.slice(i, i + FIRESTORE_BATCH_LIMIT);
     const batch = writeBatch(db);
-    for (const d of slice) batch.delete(d.ref);
+    for (const ref of slice) batch.delete(ref);
     batches.push({ batch, size: slice.length });
   }
+  await Promise.all(
+    batches.map(({ batch, size }) => batch.commit().then(() => report(size))),
+  );
+}
+
+/**
+ * Deletes every document in `users/{uid}/{prefix}`.
+ *
+ * Deleting used to begin with getDocs over the whole collection purely to
+ * learn the document ids — which downloads every document's contents, so
+ * clearing a 7,000-row URL list first pulled the entire list down. The Web
+ * SDK has no field projection, so that read cannot be made cheaper; it can
+ * only be avoided. `knownIds` (the ids the app already holds in memory) are
+ * deleted straight away with no read at all.
+ *
+ * A paged sweep then follows to catch anything the caller did not know
+ * about — the orphaned documents that once left a "cleared" list still
+ * populated after a reload. In the normal case that sweep's first query
+ * comes back empty, costing one read instead of thousands.
+ */
+export async function clearChunkedCollection(uid, prefix, options = {}) {
+  const { knownIds = [], onProgress } = options;
+  const col = collection(db, "users", uid, prefix);
 
   let done = 0;
-  await Promise.all(
-    batches.map(({ batch, size }) =>
-      batch.commit().then(() => {
-        done += size;
-        onProgress?.(done, total);
-      }),
-    ),
-  );
+  let total = knownIds.length;
+  const report = (n) => {
+    done += n;
+    if (done > total) total = done;
+    onProgress?.(done, total);
+  };
+  onProgress?.(0, total);
+
+  if (knownIds.length > 0) {
+    await deleteRefs(
+      knownIds.map((id) => doc(col, id)),
+      report,
+    );
+  }
+
+  // Sweep whatever remains, a page at a time. Deleted documents drop out of
+  // the query, so each round naturally advances to the next page.
+  for (;;) {
+    const snap = await getDocs(query(col, limit(FIRESTORE_BATCH_LIMIT)));
+    if (snap.empty) break;
+    await deleteRefs(
+      snap.docs.map((d) => d.ref),
+      report,
+    );
+  }
 }

@@ -434,8 +434,20 @@ export function CloudDataProvider({ children }) {
 
   const clearAll = useCallback(async () => {
     if (!uid) return;
-    await clearChunkedCollection(uid, "data");
-    await Promise.all(ALL_CHUNK_PREFIXES.map((prefix) => clearChunkedCollection(uid, prefix)));
+    // All collections at once rather than the settings document first and
+    // the rest after — they are independent, and the row collections are
+    // what take the time. Each is seeded with the ids already in memory so
+    // it can start deleting without reading itself back.
+    await Promise.all([
+      clearChunkedCollection(uid, "data", {
+        knownIds: Object.keys(stateDocRef.current),
+      }),
+      ...ALL_CHUNK_PREFIXES.map((prefix) =>
+        clearChunkedCollection(uid, prefix, {
+          knownIds: Object.keys(chunkedRef.current[prefix] ?? {}),
+        }),
+      ),
+    ]);
     setStateDocState({});
     setChunkedState(emptyChunked());
   }, [uid]);
@@ -450,7 +462,13 @@ export function CloudDataProvider({ children }) {
   const clearArrayKey = useCallback(
     async (key, onProgress) => {
       if (!uid) return;
-      await clearChunkedCollection(uid, key, onProgress);
+      // Handing over the ids already in memory lets the delete skip reading
+      // the collection back first — for a large URL list that read was the
+      // slowest part of clearing it.
+      await clearChunkedCollection(uid, key, {
+        knownIds: Object.keys(chunkedRef.current[key] ?? {}),
+        onProgress,
+      });
       await deleteDoc(doc(db, "users", uid, "data", `${key}_order`)).catch(() => {});
       setChunkedState((prevAll) => ({ ...prevAll, [key]: {} }));
       setStateDocState((prev) => {
