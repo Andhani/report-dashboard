@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCloudData } from "../context/CloudDataContext";
@@ -10,14 +10,21 @@ export default function AuthCallback() {
   const { ready, setStateKey } = useCloudData();
   const [status, setStatus] = useState("Exchanging code for tokens…");
   const [error, setError] = useState(null);
+  const [pendingToken, setPendingToken] = useState(null);
+  // An authorization code is single-use: a second exchange would fail with
+  // invalid_grant, so guard against the effect firing twice.
+  const exchangeStartedRef = useRef(false);
+  const savedRef = useRef(false);
 
+  // Redeem the authorization code as soon as we know who is signed in.
+  // Deliberately NOT gated on the cloud data being `ready`: this route is
+  // reached by a full browser redirect, so CloudDataProvider is fetching
+  // the account's whole dataset at the same time — thousands of documents
+  // for a large URL list. Waiting for that before even calling Google
+  // burns the code's short single-use window and looks like a hang. Only
+  // the write below waits; the exchange goes out immediately.
   useEffect(() => {
-    // This route is reached via a full browser redirect from Google, not
-    // client-side navigation — so CloudDataProvider's own initial Firestore
-    // fetch is running fresh at the same time as this effect. Writing the
-    // token before that fetch resolves would get silently clobbered when it
-    // completes and replaces local state wholesale, so wait for both.
-    if (loading || !ready) return;
+    if (loading || exchangeStartedRef.current) return;
 
     const code = searchParams.get("code");
     const errorParam = searchParams.get("error");
@@ -37,9 +44,23 @@ export default function AuthCallback() {
       return;
     }
 
+    exchangeStartedRef.current = true;
     exchangeCode(code);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, ready]);
+  }, [loading, user]);
+
+  // Persist once the initial fetch has landed. Writing earlier would be
+  // clobbered when that fetch completes and replaces local state wholesale
+  // — the "had to connect twice" bug this ordering exists to prevent.
+  useEffect(() => {
+    if (!ready || !pendingToken || savedRef.current) return;
+    savedRef.current = true;
+    setStateKey("google_oauth", pendingToken, { sync: true });
+    setStatus("Connected! Redirecting…");
+    const timer = setTimeout(() => navigate("/settings"), 1200);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, pendingToken]);
 
   async function exchangeCode(code) {
     try {
@@ -89,10 +110,9 @@ export default function AuthCallback() {
         // email is optional
       }
 
-      setStateKey("google_oauth", tokenData, { sync: true });
-
-      setStatus("Connected! Redirecting…");
-      setTimeout(() => navigate("/settings"), 1500);
+      // Hand off to the effect that waits for `ready` before persisting.
+      setPendingToken(tokenData);
+      setStatus("Connected — loading your data…");
     } catch (err) {
       setError(`Network error: ${err.message}`);
     }
