@@ -21,13 +21,33 @@ pnpm lint:fix     # format with prettier + fix lint errors
 
 ## Environment Variables
 
-Create a `.env` file with:
+Copy `.env.example` to `.env` and fill in real values:
+
 ```
 VITE_GOOGLE_CLIENT_ID=...
 VITE_GOOGLE_CLIENT_SECRET=...
+
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
 ```
 
-These power the Google OAuth2 flow (used in Settings to connect Google account).
+The two Google values power the OAuth2 flow (Settings → connect Google
+account). The six Firebase values power the sign-in gate and per-user
+report storage — all six are required, and a missing or wrong one throws
+at page load, before React mounts, so the page renders blank.
+
+`VITE_REDIRECT_URI` is optional and should be left unset locally: the code
+falls back to `http://localhost:3000/auth/callback`. Deployed environments
+must set it to their own `/auth/callback` URL, and that exact URL has to be
+registered as an authorized redirect URI on the OAuth client.
+
+Vite inlines these at build time, so a deployed site picks up a changed
+variable only after a rebuild — editing it in the host's dashboard alone
+does nothing.
 
 ## Architecture
 
