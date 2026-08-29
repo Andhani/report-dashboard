@@ -38,8 +38,17 @@ export function AuthProvider({ children }) {
         setLoading(false);
         return;
       }
+      // `loading` has to cover the role lookup, not just the auth check.
+      // Signing in through the popup happens when loading is already
+      // false, so setting the user first would render one frame with a
+      // signed-in user and a still-null role — which consumers read as
+      // "signed in but not approved" and flash the access-request screen
+      // before the lookup returns. Holding loading across both keeps that
+      // in-between state off screen.
+      setLoading(true);
       setUser(firebaseUser);
-      setRole(await lookupRole(firebaseUser.email));
+      const nextRole = await lookupRole(firebaseUser.email);
+      setRole(nextRole);
       setLoading(false);
     });
   }, [lookupRole]);

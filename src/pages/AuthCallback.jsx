@@ -49,6 +49,10 @@ export default function AuthCallback() {
       return;
     }
 
+    // Auth may have reported "no user" for a moment before restoring the
+    // session; that leaves a stale error on screen even though we can now
+    // proceed. This effect re-runs when `user` arrives, so clear it.
+    setError(null);
     exchangeStartedRef.current = true;
     exchangeCode(code);
     // eslint-disable-next-line react-hooks/exhaustive-deps
