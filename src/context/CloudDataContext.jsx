@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "./AuthContext";
+import { shardsToDocs } from "../utils/rowShards";
 import {
   CHUNKED_PREFIXES,
   clearChunkedCollection,
@@ -268,12 +269,14 @@ export function CloudDataProvider({ children }) {
       }
 
       // One-time per-account migration: bc_urls/blog_urls used to live as a
-      // single flat array field (whichever source it came from above —
-      // the old shared "state" doc, an old regular per-key doc, or a fresh
-      // localStorage import) before being chunked one-document-per-row. A
-      // large list in that flat form could exceed Firestore's 1 MiB
-      // document limit and silently fail to save at all — this is the fix
-      // for that, splitting any surviving flat array into per-row docs.
+      // single flat array field (whichever source it came from above — the
+      // old shared "state" doc, an old regular per-key doc, or a fresh
+      // localStorage import). A large list in that form could exceed
+      // Firestore's 1 MiB document limit and silently fail to save, so it
+      // is split across shard documents here. Rows already stored one per
+      // document are left alone: useCloudArrayStorage reads that layout and
+      // re-shards it on the next save, which avoids spending thousands of
+      // writes during a page load.
       for (const key of ARRAY_CHUNK_KEYS) {
         const flatArray = finalState[key];
         if (
@@ -281,21 +284,14 @@ export function CloudDataProvider({ children }) {
           flatArray.length > 0 &&
           Object.keys(finalChunks[key] || {}).length === 0
         ) {
-          const rowsObj = {};
-          flatArray.forEach((row) => {
-            if (row && row.id) rowsObj[row.id] = row;
-          });
+          const shardDocs = shardsToDocs(flatArray);
           try {
-            await commitChunkOps(uid, key, Object.entries(rowsObj), []);
-            await setDoc(doc(db, "users", uid, "data", `${key}_order`), {
-              value: flatArray.map((r) => r.id),
-            });
+            await commitChunkOps(uid, key, Object.entries(shardDocs), []);
             await deleteDoc(doc(db, "users", uid, "data", key));
           } catch (err) {
             console.error(`CloudData: array migration for "${key}" failed:`, err);
           }
-          finalChunks = { ...finalChunks, [key]: rowsObj };
-          finalState[`${key}_order`] = flatArray.map((r) => r.id);
+          finalChunks = { ...finalChunks, [key]: shardDocs };
         }
         delete finalState[key];
       }

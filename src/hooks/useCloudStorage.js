@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useCloudData } from "../context/CloudDataContext";
+import { docsToRows, shardsToDocs } from "../utils/rowShards";
 
 /**
  * Drop-in, Firestore-backed replacement for useStorage — same
@@ -43,87 +44,78 @@ export function useChunkedCloudStorage(prefix, defaultValue = {}) {
 }
 
 /**
- * Array-oriented storage for row lists that can grow past Firestore's 1 MiB
- * single-document limit (e.g. bc_urls/blog_urls with thousands of rows).
- * Each row is chunked into its own document, keyed by the row's own `id`,
- * the same way flow1Data/flow2Data already chunk large parsed datasets —
- * so one giant list can't blow a document's size budget the way it did
- * when the whole array lived in a single document/field. A small separate
- * document holds just the row order (an array of ids stays tiny even at
- * thousands of rows), since the chunked collection itself has no ordering.
+ * Array-oriented storage for row lists too large for one Firestore document
+ * (bc_urls/blog_urls run to thousands of rows).
+ *
+ * Rows are packed into a handful of shard documents rather than one document
+ * per row. Both layouts stay under the 1 MiB document limit, but per-row
+ * documents spend Firestore quota in proportion to the row count: importing
+ * 7,714 rows cost 7,714 writes, clearing them 7,714 deletes, loading them
+ * 7,714 reads, against a free-plan allowance of 20,000 of each per day. With
+ * shards the same list is about sixteen documents, so every one of those
+ * operations costs sixteen.
+ *
+ * Reading tolerates either layout, so an account still holding per-row
+ * documents loads normally; its next save writes shards, and the leftovers
+ * are deleted because they are absent from what gets stored.
  */
 export function useCloudArrayStorage(key, defaultValue = []) {
   const { chunked, setChunkedValue } = useCloudData();
-  const rowsObj = chunked[key] ?? {};
-  const [order, setOrder] = useCloudStorage(`${key}_order`, null, {
+  const docsById = chunked[key] ?? {};
+  // Only consulted while reading the old per-row layout; shards carry their
+  // own order, so nothing writes this any more.
+  const [legacyOrder, setLegacyOrder] = useCloudStorage(`${key}_order`, null, {
     sync: true,
   });
 
-  const array = useMemo(() => {
-    const rowIds = Object.keys(rowsObj);
-    if (rowIds.length === 0) return defaultValue;
-    if (!Array.isArray(order)) return Object.values(rowsObj);
-    const seen = new Set();
-    const result = [];
-    for (const id of order) {
-      if (Object.prototype.hasOwnProperty.call(rowsObj, id)) {
-        result.push(rowsObj[id]);
-        seen.add(id);
-      }
+  const { array, onLegacyLayout } = useMemo(() => {
+    if (Object.keys(docsById).length === 0) {
+      return { array: defaultValue, onLegacyLayout: false };
     }
-    for (const [id, row] of Object.entries(rowsObj)) {
-      if (!seen.has(id)) result.push(row);
-    }
-    return result;
+    const { rows, migrated } = docsToRows(docsById, legacyOrder);
+    return { array: rows, onLegacyLayout: !migrated };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rowsObj, order]);
+  }, [docsById, legacyOrder]);
 
-  // Returns a promise that resolves once every row document AND the order
-  // document have landed. Callers saving a large list must await it before
-  // showing success or allowing a reload — thousands of rows commit across
-  // many round trips, and a reload part-way through leaves the list short
-  // by however many batches hadn't finished.
+  // Returns a promise that resolves once every shard has landed. Callers
+  // saving a large list must await it before showing success or allowing a
+  // reload — a part-finished save leaves the list short by whatever hadn't
+  // committed.
   const setArray = useCallback(
     (newValueOrFn, { onProgress } = {}) => {
       const next =
         typeof newValueOrFn === "function" ? newValueOrFn(array) : newValueOrFn;
-      const nextObj = {};
-      const nextOrder = [];
-      for (const row of next) {
-        nextObj[row.id] = row;
-        nextOrder.push(row.id);
-      }
-      // compareByValue: rows are small, and an import rebuilds every one of
-      // them, so without a contents check an unchanged re-import rewrites
-      // the entire list.
-      const rowsWritten = setChunkedValue(key, nextObj, {}, {
+
+      // Any per-row documents still present are absent from this map, so the
+      // storage layer deletes them — the old layout is cleaned up by the
+      // first save that follows it.
+      const nextDocs = shardsToDocs(next);
+
+      // compareByValue: a shard is rebuilt on every save, so by reference
+      // they all look changed. Comparing contents means editing one row
+      // rewrites one shard instead of all of them.
+      const written = setChunkedValue(key, nextDocs, {}, {
         onProgress,
         compareByValue: true,
       });
 
-      // The order document holds every row id, so for a large list it is
-      // hundreds of kilobytes. Editing a cell changes one row's contents
-      // and leaves the order untouched, yet this used to rewrite the whole
-      // thing on every keystroke — far more traffic than the single small
-      // row write beside it. Only write when the order really changed:
-      // a row added, removed, or moved.
-      const orderChanged =
-        !Array.isArray(order) ||
-        order.length !== nextOrder.length ||
-        nextOrder.some((id, i) => order[i] !== id);
-      const orderWritten = orderChanged
-        ? setOrder(nextOrder)
-        : Promise.resolve();
+      // The order document belongs to the per-row layout. Clear it once,
+      // while migrating away, and never write it again.
+      const orderCleared =
+        onLegacyLayout && legacyOrder != null
+          ? setLegacyOrder(null)
+          : Promise.resolve();
+
       // Resolves to a result rather than rejecting: row edits and additions
       // call this without awaiting, and a rejected promise nobody is
       // holding becomes an unhandled rejection. Callers that care about
       // the outcome read `ok`.
-      return Promise.all([rowsWritten, orderWritten]).then(
+      return Promise.all([written, orderCleared]).then(
         () => ({ ok: true, error: null }),
         (error) => ({ ok: false, error }),
       );
     },
-    [array, key, order, setChunkedValue, setOrder],
+    [array, key, legacyOrder, onLegacyLayout, setChunkedValue, setLegacyOrder],
   );
 
   return [array, setArray];
