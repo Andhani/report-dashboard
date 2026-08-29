@@ -7,10 +7,15 @@ export default function AuthCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const { ready, setStateKey } = useCloudData();
+  // loadError matters here specifically because this route sits outside
+  // ProtectedRoute, which is the only other place that renders it. Without
+  // reading it, a failed initial fetch leaves `ready` false forever and
+  // this page spins with nothing explaining why.
+  const { ready, loadError, retryLoad, setStateKey } = useCloudData();
   const [status, setStatus] = useState("Exchanging code for tokens…");
   const [error, setError] = useState(null);
   const [pendingToken, setPendingToken] = useState(null);
+  const [slow, setSlow] = useState(false);
   // An authorization code is single-use: a second exchange would fail with
   // invalid_grant, so guard against the effect firing twice.
   const exchangeStartedRef = useRef(false);
@@ -48,6 +53,14 @@ export default function AuthCallback() {
     exchangeCode(code);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user]);
+
+  // A spinner with no end is indistinguishable from a crash. If the wait
+  // runs long, say so rather than leaving the page looking frozen.
+  useEffect(() => {
+    if (ready || loadError) return;
+    const timer = setTimeout(() => setSlow(true), 10000);
+    return () => clearTimeout(timer);
+  }, [ready, loadError]);
 
   // Persist once the initial fetch has landed. Writing earlier would be
   // clobbered when that fetch completes and replaces local state wholesale
@@ -118,29 +131,50 @@ export default function AuthCallback() {
     }
   }
 
+  const failure = error || loadError;
+
   return (
     <div className="h-screen flex items-center justify-center bg-bg px-4">
       <div className="card w-full max-w-sm p-10 text-center">
-        <div className="text-4xl mb-4">{error ? "❌" : "🔐"}</div>
-        {error ? (
+        <div className="text-4xl mb-4">{failure ? "❌" : "🔐"}</div>
+        {failure ? (
           <>
             <div className="font-semibold text-danger mb-2">
-              Authentication Failed
+              {error ? "Authentication Failed" : "Couldn't reach your data"}
             </div>
-            <div className="text-xs text-danger mb-6 leading-relaxed">
-              {error}
+            <div className="text-xs text-danger mb-2 leading-relaxed break-words">
+              {failure}
             </div>
-            <button
-              onClick={() => navigate("/settings")}
-              className="btn-secondary mx-auto"
-            >
-              Back to Settings
-            </button>
+            {loadError && pendingToken && (
+              <div className="text-xs text-muted mb-4 leading-relaxed">
+                Google approved the connection, but it couldn't be saved.
+                Retrying will finish it — nothing needs reconnecting.
+              </div>
+            )}
+            <div className="flex flex-col gap-2 mt-4">
+              {loadError && (
+                <button onClick={retryLoad} className="btn-primary mx-auto">
+                  Try again
+                </button>
+              )}
+              <button
+                onClick={() => navigate("/settings")}
+                className="btn-secondary mx-auto"
+              >
+                Back to Settings
+              </button>
+            </div>
           </>
         ) : (
           <>
             <div className="font-semibold text-ink mb-4">{status}</div>
             <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
+            {slow && (
+              <div className="text-xs text-muted mt-5 leading-relaxed">
+                Still working. A large URL list can take a while to load on
+                this step — leave the tab open.
+              </div>
+            )}
           </>
         )}
       </div>
