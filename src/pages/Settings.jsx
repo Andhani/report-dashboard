@@ -39,9 +39,12 @@ export default function Settings() {
     alert("Spreadsheet URL saved.");
   }
 
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  // Trimmed to match AuthCallback: a trailing space or newline picked up
+  // from a hosting dashboard is invisible there but travels into the build.
+  const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
   const redirectUri =
-    import.meta.env.VITE_REDIRECT_URI || "http://localhost:3000/auth/callback";
+    (import.meta.env.VITE_REDIRECT_URI || "").trim() ||
+    "http://localhost:3000/auth/callback";
 
   function handleOAuthConnect() {
     if (!clientId) {

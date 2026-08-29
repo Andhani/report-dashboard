@@ -81,11 +81,26 @@ export default function AuthCallback() {
 
   async function exchangeCode(code) {
     try {
-      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-      const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
+      // Trimmed because these arrive from a hosting dashboard where a
+      // trailing space or newline is invisible in the UI but is faithfully
+      // baked into the bundle — and Google rejects the credential with a
+      // message that points at the value rather than the whitespace.
+      const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
+      const clientSecret = (
+        import.meta.env.VITE_GOOGLE_CLIENT_SECRET || ""
+      ).trim();
       const redirectUri =
-        import.meta.env.VITE_REDIRECT_URI ||
+        (import.meta.env.VITE_REDIRECT_URI || "").trim() ||
         "http://localhost:3000/auth/callback";
+
+      if (!clientSecret) {
+        setError(
+          "VITE_GOOGLE_CLIENT_SECRET is empty in this build. Set it in the " +
+            "host's environment variables, then redeploy — Vite bakes these " +
+            "in at build time, so changing it without rebuilding has no effect.",
+        );
+        return;
+      }
 
       const res = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
@@ -102,8 +117,16 @@ export default function AuthCallback() {
       const data = await res.json();
 
       if (data.error) {
+        // Google reports a bad credential as "the client secret is invalid"
+        // whether the value is wrong, empty, or carrying stray whitespace.
+        // Reporting the shape of what this build actually sent separates
+        // those without anyone having to read the minified bundle. Only
+        // lengths and a short prefix — never the secret itself.
         setError(
-          `Token exchange failed: ${data.error_description || data.error}`,
+          `Token exchange failed: ${data.error_description || data.error}` +
+            `\n\nThis build sent — client id ending “${clientId.slice(-24)}”, ` +
+            `secret “${clientSecret.slice(0, 7)}…” of ${clientSecret.length} ` +
+            `characters, redirect “${redirectUri}”.`,
         );
         return;
       }
@@ -146,7 +169,7 @@ export default function AuthCallback() {
             <div className="font-semibold text-danger mb-2">
               {error ? "Authentication Failed" : "Couldn't reach your data"}
             </div>
-            <div className="text-xs text-danger mb-2 leading-relaxed break-words">
+            <div className="text-xs text-danger mb-2 leading-relaxed break-words whitespace-pre-line text-left">
               {failure}
             </div>
             {loadError && pendingToken && (
