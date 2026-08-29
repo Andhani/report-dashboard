@@ -93,7 +93,13 @@ export function useCloudArrayStorage(key, defaultValue = []) {
         nextObj[row.id] = row;
         nextOrder.push(row.id);
       }
-      const rowsWritten = setChunkedValue(key, nextObj, {}, { onProgress });
+      // compareByValue: rows are small, and an import rebuilds every one of
+      // them, so without a contents check an unchanged re-import rewrites
+      // the entire list.
+      const rowsWritten = setChunkedValue(key, nextObj, {}, {
+        onProgress,
+        compareByValue: true,
+      });
 
       // The order document holds every row id, so for a large list it is
       // hundreds of kilobytes. Editing a cell changes one row's contents

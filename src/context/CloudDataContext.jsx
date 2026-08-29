@@ -390,7 +390,7 @@ export function CloudDataProvider({ children }) {
   // across many batched round trips, and treating the call as instant is
   // how a 7,700-row import comes back as 5,000 after a reload.
   const setChunkedValue = useCallback(
-    (prefix, newValue, defaultValue = {}, { onProgress } = {}) => {
+    (prefix, newValue, defaultValue = {}, { onProgress, compareByValue } = {}) => {
       const prev = chunkedRef.current[prefix] ?? defaultValue;
       const next = typeof newValue === "function" ? newValue(prev) : newValue;
       writeErrorsRef.current[prefix] = null;
@@ -406,9 +406,26 @@ export function CloudDataProvider({ children }) {
         );
       }
 
+      // Reference equality catches untouched entries cheaply. compareByValue
+      // adds a contents check for callers whose values are small and always
+      // freshly built — re-importing a list produces all-new row objects, so
+      // by reference every row looks changed and gets rewritten even when
+      // the data is identical. Only ever skips a write when the stored
+      // contents already match, so an inconclusive comparison just means a
+      // redundant write, never a lost one. Off by default: the flow data
+      // chunks are large enough that serialising them to compare would cost
+      // more than the write it might save.
       const toSet = [];
       for (const [k, v] of Object.entries(next)) {
-        if (prev[k] !== v) toSet.push([k, v]);
+        if (prev[k] === v) continue;
+        if (
+          compareByValue &&
+          k in prev &&
+          JSON.stringify(prev[k]) === JSON.stringify(v)
+        ) {
+          continue;
+        }
+        toSet.push([k, v]);
       }
       const toDelete = [];
       for (const k of Object.keys(prev)) {
