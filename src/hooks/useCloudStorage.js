@@ -94,7 +94,20 @@ export function useCloudArrayStorage(key, defaultValue = []) {
         nextOrder.push(row.id);
       }
       const rowsWritten = setChunkedValue(key, nextObj, {}, { onProgress });
-      const orderWritten = setOrder(nextOrder);
+
+      // The order document holds every row id, so for a large list it is
+      // hundreds of kilobytes. Editing a cell changes one row's contents
+      // and leaves the order untouched, yet this used to rewrite the whole
+      // thing on every keystroke — far more traffic than the single small
+      // row write beside it. Only write when the order really changed:
+      // a row added, removed, or moved.
+      const orderChanged =
+        !Array.isArray(order) ||
+        order.length !== nextOrder.length ||
+        nextOrder.some((id, i) => order[i] !== id);
+      const orderWritten = orderChanged
+        ? setOrder(nextOrder)
+        : Promise.resolve();
       // Resolves to a result rather than rejecting: row edits and additions
       // call this without awaiting, and a rejected promise nobody is
       // holding becomes an unhandled rejection. Callers that care about
@@ -104,7 +117,7 @@ export function useCloudArrayStorage(key, defaultValue = []) {
         (error) => ({ ok: false, error }),
       );
     },
-    [array, key, setChunkedValue, setOrder],
+    [array, key, order, setChunkedValue, setOrder],
   );
 
   return [array, setArray];
