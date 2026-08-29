@@ -1,7 +1,12 @@
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
-import { AlertTriangle, Clock } from "lucide-react";
+import { AlertTriangle, Clock, MailCheck } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useCloudData } from "../context/CloudDataContext";
+import {
+  getMyAccessRequest,
+  submitAccessRequest,
+} from "../utils/accessRequests";
 
 export default function ProtectedRoute() {
   const { user, role, loading, signIn, signOut } = useAuth();
@@ -37,26 +42,7 @@ export default function ProtectedRoute() {
   }
 
   if (!role) {
-    return (
-      <CenteredCard>
-        <div className="w-12 h-12 bg-warning/10 rounded-xl flex items-center justify-center mx-auto mb-5">
-          <Clock size={20} className="text-warning" strokeWidth={1.75} />
-        </div>
-        <h1 className="text-base font-semibold text-ink mb-2">
-          Access pending
-        </h1>
-        <p className="text-xs text-muted leading-relaxed mb-1">
-          Signed in as <strong className="text-ink">{user.email}</strong>
-        </p>
-        <p className="text-xs text-muted leading-relaxed mb-6">
-          This account hasn't been approved yet. Contact your admin to
-          request access.
-        </p>
-        <button onClick={signOut} className="btn-secondary mx-auto">
-          Sign out
-        </button>
-      </CenteredCard>
-    );
+    return <AccessRequestScreen user={user} onSignOut={signOut} />;
   }
 
   if (loadError) {
@@ -92,6 +78,120 @@ export default function ProtectedRoute() {
   }
 
   return <Outlet />;
+}
+
+/**
+ * Shown to a signed-in account that isn't on the allow-list. Rather than
+ * telling people to go find an admin out-of-band, it files the request
+ * in-app so it shows up in the Admin panel for approval.
+ */
+function AccessRequestScreen({ user, onSignOut }) {
+  const { refreshRole } = useAuth();
+  const [state, setState] = useState("checking");
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getMyAccessRequest(user.email)
+      .then((req) => {
+        if (!cancelled) setState(req ? "sent" : "idle");
+      })
+      .catch(() => {
+        // A read failure here shouldn't strand the screen — just offer the
+        // request button and let the write surface any real problem.
+        if (!cancelled) setState("idle");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user.email]);
+
+  async function handleRequest() {
+    setError(null);
+    setState("sending");
+    try {
+      await submitAccessRequest(user);
+      setState("sent");
+    } catch (err) {
+      setError(err.message);
+      setState("idle");
+    }
+  }
+
+  async function handleCheckAgain() {
+    setError(null);
+    setState("refreshing");
+    try {
+      // If an admin just approved this account, picking the new role up
+      // re-renders ProtectedRoute straight into the dashboard.
+      const next = await refreshRole();
+      if (!next) setState("sent");
+    } catch (err) {
+      setError(err.message);
+      setState("sent");
+    }
+  }
+
+  const sent = state === "sent" || state === "refreshing";
+
+  return (
+    <CenteredCard>
+      <div
+        className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-5 ${
+          sent ? "bg-accent/10" : "bg-warning/10"
+        }`}
+      >
+        {sent ? (
+          <MailCheck size={20} className="text-accent" strokeWidth={1.75} />
+        ) : (
+          <Clock size={20} className="text-warning" strokeWidth={1.75} />
+        )}
+      </div>
+
+      <h1 className="text-base font-semibold text-ink mb-2">
+        {sent ? "Request sent" : "Access needed"}
+      </h1>
+      <p className="text-xs text-muted leading-relaxed mb-1">
+        Signed in as <strong className="text-ink">{user.email}</strong>
+      </p>
+      <p className="text-xs text-muted leading-relaxed mb-6">
+        {sent
+          ? "An admin has been notified. You'll get in once they approve — check again below."
+          : "This account isn't approved yet. Send a request and an admin can approve it from the dashboard."}
+      </p>
+
+      {error && (
+        <div className="text-xs text-danger mb-4 leading-relaxed break-words">
+          {error}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {state === "checking" ? (
+          <Spinner />
+        ) : sent ? (
+          <button
+            onClick={handleCheckAgain}
+            disabled={state === "refreshing"}
+            className="btn-primary mx-auto disabled:opacity-60"
+          >
+            {state === "refreshing" ? "Checking…" : "Check again"}
+          </button>
+        ) : (
+          <button
+            onClick={handleRequest}
+            disabled={state === "sending"}
+            className="btn-primary mx-auto disabled:opacity-60"
+          >
+            {state === "sending" ? "Sending…" : "Request access"}
+          </button>
+        )}
+        <button onClick={onSignOut} className="btn-ghost mx-auto text-2xs">
+          Sign out
+        </button>
+      </div>
+    </CenteredCard>
+  );
 }
 
 function CenteredCard({ children }) {

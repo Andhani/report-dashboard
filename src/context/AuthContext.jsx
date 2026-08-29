@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -14,6 +20,16 @@ export function AuthProvider({ children }) {
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const lookupRole = useCallback(async (email) => {
+    try {
+      const allowedSnap = await getDoc(doc(db, "allowedUsers", email));
+      return allowedSnap.exists() ? allowedSnap.data().role || "user" : null;
+    } catch (err) {
+      console.error("AuthContext: allowedUsers lookup failed:", err);
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     return onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
@@ -23,18 +39,24 @@ export function AuthProvider({ children }) {
         return;
       }
       setUser(firebaseUser);
-      try {
-        const allowedSnap = await getDoc(
-          doc(db, "allowedUsers", firebaseUser.email),
-        );
-        setRole(allowedSnap.exists() ? allowedSnap.data().role || "user" : null);
-      } catch (err) {
-        console.error("AuthContext: allowedUsers lookup failed:", err);
-        setRole(null);
-      }
+      setRole(await lookupRole(firebaseUser.email));
       setLoading(false);
     });
-  }, []);
+  }, [lookupRole]);
+
+  /**
+   * Re-checks the allow-list for the signed-in user. Roles are otherwise
+   * only read when auth state changes, so someone waiting on the access
+   * screen would have to sign out and back in to notice an approval that
+   * just landed. Returns the freshly read role.
+   */
+  const refreshRole = useCallback(async () => {
+    const current = auth.currentUser;
+    if (!current) return null;
+    const next = await lookupRole(current.email);
+    setRole(next);
+    return next;
+  }, [lookupRole]);
 
   function signIn() {
     return signInWithPopup(auth, googleProvider);
@@ -45,7 +67,9 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{ user, role, loading, signIn, signOut, refreshRole }}
+    >
       {children}
     </AuthContext.Provider>
   );
