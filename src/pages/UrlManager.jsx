@@ -6,7 +6,10 @@ import {
   useCloudStorage as useStorage,
   useCloudArrayStorage,
 } from "../hooks/useCloudStorage";
-import { useCloudData } from "../context/CloudDataContext";
+import {
+  describeWriteError,
+  useCloudData,
+} from "../context/CloudDataContext";
 import { usePagination } from "../hooks/usePagination";
 import { urlToSlug } from "../utils/dateUtils";
 import { getValidToken } from "../utils/googleAuth";
@@ -168,7 +171,7 @@ export default function UrlManager() {
       setImportSheetUrl("");
       setSaveNotice(`${label} URL list cleared.`);
     } catch (err) {
-      setSaveNotice(`Couldn't finish clearing: ${err.message}`);
+      setSaveNotice(`Couldn't finish clearing. ${describeWriteError(err)}`);
     } finally {
       setSaving(null);
     }
@@ -193,9 +196,7 @@ export default function UrlManager() {
           setSaving({ label: `Saving ${label} URLs`, done, total }),
       });
       if (!ok) {
-        setSaveNotice(
-          `Save failed: ${error?.message || "some rows didn't reach the cloud."}`,
-        );
+        setSaveNotice(`Save failed. ${describeWriteError(error)}`);
         return false;
       }
       setFilters({});

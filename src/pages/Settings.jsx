@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useCloudStorage } from "../hooks/useCloudStorage";
-import { useCloudData } from "../context/CloudDataContext";
+import {
+  describeWriteError,
+  useCloudData,
+} from "../context/CloudDataContext";
 import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
 import { getValidToken } from "../utils/googleAuth";
@@ -106,7 +109,7 @@ export default function Settings() {
         return;
       }
     } catch (err) {
-      setClearNotice(`Couldn't finish clearing: ${err.message}`);
+      setClearNotice(`Couldn't finish clearing. ${describeWriteError(err)}`);
     } finally {
       setClearing(null);
     }

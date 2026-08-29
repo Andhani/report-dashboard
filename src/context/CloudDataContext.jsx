@@ -51,6 +51,31 @@ function sanitizeForFirestore(value) {
   return value === undefined ? null : JSON.parse(JSON.stringify(value));
 }
 
+/**
+ * Firestore answers a exhausted daily quota with resource-exhausted and then
+ * retries behind ever-longer backoff, so the symptom is a save that never
+ * finishes rather than one that fails. Naming it turns a mystery stall into
+ * something actionable.
+ */
+export function describeWriteError(err) {
+  if (err?.code === "resource-exhausted") {
+    return (
+      "Firestore's daily quota is used up, so writes are being refused. " +
+      "The free plan allows 20,000 writes and 20,000 deletes per day, and " +
+      "one import of a large URL list uses thousands. It resets at midnight " +
+      "US Pacific, or upgrade the Firebase project to the pay-as-you-go plan " +
+      "to lift the cap."
+    );
+  }
+  if (err?.code === "permission-denied") {
+    return "Firestore refused the write — check the security rules are published.";
+  }
+  if (err?.code === "unavailable") {
+    return "Couldn't reach Firestore. Check your connection and try again.";
+  }
+  return err?.message || "The save didn't complete.";
+}
+
 // Firestore caps a single batch at 500 writes. Row-chunked collections
 // (bc_urls/blog_urls) can hold thousands of docs, so a full re-import or
 // clear used to fire one setDoc/deleteDoc network round trip per row —
@@ -438,8 +463,7 @@ export function CloudDataProvider({ children }) {
 
       return trackWrite(
         commitChunkOps(uid, prefix, toSet, toDelete, onProgress).catch((err) => {
-          writeErrorsRef.current[prefix] =
-            "Cloud sync failed for some data — kept in memory but may not survive a refresh.";
+          writeErrorsRef.current[prefix] = describeWriteError(err);
           console.error(`CloudData: chunk write "${prefix}" failed:`, err);
           bump((n) => n + 1);
           throw err;
