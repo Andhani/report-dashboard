@@ -89,11 +89,24 @@ export default function UrlManager() {
 
   // Import toolbar state
   const [importMode, setImportMode] = useStorage("urls_import_mode", "sheets");
-  const [importSheetUrl, setImportSheetUrl] = useStorage("urls_import_sheet_url", "");
+  // Written synchronously: the debounced default could lose the cleared
+  // value to a reload, so a consumed URL would reappear in the field.
+  const [importSheetUrl, setImportSheetUrl] = useStorage(
+    "urls_import_sheet_url",
+    "",
+    { sync: true },
+  );
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState(null);
   const [csvLoading, setCsvLoading] = useState(false);
   const csvRef = useRef();
+
+  // Saving thousands of rows is many batched round trips taking real
+  // seconds. Without a visible in-progress state the page looks either
+  // frozen or already finished, and a reload during it loses whichever
+  // batches hadn't landed.
+  const [saving, setSaving] = useState(null); // { label, done, total }
+  const [saveNotice, setSaveNotice] = useState(null);
 
   // Column filters (Sheets/Excel-style), kept per tab since BC and Blog
   // share some column keys (url, status, pic, slug) but hold unrelated data.
@@ -134,23 +147,59 @@ export default function UrlManager() {
 
   async function handleClearAll() {
     if (
-      confirm(
+      !confirm(
         `Clear all ${activeTab.toUpperCase()} URLs? This cannot be undone.`,
       )
     ) {
-      await clearArrayKey(activeTab === "bc" ? "bc_urls" : "blog_urls");
+      return;
+    }
+    const label = activeTab.toUpperCase();
+    setSaveNotice(null);
+    setSaving({ label: `Deleting ${label} URLs`, done: 0, total: 0 });
+    try {
+      await clearArrayKey(
+        activeTab === "bc" ? "bc_urls" : "blog_urls",
+        (done, total) =>
+          setSaving({ label: `Deleting ${label} URLs`, done, total }),
+      );
       setFilters({});
+      setSaveNotice(`${label} URL list cleared.`);
+    } catch (err) {
+      setSaveNotice(`Couldn't finish clearing: ${err.message}`);
+    } finally {
+      setSaving(null);
     }
   }
 
-  function applyImport(rows) {
+  async function applyImport(rows) {
     if (
-      confirm(
+      !confirm(
         `Replace all existing ${activeTab.toUpperCase()} URLs with ${rows.length} imported rows?`,
       )
     ) {
-      setUrls(rows);
+      return false;
+    }
+    const label = activeTab.toUpperCase();
+    setSaveNotice(null);
+    setSaving({ label: `Saving ${label} URLs`, done: 0, total: rows.length });
+    try {
+      // Awaited: this is the write that was previously fire-and-forget, so
+      // the list looked saved while batches were still committing.
+      const { ok, error } = await setUrls(rows, {
+        onProgress: (done, total) =>
+          setSaving({ label: `Saving ${label} URLs`, done, total }),
+      });
+      if (!ok) {
+        setSaveNotice(
+          `Save failed: ${error?.message || "some rows didn't reach the cloud."}`,
+        );
+        return false;
+      }
       setFilters({});
+      setSaveNotice(`Saved ${rows.length.toLocaleString()} ${label} URLs.`);
+      return true;
+    } finally {
+      setSaving(null);
     }
   }
 
@@ -196,8 +245,11 @@ export default function UrlManager() {
       const rows = rowsToObjects(values, headerIdx).map((raw) =>
         parseImportedRow(raw, activeTab, cols),
       );
-      applyImport(rows);
-      setImportSheetUrl("");
+      // Cleared only once the rows are actually saved — clearing on the way
+      // in wiped the field even when the confirm was cancelled or the save
+      // failed, and a debounced write of the empty value could be lost to a
+      // reload, bringing the old URL back.
+      if (await applyImport(rows)) setImportSheetUrl("");
     } catch (err) {
       setSheetError(err.message);
     } finally {
@@ -220,7 +272,7 @@ export default function UrlManager() {
         const rows = rowsToObjects(data, headerIdx).map((raw) =>
           parseImportedRow(raw, activeTab, cols),
         );
-        applyImport(rows);
+        await applyImport(rows);
       } else {
         await new Promise((resolve, reject) => {
           Papa.parse(file, {
@@ -231,8 +283,7 @@ export default function UrlManager() {
               const rows = rowsToObjects(data, headerIdx).map((raw) =>
                 parseImportedRow(raw, activeTab, cols),
               );
-              applyImport(rows);
-              resolve();
+              applyImport(rows).then(resolve, reject);
             },
             error: (err) => reject(err),
           });
@@ -428,13 +479,58 @@ export default function UrlManager() {
           {urls.length > 0 && (
             <button
               onClick={handleClearAll}
-              className="btn-ghost text-danger hover:bg-danger/5"
+              disabled={!!saving}
+              className="btn-ghost text-danger hover:bg-danger/5 disabled:opacity-50"
             >
               Clear all
             </button>
           )}
         </div>
       </div>
+
+      {saving && (
+        <div className="card p-4 border-accent/40">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin shrink-0" />
+            <div className="text-xs font-medium text-ink">
+              {saving.label}
+              {saving.total > 0 && (
+                <>
+                  {" "}
+                  — {saving.done.toLocaleString()} of{" "}
+                  {saving.total.toLocaleString()}
+                </>
+              )}
+            </div>
+          </div>
+          <div className="h-1.5 bg-border rounded-full overflow-hidden">
+            <div
+              className="h-full bg-accent transition-all duration-200"
+              style={{
+                width: saving.total
+                  ? `${Math.round((saving.done / saving.total) * 100)}%`
+                  : "15%",
+              }}
+            />
+          </div>
+          <p className="text-2xs text-muted mt-2 leading-relaxed">
+            Don't reload or close this tab until it finishes — rows still in
+            flight wouldn't be saved.
+          </p>
+        </div>
+      )}
+
+      {saveNotice && !saving && (
+        <div className="card p-3 flex items-center justify-between gap-3">
+          <span className="text-xs text-ink">{saveNotice}</span>
+          <button
+            onClick={() => setSaveNotice(null)}
+            className="btn-ghost text-2xs text-muted"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       {urls.length === 0 ? (

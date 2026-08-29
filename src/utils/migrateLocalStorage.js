@@ -140,15 +140,27 @@ export async function persistLegacyMigration(uid, legacy) {
  * otherwise fire thousands of concurrent delete requests for a single
  * "clear" action.
  */
-export async function clearChunkedCollection(uid, prefix) {
+export async function clearChunkedCollection(uid, prefix, onProgress) {
   const snap = await getDocs(collection(db, "users", uid, prefix));
-  const commits = [];
-  for (let i = 0; i < snap.docs.length; i += FIRESTORE_BATCH_LIMIT) {
+  const total = snap.docs.length;
+  onProgress?.(0, total);
+  if (total === 0) return;
+
+  const batches = [];
+  for (let i = 0; i < total; i += FIRESTORE_BATCH_LIMIT) {
+    const slice = snap.docs.slice(i, i + FIRESTORE_BATCH_LIMIT);
     const batch = writeBatch(db);
-    for (const d of snap.docs.slice(i, i + FIRESTORE_BATCH_LIMIT)) {
-      batch.delete(d.ref);
-    }
-    commits.push(batch.commit());
+    for (const d of slice) batch.delete(d.ref);
+    batches.push({ batch, size: slice.length });
   }
-  await Promise.all(commits);
+
+  let done = 0;
+  await Promise.all(
+    batches.map(({ batch, size }) =>
+      batch.commit().then(() => {
+        done += size;
+        onProgress?.(done, total);
+      }),
+    ),
+  );
 }

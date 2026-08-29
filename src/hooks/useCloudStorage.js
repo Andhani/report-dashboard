@@ -31,7 +31,7 @@ export function useChunkedCloudStorage(prefix, defaultValue = {}) {
   const value = chunked[prefix] ?? defaultValue;
 
   const setValue = useCallback(
-    (newValue) => setChunkedValue(prefix, newValue, defaultValue),
+    (newValue, opts) => setChunkedValue(prefix, newValue, defaultValue, opts),
     [prefix, setChunkedValue, defaultValue],
   );
 
@@ -78,8 +78,13 @@ export function useCloudArrayStorage(key, defaultValue = []) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowsObj, order]);
 
+  // Returns a promise that resolves once every row document AND the order
+  // document have landed. Callers saving a large list must await it before
+  // showing success or allowing a reload — thousands of rows commit across
+  // many round trips, and a reload part-way through leaves the list short
+  // by however many batches hadn't finished.
   const setArray = useCallback(
-    (newValueOrFn) => {
+    (newValueOrFn, { onProgress } = {}) => {
       const next =
         typeof newValueOrFn === "function" ? newValueOrFn(array) : newValueOrFn;
       const nextObj = {};
@@ -88,8 +93,16 @@ export function useCloudArrayStorage(key, defaultValue = []) {
         nextObj[row.id] = row;
         nextOrder.push(row.id);
       }
-      setChunkedValue(key, nextObj);
-      setOrder(nextOrder);
+      const rowsWritten = setChunkedValue(key, nextObj, {}, { onProgress });
+      const orderWritten = setOrder(nextOrder);
+      // Resolves to a result rather than rejecting: row edits and additions
+      // call this without awaiting, and a rejected promise nobody is
+      // holding becomes an unhandled rejection. Callers that care about
+      // the outcome read `ok`.
+      return Promise.all([rowsWritten, orderWritten]).then(
+        () => ({ ok: true, error: null }),
+        (error) => ({ ok: false, error }),
+      );
     },
     [array, key, setChunkedValue, setOrder],
   );

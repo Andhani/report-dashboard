@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useCloudStorage } from "../hooks/useCloudStorage";
 import { useCloudData } from "../context/CloudDataContext";
 import { useDataContext } from "../context/DataContext";
@@ -12,6 +12,8 @@ export default function Settings() {
   const [sheetsUrl, setSheetsUrl] = useCloudStorage("sheets_report_url", "");
   const { setFlow1Data, setFlow2Data } = useDataContext();
   const { clearAll, clearArrayKey } = useCloudData();
+  const [clearing, setClearing] = useState(null);
+  const [clearNotice, setClearNotice] = useState(null);
 
   // Fetch email from Google userinfo if token exists but email not yet stored
   useEffect(() => {
@@ -79,17 +81,32 @@ export default function Settings() {
   async function handleClearData(target) {
     if (!confirm(clearConfirmMessages[target])) return;
 
-    if (target === "flow1") {
-      setFlow1Data({});
-    } else if (target === "flow2") {
-      setFlow2Data({});
-    } else if (target === "urls") {
-      await clearArrayKey("bc_urls");
-      await clearArrayKey("blog_urls");
-    } else if (target === "all") {
-      await clearAll();
-      localStorage.clear();
-      window.location.reload();
+    // Deleting thousands of row documents takes real seconds. Without a
+    // busy state the page simply stops responding to clicks with nothing
+    // said, so there is no way to tell a working delete from a hung one.
+    setClearNotice(null);
+    setClearing(target);
+    try {
+      if (target === "flow1") {
+        await setFlow1Data({});
+        setClearNotice("Traffic (Optimized) data cleared.");
+      } else if (target === "flow2") {
+        await setFlow2Data({});
+        setClearNotice("Traffic Overview data cleared.");
+      } else if (target === "urls") {
+        await clearArrayKey("bc_urls");
+        await clearArrayKey("blog_urls");
+        setClearNotice("URL lists cleared.");
+      } else if (target === "all") {
+        await clearAll();
+        localStorage.clear();
+        window.location.reload();
+        return;
+      }
+    } catch (err) {
+      setClearNotice(`Couldn't finish clearing: ${err.message}`);
+    } finally {
+      setClearing(null);
     }
   }
 
@@ -340,7 +357,7 @@ export default function Settings() {
             Data Management
           </h2>
           <p className="text-xs text-muted mt-1">
-            Clear imported data from localStorage. This cannot be undone.
+            Clear imported data from your account. This cannot be undone.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -353,14 +370,35 @@ export default function Settings() {
             <button
               key={key}
               onClick={() => handleClearData(key)}
-              className={`btn-secondary ${
+              disabled={!!clearing}
+              className={`btn-secondary disabled:opacity-50 ${
                 danger ? "text-danger border-danger/30 hover:bg-danger/5" : ""
               }`}
             >
-              {label}
+              {clearing === key ? "Clearing…" : label}
             </button>
           ))}
         </div>
+        {clearing && (
+          <div className="flex items-center gap-3 text-xs text-muted">
+            <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin shrink-0" />
+            <span>
+              Deleting — this can take a while for a large list. Don't reload
+              the page until it finishes.
+            </span>
+          </div>
+        )}
+        {clearNotice && !clearing && (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-ink">{clearNotice}</span>
+            <button
+              onClick={() => setClearNotice(null)}
+              className="btn-ghost text-2xs text-muted"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

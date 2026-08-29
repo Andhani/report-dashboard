@@ -71,7 +71,7 @@ const FIRESTORE_BATCH_LIMIT = 500;
 // not bytes).
 const MAX_BATCH_BYTES = 5 * 1024 * 1024;
 
-async function commitChunkOps(uid, prefix, sets, deletes) {
+async function commitChunkOps(uid, prefix, sets, deletes, onProgress) {
   const ops = [];
   for (const [id, value] of sets) {
     // A single stringify does double duty: it strips `undefined` the same
@@ -84,13 +84,17 @@ async function commitChunkOps(uid, prefix, sets, deletes) {
     ops.push({ type: "delete", id, bytes: 0 });
   }
 
-  const commits = [];
+  // Batches are collected before committing so the caller can be told how
+  // many operations have actually landed. Thousands of rows take real
+  // seconds to write, and without that count the UI can only show a
+  // finished state that isn't true yet.
+  const batches = [];
   let batch = null;
   let count = 0;
   let bytes = 0;
 
   const flush = () => {
-    if (batch) commits.push(batch.commit());
+    if (batch) batches.push({ batch, size: count });
     batch = null;
     count = 0;
     bytes = 0;
@@ -115,7 +119,17 @@ async function commitChunkOps(uid, prefix, sets, deletes) {
   }
   flush();
 
-  await Promise.all(commits);
+  const total = ops.length;
+  let landed = 0;
+  onProgress?.(0, total);
+  await Promise.all(
+    batches.map(({ batch: b, size }) =>
+      b.commit().then(() => {
+        landed += size;
+        onProgress?.(landed, total);
+      }),
+    ),
+  );
 }
 
 /**
@@ -301,8 +315,8 @@ export function CloudDataProvider({ children }) {
 
   const persistStateKey = useCallback(
     (key, next) => {
-      if (!uid) return;
-      trackWrite(
+      if (!uid) return Promise.resolve();
+      return trackWrite(
         setDoc(doc(db, "users", uid, "data", key), {
           value: sanitizeForFirestore(next),
         }).catch((err) => console.error(`CloudData: write "${key}" failed:`, err)),
@@ -320,7 +334,9 @@ export function CloudDataProvider({ children }) {
       const next = typeof newValue === "function" ? newValue(base) : newValue;
       setStateDocState((prev) => ({ ...prev, [key]: next }));
       if (sync) {
-        persistStateKey(key, next);
+        // Returned so a caller doing a multi-part save (rows plus the
+        // order document) can wait for the whole thing.
+        return persistStateKey(key, next);
       } else {
         pendingRef.current[key] = next;
         clearTimeout(timersRef.current[key]);
@@ -368,21 +384,26 @@ export function CloudDataProvider({ children }) {
   const chunkedRef = useRef(chunked);
   chunkedRef.current = chunked;
 
+  // Returns a promise that settles when every write has actually landed in
+  // Firestore. Callers that show a "saved" state — or that let the user
+  // navigate away — must await it: a large list is thousands of documents
+  // across many batched round trips, and treating the call as instant is
+  // how a 7,700-row import comes back as 5,000 after a reload.
   const setChunkedValue = useCallback(
-    (prefix, newValue, defaultValue = {}) => {
+    (prefix, newValue, defaultValue = {}, { onProgress } = {}) => {
       const prev = chunkedRef.current[prefix] ?? defaultValue;
       const next = typeof newValue === "function" ? newValue(prev) : newValue;
       writeErrorsRef.current[prefix] = null;
 
-      if (!uid) return;
+      if (!uid) return Promise.resolve();
 
       if (next === null || next === undefined) {
         const keys = Object.keys(prev);
-        if (keys.length > 0) {
-          trackWrite(commitChunkOps(uid, prefix, [], keys).catch(() => {}));
-        }
         setChunkedState((prevAll) => ({ ...prevAll, [prefix]: {} }));
-        return;
+        if (keys.length === 0) return Promise.resolve();
+        return trackWrite(
+          commitChunkOps(uid, prefix, [], keys, onProgress).catch(() => {}),
+        );
       }
 
       const toSet = [];
@@ -394,18 +415,19 @@ export function CloudDataProvider({ children }) {
         if (!Object.prototype.hasOwnProperty.call(next, k)) toDelete.push(k);
       }
 
-      if (toSet.length > 0 || toDelete.length > 0) {
-        trackWrite(
-          commitChunkOps(uid, prefix, toSet, toDelete).catch((err) => {
-            writeErrorsRef.current[prefix] =
-              "Cloud sync failed for some data — kept in memory but may not survive a refresh.";
-            console.error(`CloudData: chunk write "${prefix}" failed:`, err);
-            bump((n) => n + 1);
-          }),
-        );
-      }
-
       setChunkedState((prevAll) => ({ ...prevAll, [prefix]: next }));
+
+      if (toSet.length === 0 && toDelete.length === 0) return Promise.resolve();
+
+      return trackWrite(
+        commitChunkOps(uid, prefix, toSet, toDelete, onProgress).catch((err) => {
+          writeErrorsRef.current[prefix] =
+            "Cloud sync failed for some data — kept in memory but may not survive a refresh.";
+          console.error(`CloudData: chunk write "${prefix}" failed:`, err);
+          bump((n) => n + 1);
+          throw err;
+        }),
+      );
     },
     [uid],
   );
@@ -426,9 +448,9 @@ export function CloudDataProvider({ children }) {
   // never leave real documents behind just because the local cache didn't
   // know about them.
   const clearArrayKey = useCallback(
-    async (key) => {
+    async (key, onProgress) => {
       if (!uid) return;
-      await clearChunkedCollection(uid, key);
+      await clearChunkedCollection(uid, key, onProgress);
       await deleteDoc(doc(db, "users", uid, "data", `${key}_order`)).catch(() => {});
       setChunkedState((prevAll) => ({ ...prevAll, [key]: {} }));
       setStateDocState((prev) => {
