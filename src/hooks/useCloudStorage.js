@@ -1,6 +1,11 @@
 import { useCallback, useMemo } from "react";
 import { useCloudData } from "../context/CloudDataContext";
-import { docsToRows, shardsToDocs } from "../utils/rowShards";
+import {
+  docsToRows,
+  joinKeyedDocs,
+  shardsToDocs,
+  splitKeyedMap,
+} from "../utils/rowShards";
 
 /**
  * Drop-in, Firestore-backed replacement for useStorage — same
@@ -29,11 +34,28 @@ export function useCloudStorage(key, defaultValue, opts = {}) {
  */
 export function useChunkedCloudStorage(prefix, defaultValue = {}) {
   const { chunked, setChunkedValue, writeErrors } = useCloudData();
-  const value = chunked[prefix] ?? defaultValue;
+  const docs = chunked[prefix] ?? {};
+
+  // Each stored value is spread across part documents, because one uploaded
+  // export can exceed Firestore's 1 MiB document limit on its own. Joining
+  // restores the exact object that was stored, so consumers — the compute
+  // functions above all — see no difference.
+  const value = useMemo(() => {
+    if (Object.keys(docs).length === 0) return defaultValue;
+    return joinKeyedDocs(docs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docs]);
 
   const setValue = useCallback(
-    (newValue, opts) => setChunkedValue(prefix, newValue, defaultValue, opts),
-    [prefix, setChunkedValue, defaultValue],
+    (newValue, opts) => {
+      const next =
+        typeof newValue === "function" ? newValue(value) : newValue;
+      // Values written before splitting existed sit under a plain key; they
+      // are absent from this map, so the storage layer deletes them as the
+      // parts replacing them are written.
+      return setChunkedValue(prefix, splitKeyedMap(next ?? {}), {}, opts);
+    },
+    [prefix, setChunkedValue, value],
   );
 
   return [

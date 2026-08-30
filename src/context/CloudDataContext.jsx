@@ -97,6 +97,14 @@ const FIRESTORE_BATCH_LIMIT = 500;
 // not bytes).
 const MAX_BATCH_BYTES = 5 * 1024 * 1024;
 
+// A batch is all-or-nothing, so one document Firestore rejects fails every
+// document sharing its batch. A single 1.17 MB export — over the 1 MiB
+// document limit — therefore wiped out the four valid chunks batched
+// alongside it, which is how uploading seventeen files left every tab empty
+// after a reload. Anything near the document limit is now committed alone,
+// so a rejection can only ever lose the document that caused it.
+const ISOLATE_DOC_BYTES = 900 * 1024;
+
 async function commitChunkOps(uid, prefix, sets, deletes, onProgress) {
   const ops = [];
   for (const [id, value] of sets) {
@@ -127,9 +135,12 @@ async function commitChunkOps(uid, prefix, sets, deletes, onProgress) {
   };
 
   for (const op of ops) {
+    const isolate = op.bytes >= ISOLATE_DOC_BYTES;
     if (
       batch &&
-      (count >= FIRESTORE_BATCH_LIMIT || bytes + op.bytes > MAX_BATCH_BYTES)
+      (isolate ||
+        count >= FIRESTORE_BATCH_LIMIT ||
+        bytes + op.bytes > MAX_BATCH_BYTES)
     ) {
       flush();
     }
@@ -142,6 +153,8 @@ async function commitChunkOps(uid, prefix, sets, deletes, onProgress) {
     }
     count += 1;
     bytes += op.bytes;
+    // Close immediately too, so the next operation cannot join it.
+    if (isolate) flush();
   }
   flush();
 

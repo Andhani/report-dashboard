@@ -73,6 +73,111 @@ export function shardsToDocs(rows) {
  * save writes shards and the storage layer deletes the leftovers, since
  * they are absent from what it is asked to store.
  */
+// ── Splitting a single keyed value whose `rows` array is the bulk of it ──
+//
+// Flow 1/2 store one uploaded export per document, as
+// { rows, file, chartAgg, grandTotal }. A GA4 export of a large segment
+// runs past Firestore's 1 MiB document limit — a BC /dijual/ month of
+// 7,380 URLs measured 1.17 MB — and the write is rejected outright.
+//
+// The value is therefore spread across numbered part documents, each
+// carrying a slice of `rows`. Everything except `rows` rides on part 0 and
+// is restored around the rejoined rows, so consumers receive exactly the
+// object they stored: the compute functions must not be able to tell.
+
+const PART_SEP = "~~";
+const MAX_PART_BYTES = 400 * 1024;
+
+function partId(baseKey, index) {
+  return `${baseKey}${PART_SEP}${String(index).padStart(3, "0")}`;
+}
+
+/** Splits one { rows, ...meta } value into part documents. */
+export function splitKeyedValue(baseKey, value) {
+  if (!value || typeof value !== "object" || !Array.isArray(value.rows)) {
+    // Nothing row-shaped to split — store as-is under its own key.
+    return { [baseKey]: value };
+  }
+  const { rows, ...meta } = value;
+  const groups = packRows(rows);
+  // Preserve an empty rows array rather than collapsing it to no parts.
+  if (groups.length === 0) groups.push([]);
+
+  const docs = {};
+  groups.forEach((slice, i) => {
+    docs[partId(baseKey, i)] =
+      i === 0
+        ? {
+            __part: 0,
+            __parts: groups.length,
+            // Property order is recorded so rejoining reproduces the stored
+            // object exactly, not merely an equivalent one. Nothing reads
+            // these by position, but an identical object is a guarantee
+            // worth being able to make about data the report maths consumes.
+            keys: Object.keys(value),
+            meta,
+            rows: slice,
+          }
+        : { __part: i, __parts: groups.length, rows: slice };
+  });
+  return docs;
+}
+
+/** Splits a whole { key: value } map into part documents. */
+export function splitKeyedMap(valuesByKey) {
+  const docs = {};
+  for (const [key, value] of Object.entries(valuesByKey)) {
+    Object.assign(docs, splitKeyedValue(key, value));
+  }
+  return docs;
+}
+
+/**
+ * Rebuilds { key: value } from part documents, tolerating values written
+ * before splitting existed — those sit under a plain key with no separator
+ * and are returned unchanged.
+ */
+export function joinKeyedDocs(docsById) {
+  const parts = new Map();
+  const result = {};
+
+  for (const [id, value] of Object.entries(docsById)) {
+    const sep = id.lastIndexOf(PART_SEP);
+    const looksLikePart =
+      sep > 0 && value && typeof value === "object" && "__part" in value;
+    if (!looksLikePart) {
+      result[id] = value;
+      continue;
+    }
+    const baseKey = id.slice(0, sep);
+    if (!parts.has(baseKey)) parts.set(baseKey, []);
+    parts.get(baseKey).push(value);
+  }
+
+  for (const [baseKey, group] of parts) {
+    group.sort((a, b) => (a.__part ?? 0) - (b.__part ?? 0));
+    const rows = [];
+    let meta = {};
+    let keys = null;
+    for (const part of group) {
+      if (part.__part === 0) {
+        if (part.meta) meta = part.meta;
+        if (Array.isArray(part.keys)) keys = part.keys;
+      }
+      if (Array.isArray(part.rows)) rows.push(...part.rows);
+    }
+    if (keys) {
+      // Rebuild in the order the value was stored in.
+      const value = {};
+      for (const k of keys) value[k] = k === "rows" ? rows : meta[k];
+      result[baseKey] = value;
+    } else {
+      result[baseKey] = { ...meta, rows };
+    }
+  }
+  return result;
+}
+
 export function docsToRows(docsById, legacyOrder) {
   const shardIds = [];
   const legacyIds = [];
