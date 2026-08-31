@@ -5,11 +5,22 @@ import {
   limit,
   query,
   setDoc,
-  writeBatch,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import {
+  UNKNOWN_DOC_BYTES,
+  commitGroup,
+  estimateBytes,
+  packOps,
+} from "./firestoreBatch";
 
-const FIRESTORE_BATCH_LIMIT = 500;
+// How many documents a sweep pulls back at a time. Well under the 500-op
+// batch limit on purpose: the sweep reads whole documents to learn their
+// ids, and a page of Flow 1/2 exports is hundreds of kilobytes each, so a
+// 500-document page would haul a few hundred megabytes into the browser
+// before deleting any of it. Reads are billed per document, so a smaller
+// page costs nothing extra.
+const SWEEP_PAGE_SIZE = 100;
 
 // Every simple (non-chunked) report-data key previously stored in
 // localStorage via useStorage, excluding UI-only keys ("sidebarOpen", "theme")
@@ -141,17 +152,27 @@ export async function persistLegacyMigration(uid, legacy) {
   }
 }
 
-/** Commits `refs` as delete batches, reporting each batch as it lands. */
-async function deleteRefs(refs, report) {
-  const batches = [];
-  for (let i = 0; i < refs.length; i += FIRESTORE_BATCH_LIMIT) {
-    const slice = refs.slice(i, i + FIRESTORE_BATCH_LIMIT);
-    const batch = writeBatch(db);
-    for (const ref of slice) batch.delete(ref);
-    batches.push({ batch, size: slice.length });
-  }
+/**
+ * Commits `entries` — `{ ref, bytes }` — as delete batches, reporting each
+ * batch as it lands.
+ *
+ * Batches used to be packed by operation count alone, 500 at a time. A
+ * delete carries the document it removes into the transaction, so 500
+ * deletes of shard-sized documents ask Firestore to move far more than a
+ * commit may hold and the whole batch is refused with "Transaction too big.
+ * Decrease transaction size." — the delete reported as failed while every
+ * document was still there. `bytes` is what keeps each batch inside that
+ * ceiling.
+ */
+async function deleteRefs(entries, report) {
+  const groups = packOps(
+    entries.map(({ ref, bytes }) => ({
+      bytes,
+      apply: (batch) => batch.delete(ref),
+    })),
+  );
   await Promise.all(
-    batches.map(({ batch, size }) => batch.commit().then(() => report(size))),
+    groups.map((group) => commitGroup(group).then(() => report(group.length))),
   );
 }
 
@@ -171,11 +192,18 @@ async function deleteRefs(refs, report) {
  * comes back empty, costing one read instead of thousands.
  */
 export async function clearChunkedCollection(uid, prefix, options = {}) {
-  const { knownIds = [], onProgress } = options;
+  const { knownIds = [], knownDocs = null, onProgress } = options;
   const col = collection(db, "users", uid, prefix);
 
+  // `knownDocs` is the in-memory copy of the collection, so the size of
+  // every document is already known and batches can be packed accurately.
+  // `knownIds` alone leaves only a pessimistic guess to pack against.
+  const ids = knownDocs ? Object.keys(knownDocs) : knownIds;
+  const bytesFor = (id) =>
+    knownDocs ? estimateBytes(knownDocs[id]) : UNKNOWN_DOC_BYTES;
+
   let done = 0;
-  let total = knownIds.length;
+  let total = ids.length;
   const report = (n) => {
     done += n;
     if (done > total) total = done;
@@ -183,20 +211,22 @@ export async function clearChunkedCollection(uid, prefix, options = {}) {
   };
   onProgress?.(0, total);
 
-  if (knownIds.length > 0) {
+  if (ids.length > 0) {
     await deleteRefs(
-      knownIds.map((id) => doc(col, id)),
+      ids.map((id) => ({ ref: doc(col, id), bytes: bytesFor(id) })),
       report,
     );
   }
 
   // Sweep whatever remains, a page at a time. Deleted documents drop out of
-  // the query, so each round naturally advances to the next page.
+  // the query, so each round naturally advances to the next page. The page
+  // is already downloaded here, so each document's real size is measured
+  // rather than guessed.
   for (;;) {
-    const snap = await getDocs(query(col, limit(FIRESTORE_BATCH_LIMIT)));
+    const snap = await getDocs(query(col, limit(SWEEP_PAGE_SIZE)));
     if (snap.empty) break;
     await deleteRefs(
-      snap.docs.map((d) => d.ref),
+      snap.docs.map((d) => ({ ref: d.ref, bytes: estimateBytes(d.data()) })),
       report,
     );
   }
