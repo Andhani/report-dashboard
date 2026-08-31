@@ -127,6 +127,13 @@ Consequences worth preserving:
 - Reads tolerate the old per-row layout, so an account still holding it loads
   normally and is re-sharded by its next save. Do not migrate on page load —
   that would spend thousands of writes just to open the app.
+- Deletes must be **awaited and authoritative**. Clearing a collection sweeps
+  Firestore rather than deleting only the ids this session knows about, and a
+  delete that fails puts the rows back on screen with the error — a UI that
+  shows data as gone while it is still stored is how "deleted, then it came
+  back after a reload" happens. The pre-shard flat `data/{bc,blog}_urls`
+  document counts as a copy: it is dropped on load once shards exist, and by
+  any clear, or the next load re-shards it and resurrects the list.
 - Row lists compare by **contents**, not reference, so re-importing unchanged
   data writes nothing. Flow data chunks deliberately do not: they are large
   enough that serialising to compare costs more than the write it might save.

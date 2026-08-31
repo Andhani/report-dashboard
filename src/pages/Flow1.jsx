@@ -5,6 +5,7 @@ import {
   useCloudArrayStorage,
 } from "../hooks/useCloudStorage";
 import { useDataContext } from "../context/DataContext";
+import { describeWriteError } from "../context/CloudDataContext";
 import { usePagination } from "../hooks/usePagination";
 import {
   getMonthSlots,
@@ -77,6 +78,9 @@ export default function Flow1() {
   const [dragging, setDragging] = useState(false);
   const [previewTab, setPreviewTab] = useStorage("flow1_preview_tab", "bc");
   const [pushStatus, setPushStatus] = useState({});
+  // Which slot is being deleted, and why the last delete didn't land.
+  const [clearing, setClearing] = useState(null);
+  const [clearError, setClearError] = useState(null);
   const [pushModal, setPushModal] = useState(false);
   const [importMode, setImportMode] = useStorage("flow1_import_mode", "sheets");
   const [sheetUrl, setSheetUrl] = useStorage("flow1_sheet_url", "");
@@ -225,12 +229,24 @@ export default function Flow1() {
     }
   }
 
-  function clearSlot(key) {
-    setFlow1Data((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
+  // Awaited, and reported when it fails. Firing the delete and moving on
+  // showed the slot as cleared while the documents were still in Firestore,
+  // so the data was back on the next reload with no hint that anything had
+  // gone wrong.
+  async function clearSlot(key) {
+    setClearError(null);
+    setClearing(key);
+    try {
+      await setFlow1Data((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    } catch (err) {
+      setClearError(`Couldn't clear that slot. ${describeWriteError(err)}`);
+    } finally {
+      setClearing(null);
+    }
   }
 
   // ─── Export ─────────────────────────────────────────────────────────────────
@@ -401,7 +417,7 @@ export default function Flow1() {
         )}
 
         {/* Storage warnings */}
-        {(flow1MissingKeys.length > 0 || flow1WriteError) && (
+        {(flow1MissingKeys.length > 0 || flow1WriteError || clearError) && (
           <div className="card p-3 border-warning/40 bg-warning/5 flex items-start gap-2.5 text-xs">
             <AlertTriangle
               size={14}
@@ -421,6 +437,7 @@ export default function Flow1() {
                 </p>
               )}
               {flow1WriteError && <p className="text-ink">{flow1WriteError}</p>}
+              {clearError && <p className="text-ink">{clearError}</p>}
             </div>
           </div>
         )}
@@ -432,6 +449,7 @@ export default function Flow1() {
           slotTooltip={slotTooltip}
           flow1Data={flow1Data}
           onClearSlot={clearSlot}
+          clearingKey={clearing}
         />
 
         {/* Preview + Export */}
@@ -707,7 +725,14 @@ const SLOT_ROWS = [
   },
 ];
 
-function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
+function SlotGrid({
+  slots,
+  slotStatus,
+  slotTooltip,
+  flow1Data,
+  onClearSlot,
+  clearingKey,
+}) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
@@ -767,6 +792,7 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
                         slotKey={s.key}
                         flow1Data={flow1Data}
                         onClear={onClearSlot}
+                        clearing={clearingKey === `${row.id}_${s.key}`}
                       />
                     </td>
                   );
@@ -780,7 +806,15 @@ function SlotGrid({ slots, slotStatus, slotTooltip, flow1Data, onClearSlot }) {
   );
 }
 
-function SlotCell({ status, tooltip, rowId, slotKey, flow1Data, onClear }) {
+function SlotCell({
+  status,
+  tooltip,
+  rowId,
+  slotKey,
+  flow1Data,
+  onClear,
+  clearing,
+}) {
   const [hover, setHover] = useState(false);
 
   function handleClear(e) {
@@ -796,11 +830,12 @@ function SlotCell({ status, tooltip, rowId, slotKey, flow1Data, onClear }) {
       title={tooltip}
     >
       <span className={`dot-${status} text-sm`}>●</span>
-      {hover && status !== "empty" && (
+      {(hover || clearing) && status !== "empty" && (
         <button
           onClick={handleClear}
-          className="text-muted hover:text-danger transition-colors"
-          title="Clear this slot"
+          disabled={clearing}
+          className="text-muted hover:text-danger transition-colors disabled:opacity-40"
+          title={clearing ? "Clearing…" : "Clear this slot"}
         >
           <X size={11} strokeWidth={2.5} />
         </button>

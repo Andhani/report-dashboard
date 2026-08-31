@@ -2,6 +2,7 @@ import { useState, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useCloudStorage as useStorage } from "../hooks/useCloudStorage";
 import { useDataContext } from "../context/DataContext";
+import { describeWriteError } from "../context/CloudDataContext";
 import {
   getMonthSlots,
   formatMonthKey,
@@ -123,6 +124,9 @@ export default function Flow2() {
   const [processing, setProcessing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [pushStatus, setPushStatus] = useState(null);
+  // Which slot is being deleted, and why the last delete didn't land.
+  const [clearing, setClearing] = useState(null);
+  const [clearError, setClearError] = useState(null);
   const [pushModal, setPushModal] = useState(false);
   const [importMode, setImportMode] = useStorage("flow2_import_mode", "sheets");
   const [sheetUrl, setSheetUrl] = useStorage("flow2_sheet_url", "");
@@ -225,12 +229,24 @@ export default function Flow2() {
     }
   }
 
-  function clearSlot(key) {
-    setFlow2Data((prev) => {
-      const n = { ...prev };
-      delete n[key];
-      return n;
-    });
+  // Awaited, and reported when it fails. Firing the delete and moving on
+  // showed the slot as cleared while the documents were still in Firestore,
+  // so the data was back on the next reload with no hint that anything had
+  // gone wrong.
+  async function clearSlot(key) {
+    setClearError(null);
+    setClearing(key);
+    try {
+      await setFlow2Data((prev) => {
+        const n = { ...prev };
+        delete n[key];
+        return n;
+      });
+    } catch (err) {
+      setClearError(`Couldn't clear that slot. ${describeWriteError(err)}`);
+    } finally {
+      setClearing(null);
+    }
   }
 
   // ─── Import from a Google Sheet link ────────────────────────────────────────
@@ -526,12 +542,25 @@ export default function Flow2() {
           <DetectionLog log={log} onClear={() => setLog([])} />
         )}
 
+        {/* A delete that Firestore refused, so the slot is still stored */}
+        {clearError && (
+          <div className="card p-3 border-warning/40 bg-warning/5 flex items-start gap-2.5 text-xs">
+            <AlertTriangle
+              size={14}
+              className="text-warning flex-shrink-0 mt-0.5"
+              strokeWidth={2}
+            />
+            <p className="text-ink">{clearError}</p>
+          </div>
+        )}
+
         {/* Slot grid */}
         <SlotGrid
           slots={slots}
           flow1Data={flow1Data}
           flow2Data={flow2Data}
           onClear={clearSlot}
+          clearingKey={clearing}
         />
 
         {/* Overview table + export */}
@@ -844,7 +873,7 @@ const SLOT_ROWS_F2 = [
   },
 ];
 
-function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
+function SlotGrid({ slots, flow1Data, flow2Data, onClear, clearingKey }) {
   let dataRowCount = 0;
   return (
     <div className="card p-4">
@@ -938,6 +967,7 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
                           filled={filled}
                           stale={isStale}
                           onClear={clearKey ? () => onClear(clearKey) : null}
+                          clearing={!!clearKey && clearingKey === clearKey}
                         />
                       </td>
                     );
@@ -952,7 +982,7 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear }) {
   );
 }
 
-function SlotDot({ filled, stale, onClear }) {
+function SlotDot({ filled, stale, onClear, clearing }) {
   const [hover, setHover] = useState(false);
   return (
     <div
@@ -966,10 +996,12 @@ function SlotDot({ filled, stale, onClear }) {
       >
         {stale ? "◑" : "●"}
       </span>
-      {hover && filled && onClear && (
+      {(hover || clearing) && filled && onClear && (
         <button
           onClick={onClear}
-          className="text-muted hover:text-danger transition-colors"
+          disabled={clearing}
+          className="text-muted hover:text-danger transition-colors disabled:opacity-40"
+          title={clearing ? "Clearing…" : undefined}
         >
           <X size={11} strokeWidth={2.5} />
         </button>
