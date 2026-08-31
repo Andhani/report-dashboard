@@ -140,6 +140,11 @@ export default function Flow2() {
   // ─── File processing ────────────────────────────────────────────────────────
 
   async function processFiles(files) {
+    // Stamped on every entry from this upload so the log can report how many
+    // files the batch contained — the count is the point of the check, and
+    // deriving it from the entries avoids storing a separate tally.
+    const batch = Date.now();
+    const submitted = files.length;
     setProcessing(true);
     const newEntries = {};
     const newLog = [];
@@ -195,7 +200,9 @@ export default function Flow2() {
     }
 
     setFlow2Data((prev) => ({ ...prev, ...newEntries }));
-    setLog((prev) => [...newLog, ...prev].slice(0, 100));
+    setLog((prev) =>
+      [...newLog.map((e) => ({ ...e, batch, submitted })), ...prev].slice(0, 100),
+    );
     setProcessing(false);
   }
 
@@ -263,6 +270,8 @@ export default function Flow2() {
           message:
             formatFlow2DetectionLabel(result) +
             (inWindow ? "" : " ⚠ outside current window"),
+          batch: Date.now(),
+          submitted: 1,
         },
         ...prev,
       ].slice(0, 100),
@@ -625,15 +634,79 @@ const LOG_ICONS = {
   ),
 };
 
+// Counts for the most recent upload plus the log as a whole. The point is
+// validation: dropping seventeen files and seeing sixteen processed should
+// be obvious, and "submitted" carries the number actually handed over so a
+// file rejected before it could be logged still shows up in the difference.
+function summariseLog(log) {
+  const counts = { ok: 0, warn: 0, error: 0, skip: 0 };
+  for (const e of log) counts[e.status] = (counts[e.status] ?? 0) + 1;
+
+  let latest = null;
+  for (const e of log) {
+    if (e.batch && (latest === null || e.batch > latest)) latest = e.batch;
+  }
+  const batchEntries = latest ? log.filter((e) => e.batch === latest) : [];
+  const submitted = batchEntries[0]?.submitted ?? batchEntries.length;
+
+  return {
+    counts,
+    total: log.length,
+    lastProcessed: batchEntries.length,
+    lastSubmitted: submitted,
+    lastFailed: batchEntries.filter(
+      (e) => e.status === "error" || e.status === "skip",
+    ).length,
+  };
+}
+
 function DetectionLog({ log, onClear }) {
+  const s = summariseLog(log);
+  const missing = s.lastSubmitted - s.lastProcessed;
+
   return (
     <div className="card p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold text-ink">Detection Log</h3>
-        <button onClick={onClear} className="text-xs text-muted hover:text-ink">
+      <div className="flex items-center justify-between mb-3 gap-3">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <h3 className="text-xs font-semibold text-ink">Detection Log</h3>
+          {log.length > 0 && (
+            <span className="text-2xs text-muted">
+              <strong className="text-ink">{s.lastSubmitted}</strong> file
+              {s.lastSubmitted === 1 ? "" : "s"} last upload
+              {missing > 0 && (
+                <span className="text-danger"> · {missing} not processed</span>
+              )}
+              {s.lastFailed > 0 && (
+                <span className="text-pending">
+                  {" "}
+                  · {s.lastFailed} skipped or failed
+                </span>
+              )}
+              <span className="text-muted/70"> · {s.total} in log</span>
+            </span>
+          )}
+        </div>
+        <button
+          onClick={onClear}
+          className="text-xs text-muted hover:text-ink flex-shrink-0"
+        >
           Clear
         </button>
       </div>
+      {log.length > 0 && (
+        <div className="flex items-center gap-3 text-2xs mb-3 pb-3 border-b border-border">
+          <span className="text-ok">{s.counts.ok} detected</span>
+          {s.counts.warn > 0 && (
+            <span className="text-pending">{s.counts.warn} warning</span>
+          )}
+          {s.counts.error > 0 && (
+            <span className="text-danger">{s.counts.error} error</span>
+          )}
+          {s.counts.skip > 0 && (
+            <span className="text-empty">{s.counts.skip} skipped</span>
+          )}
+        </div>
+      )}
       <div className="space-y-1.5 max-h-48 overflow-y-auto">
         {log.map((entry, i) => (
           <div key={i} className="flex items-start gap-2 text-xs">
