@@ -88,7 +88,7 @@ export default function UrlManager() {
   const [activeTab, setActiveTab] = useStorage("urls_active_tab", "bc");
   const [bcUrls, setBcUrls] = useCloudArrayStorage("bc_urls", []);
   const [blogUrls, setBlogUrls] = useCloudArrayStorage("blog_urls", []);
-  const { clearArrayKey } = useCloudData();
+  const { clearArrayKey, writeErrors } = useCloudData();
 
   // Import toolbar state
   const [importMode, setImportMode] = useStorage("urls_import_mode", "sheets");
@@ -144,8 +144,15 @@ export default function UrlManager() {
     );
   }
 
-  function handleDeleteRow(id) {
-    setUrls((prev) => prev.filter((r) => r.id !== id));
+  // The delete is awaited rather than fired and forgotten: a rejected write
+  // leaves the row in Firestore, so treating the removal as done is how a
+  // deleted row was back after a reload with nothing said.
+  async function handleDeleteRow(id) {
+    setSaveNotice(null);
+    const { ok, error } = await setUrls((prev) =>
+      prev.filter((r) => r.id !== id),
+    );
+    if (!ok) setSaveNotice(`Couldn't delete that row. ${describeWriteError(error)}`);
   }
 
   async function handleClearAll() {
@@ -521,6 +528,17 @@ export default function UrlManager() {
             Don't reload or close this tab until it finishes — rows still in
             flight wouldn't be saved.
           </p>
+        </div>
+      )}
+
+      {/* A write the storage layer refused — including a load that could not
+          re-shard a list migrated from the old flat format, which leaves the
+          list unable to save until it succeeds. */}
+      {!saving && writeErrors[activeTab === "bc" ? "bc_urls" : "blog_urls"] && (
+        <div className="card p-3 border-warning/40 bg-warning/5">
+          <span className="text-xs text-ink">
+            {writeErrors[activeTab === "bc" ? "bc_urls" : "blog_urls"]}
+          </span>
         </div>
       )}
 

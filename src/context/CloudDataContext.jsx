@@ -290,21 +290,40 @@ export function CloudDataProvider({ children }) {
       // document are left alone: useCloudArrayStorage reads that layout and
       // re-shards it on the next save, which avoids spending thousands of
       // writes during a page load.
+      //
+      // The flat document must not survive a successful migration, and must
+      // not survive a load that finds shards already in place either: a
+      // leftover copy is re-adopted by every later load, so clearing the
+      // list deletes the shards and the next reload rebuilds them from the
+      // stale array — the list comes back from the dead. It is only kept
+      // when the shard write failed and it is therefore still the sole copy.
       for (const key of ARRAY_CHUNK_KEYS) {
+        const hasFlatDoc = Object.prototype.hasOwnProperty.call(
+          finalState,
+          key,
+        );
         const flatArray = finalState[key];
-        if (
-          Array.isArray(flatArray) &&
-          flatArray.length > 0 &&
-          Object.keys(finalChunks[key] || {}).length === 0
-        ) {
+        const hasShards = Object.keys(finalChunks[key] || {}).length > 0;
+        let flatDocIsOnlyCopy = false;
+
+        if (!hasShards && Array.isArray(flatArray) && flatArray.length > 0) {
           const shardDocs = shardsToDocs(flatArray);
           try {
             await commitChunkOps(uid, key, Object.entries(shardDocs), []);
-            await deleteDoc(doc(db, "users", uid, "data", key));
           } catch (err) {
             console.error(`CloudData: array migration for "${key}" failed:`, err);
+            // Sharding is what makes the rows deletable and editable, so
+            // say so rather than leaving a list that silently won't save.
+            writeErrorsRef.current[key] = describeWriteError(err);
+            flatDocIsOnlyCopy = true;
           }
           finalChunks = { ...finalChunks, [key]: shardDocs };
+        }
+
+        if (hasFlatDoc && !flatDocIsOnlyCopy) {
+          await deleteDoc(doc(db, "users", uid, "data", key)).catch((err) =>
+            console.error(`CloudData: dropping legacy "${key}" doc failed:`, err),
+          );
         }
         delete finalState[key];
       }
@@ -418,6 +437,26 @@ export function CloudDataProvider({ children }) {
   const chunkedRef = useRef(chunked);
   chunkedRef.current = chunked;
 
+  // A delete that failed must never leave the page claiming the data is
+  // gone: the documents are still in Firestore and come back on the next
+  // reload, which is exactly how a cleared slot reappeared after a refresh.
+  // Entries are put back wherever nothing has since replaced them, so what
+  // is on screen matches what is stored.
+  const restoreChunkDocs = useCallback((prefix, entries) => {
+    if (entries.length === 0) return;
+    setChunkedState((prevAll) => {
+      const current = prevAll[prefix] ?? {};
+      const merged = { ...current };
+      let changed = false;
+      for (const [id, value] of entries) {
+        if (Object.prototype.hasOwnProperty.call(merged, id)) continue;
+        merged[id] = value;
+        changed = true;
+      }
+      return changed ? { ...prevAll, [prefix]: merged } : prevAll;
+    });
+  }, []);
+
   // Returns a promise that settles when every write has actually landed in
   // Firestore. Callers that show a "saved" state — or that let the user
   // navigate away — must await it: a large list is thousands of documents
@@ -431,12 +470,31 @@ export function CloudDataProvider({ children }) {
 
       if (!uid) return Promise.resolve();
 
-      if (next === null || next === undefined) {
-        const keys = Object.keys(prev);
+      const fail = (err, restore) => {
+        writeErrorsRef.current[prefix] = describeWriteError(err);
+        restoreChunkDocs(prefix, restore);
+        console.error(`CloudData: chunk write "${prefix}" failed:`, err);
+        bump((n) => n + 1);
+        throw err;
+      };
+
+      // Clearing the collection outright. The ids in memory only seed the
+      // delete; a paged sweep then removes whatever else the collection
+      // holds. Local state and Firestore can disagree — a write that failed
+      // after the UI had moved on, another tab, a load that raced an
+      // in-flight write — and a clear that covers only the ids this session
+      // happens to know about is how a "cleared" tab came back populated.
+      if (
+        next === null ||
+        next === undefined ||
+        Object.keys(next).length === 0
+      ) {
         setChunkedState((prevAll) => ({ ...prevAll, [prefix]: {} }));
-        if (keys.length === 0) return Promise.resolve();
         return trackWrite(
-          commitChunkOps(uid, prefix, [], keys, onProgress).catch(() => {}),
+          clearChunkedCollection(uid, prefix, {
+            knownIds: Object.keys(prev),
+            onProgress,
+          }).catch((err) => fail(err, Object.entries(prev))),
         );
       }
 
@@ -471,15 +529,15 @@ export function CloudDataProvider({ children }) {
       if (toSet.length === 0 && toDelete.length === 0) return Promise.resolve();
 
       return trackWrite(
-        commitChunkOps(uid, prefix, toSet, toDelete, onProgress).catch((err) => {
-          writeErrorsRef.current[prefix] = describeWriteError(err);
-          console.error(`CloudData: chunk write "${prefix}" failed:`, err);
-          bump((n) => n + 1);
-          throw err;
-        }),
+        commitChunkOps(uid, prefix, toSet, toDelete, onProgress).catch((err) =>
+          fail(
+            err,
+            toDelete.map((k) => [k, prev[k]]),
+          ),
+        ),
       );
     },
-    [uid],
+    [restoreChunkDocs, uid],
   );
 
   const clearAll = useCallback(async () => {
@@ -519,11 +577,21 @@ export function CloudDataProvider({ children }) {
         knownIds: Object.keys(chunkedRef.current[key] ?? {}),
         onProgress,
       });
-      await deleteDoc(doc(db, "users", uid, "data", `${key}_order`)).catch(() => {});
+      // Every copy of the list, not just the shards: the per-row layout's
+      // order document, and the pre-shard flat array that a migrated
+      // account can still be holding in users/{uid}/data/{key}. Leaving
+      // that last one behind meant the next load re-sharded it and the
+      // cleared list reappeared.
+      await Promise.all(
+        [`${key}_order`, key].map((id) =>
+          deleteDoc(doc(db, "users", uid, "data", id)).catch(() => {}),
+        ),
+      );
       setChunkedState((prevAll) => ({ ...prevAll, [key]: {} }));
       setStateDocState((prev) => {
         const next = { ...prev };
         delete next[`${key}_order`];
+        delete next[key];
         return next;
       });
     },
