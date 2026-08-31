@@ -12,9 +12,13 @@ import {
   doc,
   getDocs,
   setDoc,
-  writeBatch,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import {
+  commitOps,
+  estimateBytes,
+  isTransactionTooBig,
+} from "../utils/firestoreBatch";
 import { useAuth } from "./AuthContext";
 import { shardsToDocs } from "../utils/rowShards";
 import {
@@ -74,37 +78,39 @@ export function describeWriteError(err) {
   if (err?.code === "unavailable") {
     return "Couldn't reach Firestore. Check your connection and try again.";
   }
+  if (isTransactionTooBig(err)) {
+    // Reached only if the split-and-retry in firestoreBatch.js ran out of
+    // room to split, so say what it means rather than echoing Firestore.
+    return (
+      "Firestore refused a batch for holding too much data at once. " +
+      "Nothing was lost — try again, and it will be sent in smaller pieces."
+    );
+  }
   return err?.message || "The save didn't complete.";
 }
 
-// Firestore caps a single batch at 500 writes. Row-chunked collections
-// (bc_urls/blog_urls) can hold thousands of docs, so a full re-import or
-// clear used to fire one setDoc/deleteDoc network round trip per row —
-// thousands of concurrent requests the browser and Firestore SDK both have
-// to queue through, which is what made large lists (7k+ BC URLs) feel
-// laggy on save. Batching collapses that into a handful of round trips.
-const FIRESTORE_BATCH_LIMIT = 500;
+// Chunked collections (bc_urls/blog_urls, flow1_data/flow2_data) can hold
+// hundreds of documents, so a full re-import or clear used to fire one
+// setDoc/deleteDoc network round trip per document — which is what made
+// large lists (7k+ BC URLs) feel laggy on save. Batching collapses that into
+// a handful of round trips.
+//
+// The packing rules — 500 operations per batch, a payload ceiling well under
+// Firestore's ~10 MiB commit limit, and anything near the 1 MiB document
+// limit committed alone — live in utils/firestoreBatch.js, shared with the
+// collection-clearing code so both sides of a delete obey the same limits.
 
-// Firestore also caps a single commit *request* at ~10 MiB, independent of
-// the operation count. flow1_data/flow2_data chunks are whole parsed
-// exports and can each approach the 1 MiB per-document limit, so packing
-// 500 of those into one commit would blow that ceiling — and because a
-// batch is all-or-nothing, it would fail writes that would have succeeded
-// on their own. Batches are therefore capped by payload size as well as
-// count, with any single oversized document committed alone, exactly the
-// way it behaved before batching existed. Half the ceiling leaves room for
-// request overhead and multi-byte characters (length counts UTF-16 units,
-// not bytes).
-const MAX_BATCH_BYTES = 5 * 1024 * 1024;
-
-// A batch is all-or-nothing, so one document Firestore rejects fails every
-// document sharing its batch. A single 1.17 MB export — over the 1 MiB
-// document limit — therefore wiped out the four valid chunks batched
-// alongside it, which is how uploading seventeen files left every tab empty
-// after a reload. Anything near the document limit is now committed alone,
-// so a rejection can only ever lose the document that caused it.
-const ISOLATE_DOC_BYTES = 900 * 1024;
-
+/**
+ * Applies `sets` (`[id, value]`) and `deletes` (`[id, previousValue]`) to
+ * `users/{uid}/{prefix}` as size-capped batches.
+ *
+ * `deletes` carries the value being removed, not just its id, because a
+ * delete is not a free operation inside a transaction: Firestore counts the
+ * document it removes. Treating deletes as weightless is what let a clear of
+ * shard-sized documents pack a single commit far past the limit and come
+ * back as "Transaction too big. Decrease transaction size." with nothing
+ * deleted.
+ */
 async function commitChunkOps(uid, prefix, sets, deletes, onProgress) {
   const ops = [];
   for (const [id, value] of sets) {
@@ -112,63 +118,23 @@ async function commitChunkOps(uid, prefix, sets, deletes, onProgress) {
     // forgiving way sanitizeForFirestore does, and measures the payload so
     // batches can be packed by size.
     const json = JSON.stringify(value ?? null) ?? "null";
-    ops.push({ type: "set", id, value: JSON.parse(json), bytes: json.length });
+    const data = { value: JSON.parse(json) };
+    ops.push({
+      bytes: json.length,
+      apply: (batch) => batch.set(doc(db, "users", uid, prefix, id), data),
+    });
   }
-  for (const id of deletes) {
-    ops.push({ type: "delete", id, bytes: 0 });
+  for (const [id, previousValue] of deletes) {
+    ops.push({
+      bytes: estimateBytes(previousValue),
+      apply: (batch) => batch.delete(doc(db, "users", uid, prefix, id)),
+    });
   }
 
-  // Batches are collected before committing so the caller can be told how
-  // many operations have actually landed. Thousands of rows take real
-  // seconds to write, and without that count the UI can only show a
+  // Progress is reported per batch as it lands. Hundreds of documents take
+  // real seconds to write, and without that count the UI can only show a
   // finished state that isn't true yet.
-  const batches = [];
-  let batch = null;
-  let count = 0;
-  let bytes = 0;
-
-  const flush = () => {
-    if (batch) batches.push({ batch, size: count });
-    batch = null;
-    count = 0;
-    bytes = 0;
-  };
-
-  for (const op of ops) {
-    const isolate = op.bytes >= ISOLATE_DOC_BYTES;
-    if (
-      batch &&
-      (isolate ||
-        count >= FIRESTORE_BATCH_LIMIT ||
-        bytes + op.bytes > MAX_BATCH_BYTES)
-    ) {
-      flush();
-    }
-    if (!batch) batch = writeBatch(db);
-    const ref = doc(db, "users", uid, prefix, op.id);
-    if (op.type === "set") {
-      batch.set(ref, { value: op.value });
-    } else {
-      batch.delete(ref);
-    }
-    count += 1;
-    bytes += op.bytes;
-    // Close immediately too, so the next operation cannot join it.
-    if (isolate) flush();
-  }
-  flush();
-
-  const total = ops.length;
-  let landed = 0;
-  onProgress?.(0, total);
-  await Promise.all(
-    batches.map(({ batch: b, size }) =>
-      b.commit().then(() => {
-        landed += size;
-        onProgress?.(landed, total);
-      }),
-    ),
-  );
+  await commitOps(ops, { onProgress });
 }
 
 /**
@@ -492,7 +458,10 @@ export function CloudDataProvider({ children }) {
         setChunkedState((prevAll) => ({ ...prevAll, [prefix]: {} }));
         return trackWrite(
           clearChunkedCollection(uid, prefix, {
-            knownIds: Object.keys(prev),
+            // The whole in-memory copy, not just its ids: knowing each
+            // document's size is what keeps the delete batches inside
+            // Firestore's commit limit.
+            knownDocs: prev,
             onProgress,
           }).catch((err) => fail(err, Object.entries(prev))),
         );
@@ -519,9 +488,13 @@ export function CloudDataProvider({ children }) {
         }
         toSet.push([k, v]);
       }
+      // Entries, not bare ids: the value being deleted is what the batch
+      // packer weighs it by.
       const toDelete = [];
       for (const k of Object.keys(prev)) {
-        if (!Object.prototype.hasOwnProperty.call(next, k)) toDelete.push(k);
+        if (!Object.prototype.hasOwnProperty.call(next, k)) {
+          toDelete.push([k, prev[k]]);
+        }
       }
 
       setChunkedState((prevAll) => ({ ...prevAll, [prefix]: next }));
@@ -530,10 +503,7 @@ export function CloudDataProvider({ children }) {
 
       return trackWrite(
         commitChunkOps(uid, prefix, toSet, toDelete, onProgress).catch((err) =>
-          fail(
-            err,
-            toDelete.map((k) => [k, prev[k]]),
-          ),
+          fail(err, toDelete),
         ),
       );
     },
@@ -548,11 +518,11 @@ export function CloudDataProvider({ children }) {
     // it can start deleting without reading itself back.
     await Promise.all([
       clearChunkedCollection(uid, "data", {
-        knownIds: Object.keys(stateDocRef.current),
+        knownDocs: stateDocRef.current,
       }),
       ...ALL_CHUNK_PREFIXES.map((prefix) =>
         clearChunkedCollection(uid, prefix, {
-          knownIds: Object.keys(chunkedRef.current[prefix] ?? {}),
+          knownDocs: chunkedRef.current[prefix] ?? {},
         }),
       ),
     ]);
@@ -574,7 +544,7 @@ export function CloudDataProvider({ children }) {
       // the collection back first — for a large URL list that read was the
       // slowest part of clearing it.
       await clearChunkedCollection(uid, key, {
-        knownIds: Object.keys(chunkedRef.current[key] ?? {}),
+        knownDocs: chunkedRef.current[key] ?? {},
         onProgress,
       });
       // Every copy of the list, not just the shards: the per-row layout's
