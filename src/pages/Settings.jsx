@@ -1,17 +1,22 @@
-import { useEffect } from "react";
-import { useStorage } from "../hooks/useStorage";
+import { useEffect, useState } from "react";
+import { useCloudStorage } from "../hooks/useCloudStorage";
+import {
+  describeWriteError,
+  useCloudData,
+} from "../context/CloudDataContext";
 import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
 import { getValidToken } from "../utils/googleAuth";
 
 export default function Settings() {
-  const [oauthToken, setOauthToken] = useStorage("google_oauth", null);
-  const [flow1Window, setFlow1Window] = useStorage("flow1_window", null);
-  const [flow2Window, setFlow2Window] = useStorage("flow2_window", null);
-  const [sheetsUrl, setSheetsUrl] = useStorage("sheets_report_url", "");
-  const [, setBcUrls] = useStorage("bc_urls", [], { sync: true });
-  const [, setBlogUrls] = useStorage("blog_urls", [], { sync: true });
+  const [oauthToken, setOauthToken] = useCloudStorage("google_oauth", null);
+  const [flow1Window, setFlow1Window] = useCloudStorage("flow1_window", null);
+  const [flow2Window, setFlow2Window] = useCloudStorage("flow2_window", null);
+  const [sheetsUrl, setSheetsUrl] = useCloudStorage("sheets_report_url", "");
   const { setFlow1Data, setFlow2Data } = useDataContext();
+  const { clearAll, clearArrayKey } = useCloudData();
+  const [clearing, setClearing] = useState(null);
+  const [clearNotice, setClearNotice] = useState(null);
 
   // Fetch email from Google userinfo if token exists but email not yet stored
   useEffect(() => {
@@ -39,9 +44,12 @@ export default function Settings() {
     alert("Spreadsheet URL saved.");
   }
 
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  // Trimmed to match AuthCallback: a trailing space or newline picked up
+  // from a hosting dashboard is invisible there but travels into the build.
+  const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
   const redirectUri =
-    import.meta.env.VITE_REDIRECT_URI || "http://localhost:3000/auth/callback";
+    (import.meta.env.VITE_REDIRECT_URI || "").trim() ||
+    "http://localhost:3000/auth/callback";
 
   function handleOAuthConnect() {
     if (!clientId) {
@@ -62,8 +70,7 @@ export default function Settings() {
 
   function handleDisconnect() {
     if (confirm("Disconnect Google account?")) {
-      localStorage.removeItem("google_oauth");
-      window.location.reload();
+      setOauthToken(null);
     }
   }
 
@@ -74,19 +81,37 @@ export default function Settings() {
     all: "Clear everything? This deletes all report data across every tab and all settings. This cannot be undone.",
   };
 
-  function handleClearData(target) {
+  async function handleClearData(target) {
     if (!confirm(clearConfirmMessages[target])) return;
 
-    if (target === "flow1") {
-      setFlow1Data({});
-    } else if (target === "flow2") {
-      setFlow2Data({});
-    } else if (target === "urls") {
-      setBcUrls([]);
-      setBlogUrls([]);
-    } else if (target === "all") {
-      localStorage.clear();
-      window.location.reload();
+    // Deleting thousands of row documents takes real seconds. Without a
+    // busy state the page simply stops responding to clicks with nothing
+    // said, so there is no way to tell a working delete from a hung one.
+    setClearNotice(null);
+    setClearing(target);
+    try {
+      if (target === "flow1") {
+        await setFlow1Data({});
+        setClearNotice("Traffic (Optimized) data cleared.");
+      } else if (target === "flow2") {
+        await setFlow2Data({});
+        setClearNotice("Traffic Overview data cleared.");
+      } else if (target === "urls") {
+        // In parallel — two independent collections, and BC alone can be
+        // thousands of rows, so running them one after the other doubled
+        // the wait for no reason.
+        await Promise.all([clearArrayKey("bc_urls"), clearArrayKey("blog_urls")]);
+        setClearNotice("URL lists cleared.");
+      } else if (target === "all") {
+        await clearAll();
+        localStorage.clear();
+        window.location.reload();
+        return;
+      }
+    } catch (err) {
+      setClearNotice(`Couldn't finish clearing. ${describeWriteError(err)}`);
+    } finally {
+      setClearing(null);
     }
   }
 
@@ -337,7 +362,7 @@ export default function Settings() {
             Data Management
           </h2>
           <p className="text-xs text-muted mt-1">
-            Clear imported data from localStorage. This cannot be undone.
+            Clear imported data from your account. This cannot be undone.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -350,14 +375,35 @@ export default function Settings() {
             <button
               key={key}
               onClick={() => handleClearData(key)}
-              className={`btn-secondary ${
+              disabled={!!clearing}
+              className={`btn-secondary disabled:opacity-50 ${
                 danger ? "text-danger border-danger/30 hover:bg-danger/5" : ""
               }`}
             >
-              {label}
+              {clearing === key ? "Clearing…" : label}
             </button>
           ))}
         </div>
+        {clearing && (
+          <div className="flex items-center gap-3 text-xs text-muted">
+            <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin shrink-0" />
+            <span>
+              Deleting — this can take a while for a large list. Don't reload
+              the page until it finishes.
+            </span>
+          </div>
+        )}
+        {clearNotice && !clearing && (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-ink">{clearNotice}</span>
+            <button
+              onClick={() => setClearNotice(null)}
+              className="btn-ghost text-2xs text-muted"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

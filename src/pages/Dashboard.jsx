@@ -1,5 +1,8 @@
 import { Link } from "react-router-dom";
-import { useStorage } from "../hooks/useStorage";
+import {
+  useCloudStorage as useStorage,
+  useCloudArrayStorage,
+} from "../hooks/useCloudStorage";
 import { useDataContext } from "../context/DataContext";
 import { getMonthSlots } from "../utils/dateUtils";
 import {
@@ -43,17 +46,20 @@ export default function Dashboard() {
   const { flow1Data, flow2Data } = useDataContext();
   const [flow1Window] = useStorage("flow1_window", null);
   const [flow2Window] = useStorage("flow2_window", null);
-  const [bcUrls] = useStorage("bc_urls", []);
-  const [blogUrls] = useStorage("blog_urls", []);
+  const [bcUrls] = useCloudArrayStorage("bc_urls", []);
+  const [blogUrls] = useCloudArrayStorage("blog_urls", []);
 
   const flow1Slots = flow1Window ? getMonthSlots(flow1Window, 6) : [];
   const flow2Slots = flow2Window ? getMonthSlots(flow2Window, 6) : [];
 
+  // BC GA4 is stored per segment — getDataKey only ever writes
+  // bc_ga4_dijual_* and bc_ga4_disewa_*, never a segment-less bc_ga4_*.
   const flow1FilledBC = flow1Slots.filter(
     (s) =>
       (flow1Data[`bc_gsc_dijual_${s.key}`] ||
         flow1Data[`bc_gsc_disewa_${s.key}`]) &&
-      flow1Data[`bc_ga4_${s.key}`],
+      (flow1Data[`bc_ga4_dijual_${s.key}`] ||
+        flow1Data[`bc_ga4_disewa_${s.key}`]),
   ).length;
   const flow1FilledBlog = flow1Slots.filter(
     (s) => flow1Data[`blog_gsc_${s.key}`] && flow1Data[`blog_ga4_${s.key}`],
@@ -201,20 +207,35 @@ function SetupStatus({ bcUrls, blogUrls, flow1Window, flow2Window }) {
   );
 }
 
+/**
+ * BC is complete for a slot once all four of its exports are in: GSC and
+ * GA4 for each of /dijual/ and /disewa/, which is what Traffic (Optimized)
+ * lists as four separate rows.
+ *
+ * This used to look for a segment-less `bc_ga4_${slot}`. getDataKey never
+ * writes such a key — BC GA4 is always stored per segment — so the check
+ * was permanently false and a fully loaded BC slot could only ever reach
+ * "partial", never "filled".
+ */
+function bcStatus(data, k) {
+  const present = [
+    `bc_gsc_dijual_${k}`,
+    `bc_gsc_disewa_${k}`,
+    `bc_ga4_dijual_${k}`,
+    `bc_ga4_disewa_${k}`,
+  ].filter((key) => !!data[key]).length;
+  if (present === 4) return "ok";
+  if (present > 0) return "pending";
+  return "empty";
+}
+
 function SlotGrid({ title, slots, data, extraData, type }) {
   const ROWS =
     type === "flow1"
       ? [
           {
             label: "BC",
-            status: (k) => {
-              const dijual = !!data[`bc_gsc_dijual_${k}`];
-              const disewa = !!data[`bc_gsc_disewa_${k}`];
-              const ga4 = !!data[`bc_ga4_${k}`];
-              if (dijual && disewa && ga4) return "ok";
-              if (dijual || disewa || ga4) return "pending";
-              return "empty";
-            },
+            status: (k) => bcStatus(data, k),
           },
           {
             label: "Blog",
@@ -230,14 +251,7 @@ function SlotGrid({ title, slots, data, extraData, type }) {
       : [
           {
             label: "BC",
-            status: (k) => {
-              const dijual = !!extraData?.[`bc_gsc_dijual_${k}`];
-              const disewa = !!extraData?.[`bc_gsc_disewa_${k}`];
-              const ga4 = !!extraData?.[`bc_ga4_${k}`];
-              if (dijual && disewa && ga4) return "ok";
-              if (dijual || disewa || ga4) return "pending";
-              return "empty";
-            },
+            status: (k) => bcStatus(extraData ?? {}, k),
           },
           {
             label: "Blog",

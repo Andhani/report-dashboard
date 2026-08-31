@@ -2,7 +2,14 @@ import { useState, useRef, useMemo, useLayoutEffect } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { Upload } from "lucide-react";
-import { useStorage } from "../hooks/useStorage";
+import {
+  useCloudStorage as useStorage,
+  useCloudArrayStorage,
+} from "../hooks/useCloudStorage";
+import {
+  describeWriteError,
+  useCloudData,
+} from "../context/CloudDataContext";
 import { usePagination } from "../hooks/usePagination";
 import { urlToSlug } from "../utils/dateUtils";
 import { getValidToken } from "../utils/googleAuth";
@@ -79,16 +86,30 @@ function withSlug(row) {
 
 export default function UrlManager() {
   const [activeTab, setActiveTab] = useStorage("urls_active_tab", "bc");
-  const [bcUrls, setBcUrls] = useStorage("bc_urls", [], { sync: true });
-  const [blogUrls, setBlogUrls] = useStorage("blog_urls", [], { sync: true });
+  const [bcUrls, setBcUrls] = useCloudArrayStorage("bc_urls", []);
+  const [blogUrls, setBlogUrls] = useCloudArrayStorage("blog_urls", []);
+  const { clearArrayKey } = useCloudData();
 
   // Import toolbar state
   const [importMode, setImportMode] = useStorage("urls_import_mode", "sheets");
-  const [importSheetUrl, setImportSheetUrl] = useStorage("urls_import_sheet_url", "");
+  // Written synchronously: the debounced default could lose the cleared
+  // value to a reload, so a consumed URL would reappear in the field.
+  const [importSheetUrl, setImportSheetUrl] = useStorage(
+    "urls_import_sheet_url",
+    "",
+    { sync: true },
+  );
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState(null);
   const [csvLoading, setCsvLoading] = useState(false);
   const csvRef = useRef();
+
+  // Saving thousands of rows is many batched round trips taking real
+  // seconds. Without a visible in-progress state the page looks either
+  // frozen or already finished, and a reload during it loses whichever
+  // batches hadn't landed.
+  const [saving, setSaving] = useState(null); // { label, done, total }
+  const [saveNotice, setSaveNotice] = useState(null);
 
   // Column filters (Sheets/Excel-style), kept per tab since BC and Blog
   // share some column keys (url, status, pic, slug) but hold unrelated data.
@@ -127,25 +148,62 @@ export default function UrlManager() {
     setUrls((prev) => prev.filter((r) => r.id !== id));
   }
 
-  function handleClearAll() {
+  async function handleClearAll() {
     if (
-      confirm(
+      !confirm(
         `Clear all ${activeTab.toUpperCase()} URLs? This cannot be undone.`,
       )
     ) {
-      setUrls([]);
+      return;
+    }
+    const label = activeTab.toUpperCase();
+    setSaveNotice(null);
+    setSaving({ label: `Deleting ${label} URLs`, done: 0, total: 0 });
+    try {
+      await clearArrayKey(
+        activeTab === "bc" ? "bc_urls" : "blog_urls",
+        (done, total) =>
+          setSaving({ label: `Deleting ${label} URLs`, done, total }),
+      );
       setFilters({});
+      // The source URL refers to a list that no longer exists, so leaving it
+      // in the box just invites re-importing what was deliberately cleared.
+      setImportSheetUrl("");
+      setSaveNotice(`${label} URL list cleared.`);
+    } catch (err) {
+      setSaveNotice(`Couldn't finish clearing. ${describeWriteError(err)}`);
+    } finally {
+      setSaving(null);
     }
   }
 
-  function applyImport(rows) {
+  async function applyImport(rows) {
     if (
-      confirm(
+      !confirm(
         `Replace all existing ${activeTab.toUpperCase()} URLs with ${rows.length} imported rows?`,
       )
     ) {
-      setUrls(rows);
+      return false;
+    }
+    const label = activeTab.toUpperCase();
+    setSaveNotice(null);
+    setSaving({ label: `Saving ${label} URLs`, done: 0, total: rows.length });
+    try {
+      // Awaited: this is the write that was previously fire-and-forget, so
+      // the list looked saved while batches were still committing.
+      const { ok, error } = await setUrls(rows, {
+        onProgress: (done, total) =>
+          setSaving({ label: `Saving ${label} URLs`, done, total }),
+      });
+      if (!ok) {
+        setSaveNotice(`Save failed. ${describeWriteError(error)}`);
+        return false;
+      }
       setFilters({});
+      setSaveNotice(`Saved ${rows.length.toLocaleString()} ${label} URLs.`);
+      return true;
+    } finally {
+      setSaving(null);
     }
   }
 
@@ -188,11 +246,14 @@ export default function UrlManager() {
       const values = data.values || [];
       if (values.length === 0) throw new Error("Sheet appears empty.");
       const headerIdx = locateHeaderRow(values);
-      const rows = rowsToObjects(values, headerIdx).map((raw) =>
-        parseImportedRow(raw, activeTab, cols),
+      const rows = rowsToObjects(values, headerIdx).map((raw, i) =>
+        parseImportedRow(raw, activeTab, cols, i),
       );
-      applyImport(rows);
-      setImportSheetUrl("");
+      // Cleared only once the rows are actually saved — clearing on the way
+      // in wiped the field even when the confirm was cancelled or the save
+      // failed, and a debounced write of the empty value could be lost to a
+      // reload, bringing the old URL back.
+      if (await applyImport(rows)) setImportSheetUrl("");
     } catch (err) {
       setSheetError(err.message);
     } finally {
@@ -212,10 +273,10 @@ export default function UrlManager() {
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
         const headerIdx = locateHeaderRow(data);
-        const rows = rowsToObjects(data, headerIdx).map((raw) =>
-          parseImportedRow(raw, activeTab, cols),
+        const rows = rowsToObjects(data, headerIdx).map((raw, i) =>
+          parseImportedRow(raw, activeTab, cols, i),
         );
-        applyImport(rows);
+        await applyImport(rows);
       } else {
         await new Promise((resolve, reject) => {
           Papa.parse(file, {
@@ -223,11 +284,10 @@ export default function UrlManager() {
             skipEmptyLines: true,
             complete: ({ data }) => {
               const headerIdx = locateHeaderRow(data);
-              const rows = rowsToObjects(data, headerIdx).map((raw) =>
-                parseImportedRow(raw, activeTab, cols),
+              const rows = rowsToObjects(data, headerIdx).map((raw, i) =>
+                parseImportedRow(raw, activeTab, cols, i),
               );
-              applyImport(rows);
-              resolve();
+              applyImport(rows).then(resolve, reject);
             },
             error: (err) => reject(err),
           });
@@ -423,13 +483,58 @@ export default function UrlManager() {
           {urls.length > 0 && (
             <button
               onClick={handleClearAll}
-              className="btn-ghost text-danger hover:bg-danger/5"
+              disabled={!!saving}
+              className="btn-ghost text-danger hover:bg-danger/5 disabled:opacity-50"
             >
               Clear all
             </button>
           )}
         </div>
       </div>
+
+      {saving && (
+        <div className="card p-4 border-accent/40">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin shrink-0" />
+            <div className="text-xs font-medium text-ink">
+              {saving.label}
+              {saving.total > 0 && (
+                <>
+                  {" "}
+                  — {saving.done.toLocaleString()} of{" "}
+                  {saving.total.toLocaleString()}
+                </>
+              )}
+            </div>
+          </div>
+          <div className="h-1.5 bg-border rounded-full overflow-hidden">
+            <div
+              className="h-full bg-accent transition-all duration-200"
+              style={{
+                width: saving.total
+                  ? `${Math.round((saving.done / saving.total) * 100)}%`
+                  : "15%",
+              }}
+            />
+          </div>
+          <p className="text-2xs text-muted mt-2 leading-relaxed">
+            Don't reload or close this tab until it finishes — rows still in
+            flight wouldn't be saved.
+          </p>
+        </div>
+      )}
+
+      {saveNotice && !saving && (
+        <div className="card p-3 flex items-center justify-between gap-3">
+          <span className="text-xs text-ink">{saveNotice}</span>
+          <button
+            onClick={() => setSaveNotice(null)}
+            className="btn-ghost text-2xs text-muted"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       {urls.length === 0 ? (
@@ -842,7 +947,16 @@ function rowsToObjects(rows, headerIdx) {
  * Map a raw imported row (keyed by CSV/Sheet headers) to our internal schema.
  * Tries both exact header names and case-insensitive fuzzy match.
  */
-function parseImportedRow(raw, type, cols) {
+// Imported rows are keyed by position rather than a fresh uuid. Each row is
+// its own Firestore document, so random ids meant re-importing a list wrote
+// every new row AND deleted every old one — double the operations for what
+// is usually largely the same data. Positional ids overwrite in place, so a
+// re-import only writes, and only the rows whose contents actually differ.
+function importedRowId(index) {
+  return `row-${String(index).padStart(6, "0")}`;
+}
+
+function parseImportedRow(raw, type, cols, index) {
   // Build case-insensitive lookup
   const lowerRaw = {};
   Object.entries(raw).forEach(([k, v]) => {
@@ -860,7 +974,7 @@ function parseImportedRow(raw, type, cols) {
   let row;
   if (type === "bc") {
     row = {
-      id: crypto.randomUUID(),
+      id: importedRowId(index),
       main_keyword: get("Main Keyword", "main_keyword", "keyword"),
       offer: get("Offer", "offer"),
       property: get("Property", "property"),
@@ -872,7 +986,7 @@ function parseImportedRow(raw, type, cols) {
     };
   } else {
     row = {
-      id: crypto.randomUUID(),
+      id: importedRowId(index),
       keyword: get("Keyword", "keyword", "Main Keyword", "main_keyword"),
       url: get("URL", "url", "Url"),
       status: get("Status", "status"),

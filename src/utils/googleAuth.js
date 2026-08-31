@@ -1,17 +1,23 @@
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { auth, db } from "../lib/firebase";
+
+function oauthDocRef(uid) {
+  return doc(db, "users", uid, "data", "google_oauth");
+}
+
 /**
  * Returns a valid access token, refreshing silently if expired.
- * Returns null if no token stored or refresh fails.
+ * Returns null if no token stored or refresh fails. Reads/writes the
+ * currently signed-in dashboard user's own Firestore document, so each
+ * signed-in user has their own separate Google Sheets connection.
  */
 export async function getValidToken() {
-  const raw = localStorage.getItem("google_oauth");
-  if (!raw) return null;
+  const uid = auth.currentUser?.uid;
+  if (!uid) return null;
 
-  let oauth;
-  try {
-    oauth = JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  const snap = await getDoc(oauthDocRef(uid));
+  const oauth = snap.exists() ? snap.data().value : null;
+  if (!oauth) return null;
 
   if (Date.now() < oauth.expires_at) return oauth.access_token;
 
@@ -39,13 +45,16 @@ export async function getValidToken() {
       access_token: data.access_token,
       expires_at: Date.now() + (data.expires_in - 60) * 1000,
     };
-    localStorage.setItem("google_oauth", JSON.stringify(updated));
+    await setDoc(oauthDocRef(uid), { value: updated });
     return data.access_token;
   } catch {
     return null;
   }
 }
 
-export function isConnected() {
-  return !!localStorage.getItem("google_oauth");
+export async function isConnected() {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return false;
+  const snap = await getDoc(oauthDocRef(uid));
+  return !!(snap.exists() && snap.data().value);
 }
