@@ -80,7 +80,13 @@ const MONTH_NAME_MAP = {
   january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
   july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
   jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7,
-  aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+  aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
+  // Indonesian month names. GA4/GSC emit these when the account locale is
+  // Indonesian. Every spelling shared with English means the same month, so
+  // one table serves both languages and no locale flag is needed.
+  januari: 1, februari: 2, peb: 2, maret: 3, mei: 5, juni: 6, juli: 7,
+  agustus: 8, agu: 8, ags: 8, oktober: 10, okt: 10,
+  nopember: 11, nop: 11, desember: 12, des: 12,
 };
 
 /**
