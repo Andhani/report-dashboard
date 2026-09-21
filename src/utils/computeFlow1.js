@@ -129,8 +129,8 @@ const BLOG_URL_FIELDS = [
   { header: "Keyword", key: "keyword" },
   { header: "URL", key: "url" },
   { header: "Status", key: "status" },
-  { header: "Publish Date", key: "publish_date" },
   { header: "Content Type", key: "content_type" },
+  { header: "Publish Date", key: "publish_date" },
   { header: "PIC", key: "pic" },
   { header: "Slug", key: "slug" },
 ];
