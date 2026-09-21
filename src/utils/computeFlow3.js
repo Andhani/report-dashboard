@@ -134,8 +134,16 @@ function sumGA4(slugs, ga4Map) {
  * Compute BC Leads Summary block for a given month and optional date range.
  *
  * Only rows with a published-related status (Published, Published Create,
- * Published Upgrade) and a publish date within the selected range are counted.
- * GA4 metrics are pulled for those exact slugs.
+ * Published Upgrade) and a publish date within the selected range are counted,
+ * then split by content type exactly as Blog is:
+ *
+ * - Creates: "Create" content type only.
+ * - Updates: "Update" content type only.
+ *
+ * GA4 metrics are pulled for each group's exact slug set. The split partitions
+ * the rows the block always counted — every figure comes from the same helpers
+ * as before (sumGA4, the Flow 2 rates, traffic x rate), so the totals are
+ * unchanged; only their grouping is new.
  *
  * dateRange: { startDay: number|null, endDay: number|null } — null means open
  */
@@ -144,8 +152,8 @@ export function computeBCLeads(bcUrls, flow1Data, flow2Data, slot, dateRange) {
   const startDay = dateRange?.startDay ?? null;
   const endDay = dateRange?.endDay ?? null;
 
-  // Step 1: filter by date range, then by published-related status
-  const published = filterByDateRange(
+  // Step 1: all in-range, published-related rows
+  const inRange = filterByDateRange(
     bcUrls,
     "publish",
     year,
@@ -154,11 +162,22 @@ export function computeBCLeads(bcUrls, flow1Data, flow2Data, slot, dateRange) {
     endDay,
   ).filter((u) => PUBLISHED_STATUSES.has(u.status));
 
+  // Steps 2 & 3: split by content type. Matched exactly, as Blog is — a row
+  // whose Content Type is blank or misspelt belongs to neither group.
+  const creates = inRange.filter((u) => u.content_type === "Create");
+  const updates = inRange.filter((u) => u.content_type === "Update");
+
   const ga4Map = getGA4MetricsMap(flow1Data, monthKey, "bc");
 
-  // Steps 4 & 5: GA4 metrics summed only for the filtered slug set
-  const slugs = published.map((u) => u.slug).filter(Boolean);
-  const traffic = sumGA4(slugs, ga4Map);
+  // Steps 4 & 5: GA4 metrics for each group's exact slug set
+  const createTraffic = sumGA4(
+    creates.map((u) => u.slug).filter(Boolean),
+    ga4Map,
+  );
+  const updateTraffic = sumGA4(
+    updates.map((u) => u.slug).filter(Boolean),
+    ga4Map,
+  );
 
   // Lead rates from Flow 2 (site-wide totals — unchanged)
   const ga4Free = flow2Data[`ga4_free_${monthKey}`];
@@ -175,17 +194,35 @@ export function computeBCLeads(bcUrls, flow1Data, flow2Data, slot, dateRange) {
     leadPerSessions: totalSessions > 0 ? clickContact / totalSessions : 0,
   };
 
+  function estimated(t) {
+    return {
+      views: t.views * rates.leadPerViews,
+      users: t.users * rates.leadPerUsers,
+      sessions: t.sessions * rates.leadPerSessions,
+    };
+  }
+
   return {
     monthLabel: `${getIndonesianMonth(month)} ${year}`,
-    count: published.length,
-    traffic,
+    creates: {
+      count: creates.length,
+      traffic: createTraffic,
+      estimated: estimated(createTraffic),
+    },
+    updates: {
+      count: updates.length,
+      traffic: updateTraffic,
+      estimated: estimated(updateTraffic),
+    },
+    grandTotal: {
+      count: creates.length + updates.length,
+      traffic: sumGA4(
+        [...creates, ...updates].map((u) => u.slug).filter(Boolean),
+        ga4Map,
+      ),
+    },
     rates,
     siteWide: { totalViews, totalUsers, totalSessions, clickContact },
-    estimated: {
-      views: traffic.views * rates.leadPerViews,
-      users: traffic.users * rates.leadPerUsers,
-      sessions: traffic.sessions * rates.leadPerSessions,
-    },
   };
 }
 
@@ -302,54 +339,112 @@ export function fmtEst(n) {
 
 /**
  * Build CSV rows for a BC Leads block.
+ *
+ * Same two-section shape as the Blog block: a counts table in columns A/B,
+ * then the CREATE and UPDATE metric sections.
  */
 export function buildBCLeadsCSV(block) {
   if (!block) return [];
-  const { monthLabel, count, traffic, rates, siteWide, estimated } = block;
+  const { monthLabel, creates, updates, grandTotal, rates, siteWide } = block;
   return [
     [monthLabel],
     ["Data Source", "GA4"],
     [""],
-    ["", "Traffic Summary", "", "Estimated Leads", "", "Lead per Views"],
-    ["Bottom Content", "Metric", "Value", "Metric", "Value", "Metric", "Value"],
+    ["", "CREATE CONTENT", "", "Estimated Leads (Create)", "", "Lead per Views"],
     [
-      count,
-      "Sum of Views",
-      fmtNum(traffic.views),
+      "Content Type",
+      "Jumlah",
+      "Metric",
+      "Value",
+      "Metric",
+      "Value",
+      "Metric",
+      "Value",
+    ],
+    [
+      "Create",
+      creates.count,
+      "Sum Views",
+      fmtNum(creates.traffic.views),
       "Views-based",
-      fmtEst(estimated.views),
+      fmtEst(creates.estimated.views),
       "Total Org Views",
       fmtNum(siteWide.totalViews),
     ],
     [
-      "",
-      "Sum of Active Users",
-      fmtNum(traffic.users),
+      "Update",
+      updates.count,
+      "Sum Users",
+      fmtNum(creates.traffic.users),
       "Users-based",
-      fmtEst(estimated.users),
+      fmtEst(creates.estimated.users),
+      "Click_Contact",
+      fmtNum(siteWide.clickContact),
+    ],
+    [
+      "Grand Total",
+      grandTotal.count,
+      "Sum Sessions",
+      fmtNum(creates.traffic.sessions),
+      "Sessions-based",
+      fmtEst(creates.estimated.sessions),
+      "Rate",
+      fmtRate(rates.leadPerViews),
+    ],
+    ["", "", "Avg AET", fmtAET(creates.traffic.aet_seconds)],
+    [""],
+    ["", "UPDATE CONTENT", "", "Estimated Leads (Update)", "", "Lead per Users"],
+    [
+      "",
+      updates.count,
+      "Sum Views",
+      fmtNum(updates.traffic.views),
+      "Views-based",
+      fmtEst(updates.estimated.views),
+      "Total Org Users",
+      fmtNum(siteWide.totalUsers),
+    ],
+    [
+      "",
+      "",
+      "Sum Users",
+      fmtNum(updates.traffic.users),
+      "Users-based",
+      fmtEst(updates.estimated.users),
       "Click_Contact",
       fmtNum(siteWide.clickContact),
     ],
     [
       "",
-      "Sum of Sessions",
-      fmtNum(traffic.sessions),
+      "",
+      "Sum Sessions",
+      fmtNum(updates.traffic.sessions),
       "Sessions-based",
-      fmtEst(estimated.sessions),
+      fmtEst(updates.estimated.sessions),
       "Rate",
-      fmtRate(rates.leadPerViews),
+      fmtRate(rates.leadPerUsers),
     ],
-    ["", "Avg of AET", fmtAET(traffic.aet_seconds), "", "", ""],
-    [""],
-    ["", "", "", "", "", "Lead per Users"],
-    ["", "", "", "", "", "Total Org Users", fmtNum(siteWide.totalUsers)],
-    ["", "", "", "", "", "Click_Contact", fmtNum(siteWide.clickContact)],
-    ["", "", "", "", "", "Rate", fmtRate(rates.leadPerUsers)],
-    [""],
-    ["", "", "", "", "", "Lead per Sessions"],
-    ["", "", "", "", "", "Total Org Sessions", fmtNum(siteWide.totalSessions)],
-    ["", "", "", "", "", "Click_Contact", fmtNum(siteWide.clickContact)],
-    ["", "", "", "", "", "Rate", fmtRate(rates.leadPerSessions)],
+    [
+      "",
+      "",
+      "Avg AET",
+      fmtAET(updates.traffic.aet_seconds),
+      "",
+      "",
+      "Lead per Sessions",
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "Total Org Sessions",
+      fmtNum(siteWide.totalSessions),
+    ],
+    ["", "", "", "", "", "", "Click_Contact", fmtNum(siteWide.clickContact)],
+    ["", "", "", "", "", "", "Rate", fmtRate(rates.leadPerSessions)],
     [""],
   ];
 }

@@ -119,8 +119,9 @@ const BC_URL_FIELDS = [
   { header: "Offer", key: "offer" },
   { header: "Property", key: "property" },
   { header: "URL", key: "url" },
-  { header: "Publish", key: "publish" },
   { header: "Status", key: "status" },
+  { header: "Content Type", key: "content_type" },
+  { header: "Published", key: "publish" },
   { header: "PIC", key: "pic" },
   { header: "Slug", key: "slug" },
 ];

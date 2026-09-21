@@ -32,8 +32,15 @@ const BC_COLS = [
   },
   { key: "property", label: "Property", type: "text", width: "w-28" },
   { key: "url", label: "URL", type: "url", width: "w-64" },
-  { key: "publish", label: "Publish", type: "date", width: "w-32" },
   { key: "status", label: "Status", type: "text", width: "w-36" },
+  {
+    key: "content_type",
+    label: "Content Type",
+    type: "select",
+    options: ["Create", "Update"],
+    width: "w-28",
+  },
+  { key: "publish", label: "Published", type: "date", width: "w-32" },
   { key: "pic", label: "PIC", type: "text", width: "w-28" },
   { key: "slug", label: "Slug", type: "readonly", width: "w-48" },
 ];
@@ -62,8 +69,9 @@ function emptyRow(type) {
       offer: "dijual/",
       property: "",
       url: "",
-      publish: "",
       status: "",
+      content_type: "Create",
+      publish: "",
       pic: "",
       slug: "",
     };
@@ -997,8 +1005,9 @@ function parseImportedRow(raw, type, cols, index) {
       offer: get("Offer", "offer"),
       property: get("Property", "property"),
       url: get("URL", "url", "Url"),
-      publish: normalizeImportedDate(get("Published", "published", "Publish", "publish", "Publish Date", "publish_date")),
       status: get("Status", "status"),
+      content_type: get("Content Type", "content_type", "ContentType"),
+      publish: normalizeImportedDate(get("Published", "published", "Publish", "publish", "Publish Date", "publish_date")),
       pic: get("PIC", "pic"),
       slug: "",
     };

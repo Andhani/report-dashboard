@@ -56,8 +56,9 @@ describe("BC column order", () => {
     "offer",
     "property",
     "url",
-    "publish",
     "status",
+    "content_type",
+    "publish",
     "pic",
     "slug",
   ];
@@ -73,9 +74,11 @@ describe("Sheets column layout", () => {
   // Metric columns must begin at I for BC and H for Blog. That offset is just
   // the number of URL columns, so adding or removing one silently shifts
   // every metric in the pushed report.
-  it("leaves BC metrics starting at column I (9th)", () => {
+  // BC gained a Content Type column, so its 9 URL fields push the metric block
+  // one to the right. Blog still has 7 fields and stays at H.
+  it("leaves BC metrics starting at column J (10th)", () => {
     const headers = buildCSVData("bc", [], slots)[0];
-    expect(headers.indexOf("Rank Aug 2026")).toBe(8);
+    expect(headers.indexOf("Rank Aug 2026")).toBe(9);
   });
 
   it("leaves Blog metrics starting at column H (8th)", () => {
