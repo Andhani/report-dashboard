@@ -46,7 +46,7 @@ const BLOG_COLS = [
     key: "content_type",
     label: "Content Type",
     type: "select",
-    options: ["Create", "Optimize", "Update"],
+    options: ["Create", "Update"],
     width: "w-28",
   },
   { key: "publish_date", label: "Publish Date", type: "date", width: "w-32" },

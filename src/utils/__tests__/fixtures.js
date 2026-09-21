@@ -3,8 +3,9 @@
 // Deliberately covers the cases the flows branch on, so a regression shows up
 // as a changed number rather than a passing test on trivial data:
 //   - every status the leads filter accepts, plus one it must reject (Draft)
-//   - every Blog content type, including "Optimize" (counted in neither
-//     Creates nor Updates — see columnLayout.test.js)
+//   - both Blog content types, plus a row whose Content Type cell does not
+//     exactly match either ("update" in lower case) — import copies sheet
+//     text verbatim, so only an exact match is counted
 //   - rows inside and outside the selected month, and inside and outside a
 //     partial day range
 //   - BC data split across the two segment keys (dijual + disewa)
@@ -19,7 +20,7 @@ export const blogUrls = [
   { id: "row-000001", keyword: "tips kpr", url: "https://www.brighton.co.id/blog/tips-kpr", status: "Published Create", content_type: "Create", publish_date: "2026-09-11", pic: "Budi", slug: "/blog/tips-kpr" },
   { id: "row-000002", keyword: "investasi properti", url: "https://www.brighton.co.id/blog/investasi", status: "Published Upgrade", content_type: "Update", publish_date: "2026-09-20", pic: "Citra", slug: "/blog/investasi" },
   { id: "row-000003", keyword: "sewa apartemen", url: "https://www.brighton.co.id/blog/sewa-apt", status: "Draft", content_type: "Create", publish_date: "2026-09-05", pic: "Dedi", slug: "/blog/sewa-apt" },
-  { id: "row-000004", keyword: "rumah bekas", url: "https://www.brighton.co.id/blog/rumah-bekas", status: "Published", content_type: "Optimize", publish_date: "2026-09-08", pic: "Eka", slug: "/blog/rumah-bekas" },
+  { id: "row-000004", keyword: "rumah bekas", url: "https://www.brighton.co.id/blog/rumah-bekas", status: "Published", content_type: "update", publish_date: "2026-09-08", pic: "Eka", slug: "/blog/rumah-bekas" },
   { id: "row-000005", keyword: "bulan lalu", url: "https://www.brighton.co.id/blog/lama", status: "Published", content_type: "Create", publish_date: "2026-08-15", pic: "Fajar", slug: "/blog/lama" },
 ];
 

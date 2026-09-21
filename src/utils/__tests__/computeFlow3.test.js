@@ -94,14 +94,15 @@ describe("computeBlogLeads", () => {
     expect(b.updates.count).toBe(1);
   });
 
-  // Documents current behaviour, which is a known gap rather than a desired
-  // rule: "Optimize" is offered in the URL List dropdown but is bucketed as
-  // neither a Create nor an Update, so its traffic is absent from the block.
-  it("drops Optimize rows from every bucket (known gap)", () => {
+  // Content Type is matched exactly. Import copies whatever the sheet cell
+  // says, so a near-miss ("update", "Create ") is not a third category — it
+  // is a row that drops out of the report silently. Create and Update are
+  // the only two values the Blog list uses.
+  it("counts only an exact Create or Update, never a near-miss", () => {
     const b = computeBlogLeads(blogUrls, flow1Data, flow2Data, sep, FULL);
-    const optimize = blogUrls.find((r) => r.content_type === "Optimize");
-    expect(optimize.status).toBe("Published"); // in range, would otherwise count
+    const nearMiss = blogUrls.find((r) => r.content_type === "update");
+    expect(nearMiss.status).toBe("Published"); // in range, so only the case differs
     expect(b.grandTotal.count).toBe(3); // not 4
-    expect(b.grandTotal.traffic.views).toBe(900 + 640 + 310); // rumah-bekas' 150 missing
+    expect(b.grandTotal.traffic.views).toBe(900 + 640 + 310); // its 150 views excluded
   });
 });
