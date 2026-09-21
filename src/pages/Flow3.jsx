@@ -261,8 +261,12 @@ export default function Flow3() {
         )}
 
         {/* Merged output: BC → Blog → shared rates */}
-        {currentSlot && bcBlock && <BCSection block={bcBlock} />}
-        {currentSlot && blogBlock && <BlogSection block={blogBlock} />}
+        {currentSlot && bcBlock && (
+          <LeadsSection title="BC Leads" block={bcBlock} />
+        )}
+        {currentSlot && blogBlock && (
+          <LeadsSection title="Blog Leads" block={blogBlock} />
+        )}
         {currentSlot && (bcBlock || blogBlock) && (
           <RateSection block={bcBlock ?? blogBlock} />
         )}
@@ -327,72 +331,17 @@ function DependencyBanner({ hasFlow1, hasFlow2 }) {
   );
 }
 
-// ─── BC Section ───────────────────────────────────────────────────────────────
+// ─── Leads Section ────────────────────────────────────────────────────────────
 
-function BCSection({ block }) {
-  const { monthLabel, count, traffic, estimated } = block;
-  return (
-    <div className="card p-4">
-      <div className="flex items-baseline gap-2 mb-4">
-        <span className="text-2xs uppercase tracking-wider text-muted">
-          BC Leads
-        </span>
-        <span className="text-xs font-semibold text-ink">{monthLabel}</span>
-        <span className="text-2xs text-muted">GA4</span>
-      </div>
-      <div className="grid grid-cols-2 gap-x-6 text-xs">
-        {/* Headers */}
-        <div className="pb-2">
-          <div className="text-2xs uppercase tracking-wider text-muted">
-            Traffic Summary
-          </div>
-          <div className="text-2xs text-muted mt-0.5">
-            {count} URLs (bottom content)
-          </div>
-        </div>
-        <div className="pb-2">
-          <div className="text-2xs uppercase tracking-wider text-muted">
-            Estimated Leads
-          </div>
-        </div>
-        {/* Views */}
-        <SplitRow label="Views" value={fmtNum(traffic.views)} />
-        <SplitRow
-          label="Views-based"
-          value={fmtEst(estimated.views)}
-          highlight
-        />
-        {/* Users */}
-        <SplitRow label="Active Users" value={fmtNum(traffic.users)} />
-        <SplitRow
-          label="Users-based"
-          value={fmtEst(estimated.users)}
-          highlight
-        />
-        {/* Sessions */}
-        <SplitRow label="Sessions" value={fmtNum(traffic.sessions)} />
-        <SplitRow
-          label="Sessions-based"
-          value={fmtEst(estimated.sessions)}
-          highlight
-        />
-        {/* Avg AET — no right counterpart */}
-        <SplitRow label="Avg AET" value={fmtAET(traffic.aet_seconds)} last />
-        <div className="py-1.5" />
-      </div>
-    </div>
-  );
-}
-
-// ─── Blog Section ─────────────────────────────────────────────────────────────
-
-function BlogSection({ block }) {
+// BC and Blog leads blocks have the same shape — Create and Update groups over
+// the same metrics — so one component renders both.
+function LeadsSection({ title, block }) {
   const { monthLabel, creates, updates, grandTotal } = block;
   return (
     <div className="card p-4">
       <div className="flex items-baseline gap-2 mb-4">
         <span className="text-2xs uppercase tracking-wider text-muted">
-          Blog Leads
+          {title}
         </span>
         <span className="text-xs font-semibold text-ink">{monthLabel}</span>
         <span className="text-2xs text-muted">GA4</span>

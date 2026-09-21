@@ -25,9 +25,9 @@ export const blogUrls = [
 ];
 
 export const bcUrls = [
-  { id: "row-000000", main_keyword: "rumah dijual bsd", offer: "dijual/", property: "Rumah", url: "https://www.brighton.co.id/dijual/rumah-bsd", publish: "2026-09-02", status: "Published", pic: "Ali", slug: "/dijual/rumah-bsd" },
-  { id: "row-000001", main_keyword: "apartemen disewa", offer: "disewa/", property: "Apartemen", url: "https://www.brighton.co.id/disewa/apt-scbd", publish: "2026-09-18", status: "Published Create", pic: "Budi", slug: "/disewa/apt-scbd" },
-  { id: "row-000002", main_keyword: "ruko dijual", offer: "dijual/", property: "Ruko", url: "https://www.brighton.co.id/dijual/ruko-kelapa", publish: "2026-09-25", status: "Draft", pic: "Citra", slug: "/dijual/ruko-kelapa" },
+  { id: "row-000000", main_keyword: "rumah dijual bsd", offer: "dijual/", property: "Rumah", url: "https://www.brighton.co.id/dijual/rumah-bsd", status: "Published", content_type: "Create", publish: "2026-09-02", pic: "Ali", slug: "/dijual/rumah-bsd" },
+  { id: "row-000001", main_keyword: "apartemen disewa", offer: "disewa/", property: "Apartemen", url: "https://www.brighton.co.id/disewa/apt-scbd", status: "Published Create", content_type: "Update", publish: "2026-09-18", pic: "Budi", slug: "/disewa/apt-scbd" },
+  { id: "row-000002", main_keyword: "ruko dijual", offer: "dijual/", property: "Ruko", url: "https://www.brighton.co.id/dijual/ruko-kelapa", status: "Draft", content_type: "Create", publish: "2026-09-25", pic: "Citra", slug: "/dijual/ruko-kelapa" },
 ];
 
 // Field names match what parseFlow1 emits — `rank`, not `position`.

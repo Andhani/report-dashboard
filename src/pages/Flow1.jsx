@@ -49,8 +49,9 @@ const BC_URL_COLS = [
   { key: "offer", label: "Offer" },
   { key: "property", label: "Property" },
   { key: "url", label: "URL" },
-  { key: "publish", label: "Publish" },
   { key: "status", label: "Status" },
+  { key: "content_type", label: "Content Type" },
+  { key: "publish", label: "Published" },
   { key: "pic", label: "PIC" },
   { key: "slug", label: "Slug" },
 ];

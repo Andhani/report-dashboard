@@ -20,40 +20,82 @@ describe("getLeadsMonth", () => {
 });
 
 describe("computeBCLeads", () => {
-  it("counts only published rows in the month", () => {
+  it("splits published in-range rows into Creates and Updates", () => {
     const b = computeBCLeads(bcUrls, flow1Data, flow2Data, sep, FULL);
-    // rumah-bsd (Published) + apt-scbd (Published Create); ruko is Draft.
-    expect(b.count).toBe(2);
+    expect(b.creates.count).toBe(1); // rumah-bsd
+    expect(b.updates.count).toBe(1); // apt-scbd
+    expect(b.grandTotal.count).toBe(2); // ruko is a Draft
     expect(b.monthLabel).toBe("September 2026");
   });
 
-  it("sums GA4 across both BC segments, averaging AET over non-zero rows", () => {
+  it("sums GA4 per group, across both BC segment keys", () => {
     const b = computeBCLeads(bcUrls, flow1Data, flow2Data, sep, FULL);
-    expect(b.traffic.views).toBe(400 + 180);
-    expect(b.traffic.users).toBe(320 + 140);
-    expect(b.traffic.sessions).toBe(380 + 170);
-    expect(b.traffic.aet_seconds).toBeCloseTo((88.0 + 62.5) / 2, 10);
+    // rumah-bsd lives under bc_ga4_dijual, apt-scbd under bc_ga4_disewa.
+    expect(b.creates.traffic.views).toBe(400);
+    expect(b.creates.traffic.aet_seconds).toBeCloseTo(88.0, 10);
+    expect(b.updates.traffic.views).toBe(180);
+    expect(b.updates.traffic.aet_seconds).toBeCloseTo(62.5, 10);
+  });
+
+  // The split must partition the rows the block always counted, never change
+  // the arithmetic. These are the figures the single-block version returned
+  // for this fixture, asserted against the two groups combined.
+  it("leaves the underlying totals identical to the unsplit block", () => {
+    const b = computeBCLeads(bcUrls, flow1Data, flow2Data, sep, FULL);
+    expect(b.grandTotal.traffic.views).toBe(580);
+    expect(b.grandTotal.traffic.users).toBe(460);
+    expect(b.grandTotal.traffic.sessions).toBe(550);
+    expect(b.grandTotal.traffic.aet_seconds).toBeCloseTo(75.25, 10);
+    // And the groups add up to it.
+    expect(b.creates.traffic.views + b.updates.traffic.views).toBe(580);
+    expect(b.creates.traffic.users + b.updates.traffic.users).toBe(460);
+    expect(b.creates.traffic.sessions + b.updates.traffic.sessions).toBe(550);
   });
 
   it("derives lead rates from the site-wide Flow 2 totals", () => {
     const b = computeBCLeads(bcUrls, flow1Data, flow2Data, sep, FULL);
     expect(b.rates.leadPerViews).toBeCloseTo(CLICK_CONTACT / TOTAL_VIEWS, 12);
     expect(b.rates.leadPerUsers).toBeCloseTo(CLICK_CONTACT / TOTAL_USERS, 12);
-    expect(b.rates.leadPerSessions).toBeCloseTo(CLICK_CONTACT / TOTAL_SESSIONS, 12);
+    expect(b.rates.leadPerSessions).toBeCloseTo(
+      CLICK_CONTACT / TOTAL_SESSIONS,
+      12,
+    );
   });
 
-  it("estimates leads as traffic x rate", () => {
+  it("estimates leads as traffic x rate, per group", () => {
     const b = computeBCLeads(bcUrls, flow1Data, flow2Data, sep, FULL);
-    expect(b.estimated.views).toBeCloseTo(580 * (CLICK_CONTACT / TOTAL_VIEWS), 10);
-    expect(b.estimated.users).toBeCloseTo(460 * (CLICK_CONTACT / TOTAL_USERS), 10);
-    expect(b.estimated.sessions).toBeCloseTo(550 * (CLICK_CONTACT / TOTAL_SESSIONS), 10);
+    expect(b.creates.estimated.views).toBeCloseTo(
+      400 * (CLICK_CONTACT / TOTAL_VIEWS),
+      10,
+    );
+    expect(b.updates.estimated.views).toBeCloseTo(
+      180 * (CLICK_CONTACT / TOTAL_VIEWS),
+      10,
+    );
+    expect(b.updates.estimated.users).toBeCloseTo(
+      140 * (CLICK_CONTACT / TOTAL_USERS),
+      10,
+    );
+    // Estimates over both groups still match the unsplit figure.
+    expect(b.creates.estimated.views + b.updates.estimated.views).toBeCloseTo(
+      580 * (CLICK_CONTACT / TOTAL_VIEWS),
+      10,
+    );
   });
 
   it("honours a partial day range", () => {
     const b = computeBCLeads(bcUrls, flow1Data, flow2Data, sep, PARTIAL);
-    // Only apt-scbd (18 Sep); rumah-bsd is the 2nd, outside days 5-20.
-    expect(b.count).toBe(1);
-    expect(b.traffic.views).toBe(180);
+    // Only apt-scbd (18 Sep, an Update); rumah-bsd is the 2nd, outside 5-20.
+    expect(b.creates.count).toBe(0);
+    expect(b.updates.count).toBe(1);
+    expect(b.updates.traffic.views).toBe(180);
+  });
+
+  it("counts only an exact Create or Update", () => {
+    const blank = bcUrls.map((r) => ({ ...r, content_type: "" }));
+    const b = computeBCLeads(blank, flow1Data, flow2Data, sep, FULL);
+    expect(b.grandTotal.count).toBe(0);
+    expect(b.grandTotal.traffic.views).toBe(0);
   });
 });
 

@@ -140,4 +140,4 @@ Consequences worth preserving:
 
 ### Sheets Column Layout (Flow 1)
 
-BC writes metric columns starting at column I (1-based 9); Blog starts at column H (1-based 8). Each spans 48 columns (8 metrics × 6 slots). Metric order: Rank, Impressions, Clicks, CTR, Views, Active Users, Sessions, AET.
+BC writes metric columns starting at column J (1-based 10); Blog starts at column H (1-based 8). Each spans 48 columns (8 metrics × 6 slots). Metric order: Rank, Impressions, Clicks, CTR, Views, Active Users, Sessions, AET.
