@@ -42,7 +42,6 @@ const BLOG_COLS = [
   { key: "keyword", label: "Keyword", type: "text", width: "w-44" },
   { key: "url", label: "URL", type: "url", width: "w-64" },
   { key: "status", label: "Status", type: "text", width: "w-28" },
-  { key: "publish_date", label: "Publish Date", type: "date", width: "w-32" },
   {
     key: "content_type",
     label: "Content Type",
@@ -50,6 +49,7 @@ const BLOG_COLS = [
     options: ["Create", "Optimize", "Update"],
     width: "w-28",
   },
+  { key: "publish_date", label: "Publish Date", type: "date", width: "w-32" },
   { key: "pic", label: "PIC", type: "text", width: "w-28" },
   { key: "slug", label: "Slug", type: "readonly", width: "w-48" },
 ];
@@ -73,8 +73,8 @@ function emptyRow(type) {
     keyword: "",
     url: "",
     status: "",
-    publish_date: "",
     content_type: "Create",
+    publish_date: "",
     pic: "",
     slug: "",
   };

@@ -59,8 +59,8 @@ const BLOG_URL_COLS = [
   { key: "keyword", label: "Keyword" },
   { key: "url", label: "URL" },
   { key: "status", label: "Status" },
-  { key: "publish_date", label: "Publish Date" },
   { key: "content_type", label: "Content Type" },
+  { key: "publish_date", label: "Publish Date" },
   { key: "pic", label: "PIC" },
   { key: "slug", label: "Slug" },
 ];
