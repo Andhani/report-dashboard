@@ -11,16 +11,19 @@ import {
 import {
   parseFlow2File,
   parseGSCChartWorkbook,
-  parseGA4FreeFile,
-  parseGA4LeadsFile,
+  parseGA4File,
   getFlow2DataKey,
   formatFlow2DetectionLabel,
 } from "../utils/parseFlow2";
 import {
   computeFlow2Output,
+  mergeFlow1Reuse,
   buildFlow2CSV,
+  withSheetLabels,
   SEGMENTS,
+  ENTRY_SEGMENTS,
   METRICS,
+  ENTRY_METRICS,
   formatMetricValue,
 } from "../utils/computeFlow2";
 import { downloadCSV, readFileAsArrayBuffer } from "../utils/exportUtils";
@@ -42,83 +45,15 @@ import {
 } from "lucide-react";
 import SheetPushModal from "../components/SheetPushModal";
 
-function aggregateGSCRows(entry) {
-  if (!entry || !Array.isArray(entry.rows)) return entry;
-  // Prefer Chart sheet daily aggregates when available — same method as direct Chart upload.
-  if (entry.chartAgg) return entry.chartAgg;
-  // Fallback for older stored entries: impression-weighted average from URL rows.
-  let clicks = 0,
-    impressions = 0,
-    posWeightedSum = 0,
-    posImpressions = 0;
-  for (const row of entry.rows) {
-    clicks += row.clicks ?? 0;
-    impressions += row.impressions ?? 0;
-    const rank = row.rank ?? 0;
-    const imp = row.impressions ?? 0;
-    if (rank > 0 && imp > 0) {
-      posWeightedSum += rank * imp;
-      posImpressions += imp;
-    }
-  }
-  return {
-    clicks,
-    impressions,
-    avgPosition: posImpressions > 0 ? posWeightedSum / posImpressions : 0,
-  };
-}
-
-function aggregateGA4Rows(entry) {
-  if (!entry || !Array.isArray(entry.rows)) return null;
-  // Use stored grand total when available — exact match with the direct-upload path
-  // which reads the same grand total row from the GA4 export file.
-  if (entry.grandTotal) return entry.grandTotal;
-  // Fallback for old stored entries (no grandTotal): session-weighted average from
-  // URL rows approximates the grand total AET better than unweighted, but is not exact.
-  let views = 0,
-    users = 0,
-    sessions = 0,
-    aetWeightedSum = 0;
-  for (const row of entry.rows) {
-    views += row.views ?? 0;
-    users += row.users ?? 0;
-    const s = row.sessions ?? 0;
-    sessions += s;
-    const a = row.aet_seconds ?? 0;
-    if (a > 0 && s > 0) aetWeightedSum += a * s;
-  }
-  return {
-    views,
-    users,
-    sessions,
-    aet_seconds: sessions > 0 ? aetWeightedSum / sessions : 0,
-  };
-}
-
 export default function Flow2() {
   const { flow1Data, flow2Data, setFlow2Data } = useDataContext();
   const [flow2Window] = useStorage("flow2_window", null);
   const [sheetsUrl] = useStorage("sheets_report_url", "");
 
-  const mergedForCompute = useMemo(() => {
-    const fromFlow1 = {};
-    for (const [k, v] of Object.entries(flow1Data)) {
-      if (k.startsWith("bc_gsc_dijual_"))
-        fromFlow1[`gsc_dijual_${k.slice(14)}`] = aggregateGSCRows(v);
-      else if (k.startsWith("bc_gsc_disewa_"))
-        fromFlow1[`gsc_disewa_${k.slice(14)}`] = aggregateGSCRows(v);
-      else if (k.startsWith("blog_gsc_"))
-        fromFlow1[`gsc_blog_${k.slice(9)}`] = aggregateGSCRows(v);
-      else if (k.startsWith("bc_ga4_dijual_"))
-        fromFlow1[`ga4_dijual_${k.slice(14)}`] = aggregateGA4Rows(v);
-      else if (k.startsWith("bc_ga4_disewa_"))
-        fromFlow1[`ga4_disewa_${k.slice(14)}`] = aggregateGA4Rows(v);
-      else if (k.startsWith("blog_ga4_"))
-        fromFlow1[`ga4_blog_${k.slice(9)}`] = aggregateGA4Rows(v);
-    }
-    // flow2Data wins: a directly-uploaded file overrides the flow1 fallback
-    return { ...fromFlow1, ...flow2Data };
-  }, [flow1Data, flow2Data]);
+  const mergedForCompute = useMemo(
+    () => mergeFlow1Reuse(flow1Data, flow2Data),
+    [flow1Data, flow2Data],
+  );
 
   const [log, setLog] = useStorage("flow2_log", []);
   const [processing, setProcessing] = useState(false);
@@ -205,7 +140,10 @@ export default function Flow2() {
 
     setFlow2Data((prev) => ({ ...prev, ...newEntries }));
     setLog((prev) =>
-      [...newLog.map((e) => ({ ...e, batch, submitted })), ...prev].slice(0, 100),
+      [...newLog.map((e) => ({ ...e, batch, submitted })), ...prev].slice(
+        0,
+        100,
+      ),
     );
     setProcessing(false);
   }
@@ -257,17 +195,12 @@ export default function Flow2() {
     let result = parseGSCChartWorkbook(wb);
 
     if (!result) {
-      const csvText = await fetchFirstTabAsCSV(url);
-      const lines = csvText.split("\n");
-      const isLeads =
-        (lines[2] ?? "").toLowerCase().includes("leads") ||
-        (lines[6] ?? "").toLowerCase().includes("key events");
-      result = isLeads ? parseGA4LeadsFile(csvText) : parseGA4FreeFile(csvText);
+      result = parseGA4File(await fetchFirstTabAsCSV(url));
     }
 
     if (!result) {
       throw new Error(
-        "Could not find a GSC Export tab (Chart + Filters) or a GA4/Event GA4 Export layout in that sheet.",
+        "Could not find a GSC Export tab (Chart + Filters) or a GA4 Export layout in that sheet.",
       );
     }
 
@@ -298,7 +231,7 @@ export default function Flow2() {
 
   function handleDownloadCSV() {
     const output = computeFlow2Output(mergedForCompute, slots);
-    const csv = buildFlow2CSV(output, slots);
+    const csv = buildFlow2CSV(output, withSheetLabels(mergedForCompute, slots));
     const period = slots.length
       ? `${slots[0].label.replace(" ", "")}–${slots[slots.length - 1].label.replace(" ", "")}`
       : "";
@@ -314,7 +247,10 @@ export default function Flow2() {
     setPushStatus("pushing");
     try {
       const output = computeFlow2Output(mergedForCompute, slots);
-      const csv = buildFlow2CSV(output, slots);
+      const csv = buildFlow2CSV(
+        output,
+        withSheetLabels(mergedForCompute, slots),
+      );
       await pushFlow2ToSheets(ssId, csv);
       setPushStatus(null);
       setPushModal(true);
@@ -356,108 +292,7 @@ export default function Flow2() {
       )}
       <div className="space-y-5">
         {/* What-to-upload guide */}
-        <div className="card p-4">
-          <div className="text-xs font-semibold text-ink mb-1">
-            What to upload
-          </div>
-          <p className="text-xs text-muted mb-2">Upload fresh each month</p>
-          <ol className="space-y-1.5 mb-3">
-            {[
-              {
-                label: "GSC Export All Segments",
-                desc: "Traffic overview, all segments in GSC",
-              },
-              {
-                label: "GA4 Export All Segments",
-                desc: "Traffic overview, all segments in GA4",
-              },
-              {
-                label: "Event GA4 Export",
-                desc: "Event set to click_contact_agent in GA4",
-              },
-            ].map((r, i) => (
-              <li
-                key={r.label}
-                className="flex items-start gap-2 text-xs text-ink"
-              >
-                <span className="flex-shrink-0 text-muted w-4 text-right">{i + 1}.</span>
-                <span>
-                  {r.label} <span className="text-muted">— {r.desc}</span>
-                </span>
-              </li>
-            ))}
-          </ol>
-          <p className="text-xs text-muted mb-1.5">
-            Reuse from Traffic (Optimized)
-          </p>
-          <ol className="space-y-1.5" start={4}>
-            {[
-              {
-                label: "BC GSC Export Dijual",
-                desc: "auto-pulled, no upload",
-              },
-              {
-                label: "BC GSC Export Disewa",
-                desc: "auto-pulled, no upload",
-              },
-              {
-                label: "Blog GSC Export",
-                desc: "auto-pulled, no upload",
-              },
-              {
-                label: "BC GA4 Export Dijual",
-                desc: "auto-pulled, no upload",
-              },
-              {
-                label: "BC GA4 Export Disewa",
-                desc: "auto-pulled, no upload",
-              },
-              {
-                label: "Blog GA4 Export",
-                desc: "auto-pulled, no upload",
-              },
-            ].map((r, i) => (
-              <li
-                key={r.label}
-                className="flex items-start gap-2 text-xs text-ink"
-              >
-                <span className="flex-shrink-0 text-muted w-4 text-right">{i + 4}.</span>
-                <span>
-                  {r.label} <span className="text-muted">— {r.desc}</span>
-                </span>
-              </li>
-            ))}
-          </ol>
-          <p className="text-xs text-muted mb-1.5">
-            Optional — adds Click_Contact_Agent / Lead per Views per segment
-          </p>
-          <ol className="space-y-1.5" start={10}>
-            {[
-              {
-                label: "BC Event GA4 Export Dijual",
-                desc: "Event set to click_contact_agent, /dijual/ filtered",
-              },
-              {
-                label: "BC Event GA4 Export Disewa",
-                desc: "Event set to click_contact_agent, /disewa/ filtered",
-              },
-              {
-                label: "Blog Event GA4 Export",
-                desc: "Event set to click_contact_agent, Blog filtered",
-              },
-            ].map((r, i) => (
-              <li
-                key={r.label}
-                className="flex items-start gap-2 text-xs text-ink"
-              >
-                <span className="flex-shrink-0 text-muted w-4 text-right">{i + 10}.</span>
-                <span>
-                  {r.label} <span className="text-muted">— {r.desc}</span>
-                </span>
-              </li>
-            ))}
-          </ol>
-        </div>
+        <UploadGuide />
 
         {/* Import section with mode toggle */}
         <div className="space-y-3">
@@ -578,6 +413,94 @@ export default function Flow2() {
         )}
       </div>
     </>
+  );
+}
+
+// ─── What to upload ───────────────────────────────────────────────────────────
+
+// Every file the two tables can take, grouped the way they are gathered in
+// GA4/GSC. Nothing here is required: a segment with no export simply leaves
+// its block blank, so a partial month still exports.
+const UPLOAD_GROUPS = [
+  {
+    title: "Per segment — main table",
+    note: "One of each per segment, per month. Ten segments, filtered in GSC/GA4.",
+    items: [
+      { label: "GSC Export", desc: "Chart + Filters, filtered to the segment" },
+      {
+        label: "GA4 Export",
+        desc: "Page path · Views, Active users, Sessions, AET",
+      },
+      {
+        label: "Event GA4 Export",
+        desc: "Page path · Active users, Sessions, Event count (purchase)",
+      },
+    ],
+  },
+  {
+    title: "Via Entry — second table",
+    note: "/dijual/, /disewa/ and /articles-all/ only.",
+    items: [
+      {
+        label: "Via Entry GA4 Export",
+        desc: "Landing page + query string · Views, Active users, Sessions, AET",
+      },
+      {
+        label: "Via Entry Event GA4 Export",
+        desc: "Landing page + query string · Active users, Sessions, Event count",
+      },
+    ],
+  },
+  {
+    title: "Shortcuts",
+    note: "Fewer files for the same result.",
+    items: [
+      {
+        label: "All-segments export",
+        desc: "an unfiltered GA4 export is split by URL across every segment block",
+      },
+      {
+        label: "/dijual/, /disewa/, Blog",
+        desc: "GSC and GA4 are reused from Traffic (Optimized) — no upload",
+      },
+    ],
+  },
+];
+
+function UploadGuide() {
+  return (
+    <div className="card p-4 space-y-3">
+      <div>
+        <div className="text-xs font-semibold text-ink mb-1">
+          What to upload
+        </div>
+        <p className="text-xs text-muted">
+          Upload fresh each month. Segments are detected from the URLs in the
+          file, so the files can go in together in any order.
+        </p>
+      </div>
+      {UPLOAD_GROUPS.map((group) => (
+        <div key={group.title}>
+          <div className="text-2xs uppercase tracking-wide text-muted mb-1">
+            {group.title}
+          </div>
+          <p className="text-2xs text-muted mb-1.5">{group.note}</p>
+          <ul className="space-y-1.5">
+            {group.items.map((item) => (
+              <li
+                key={item.label}
+                className="flex items-start gap-2 text-xs text-ink"
+              >
+                <span className="flex-shrink-0 text-muted">•</span>
+                <span>
+                  {item.label} <span className="text-muted">— {item.desc}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -766,112 +689,90 @@ function DetectionLog({ log, onClear }) {
 
 // ─── Slot Grid ────────────────────────────────────────────────────────────────
 
-// flow2Prefix: the key prefix used when the same file is uploaded directly to Flow 2
-// instead of being reused from Flow 1. SlotGrid checks both sources so filled status
-// stays accurate regardless of which path provided the data.
-const SLOT_ROWS_F2 = [
-  {
-    id: "gsc_all_organic",
-    source: "GSC Export",
-    segment: "All Segments",
-    store: "flow2",
-    prefix: "gsc_all_organic",
-  },
-  {
-    id: "gsc_dijual",
-    source: "BC GSC Export",
-    segment: "/dijual/",
-    store: "flow1",
-    prefix: "bc_gsc_dijual",
-    flow2Prefix: "gsc_dijual",
-    subtitle: "reuse / manual upload",
-  },
-  {
-    id: "gsc_disewa",
-    source: "BC GSC Export",
-    segment: "/disewa/",
-    store: "flow1",
-    prefix: "bc_gsc_disewa",
-    flow2Prefix: "gsc_disewa",
-    subtitle: "reuse / manual upload",
-  },
-  {
-    id: "gsc_blog",
-    source: "Blog GSC Export",
-    segment: "/articles-all/",
-    store: "flow1",
-    prefix: "blog_gsc",
-    flow2Prefix: "gsc_blog",
-    subtitle: "reuse / manual upload",
-  },
-  {
-    id: "bc_ga4_dijual_f1",
-    source: "BC GA4 Export",
-    segment: "/dijual/",
-    store: "flow1",
-    prefix: "bc_ga4_dijual",
-    flow2Prefix: "ga4_dijual",
-    subtitle: "reuse / manual upload",
-  },
-  {
-    id: "bc_ga4_disewa_f1",
-    source: "BC GA4 Export",
-    segment: "/disewa/",
-    store: "flow1",
-    prefix: "bc_ga4_disewa",
-    flow2Prefix: "ga4_disewa",
-    subtitle: "reuse / manual upload",
-  },
-  {
-    id: "blog_ga4_f1",
-    source: "Blog GA4 Export",
-    segment: "/articles-all/",
-    store: "flow1",
-    prefix: "blog_ga4",
-    flow2Prefix: "ga4_blog",
-    subtitle: "reuse / manual upload",
-  },
-  {
-    id: "ga4_free",
-    source: "GA4 Export",
-    segment: "All Segments",
-    store: "flow2",
-    prefix: "ga4_free",
-    subtitle: "Organic Google",
-  },
-  {
-    id: "ga4_leads",
-    source: "Event GA4 Export",
-    segment: "click_contact_agent",
-    store: "flow2",
-    prefix: "ga4_leads",
-    subtitle: "Organic Google",
-  },
-  {
-    id: "ga4_leads_dijual",
-    source: "BC Event GA4 Export",
-    segment: "/dijual/",
-    store: "flow2",
-    prefix: "ga4_leads_dijual",
-    subtitle: "click_contact_agent",
-  },
-  {
-    id: "ga4_leads_disewa",
-    source: "BC Event GA4 Export",
-    segment: "/disewa/",
-    store: "flow2",
-    prefix: "ga4_leads_disewa",
-    subtitle: "click_contact_agent",
-  },
-  {
-    id: "ga4_leads_blog",
-    source: "Blog Event GA4 Export",
-    segment: "/articles-all/",
-    store: "flow2",
-    prefix: "ga4_leads_blog",
-    subtitle: "click_contact_agent",
-  },
-];
+// Flow 1 already imports GSC and GA4 for these three segments, so Flow 2
+// reuses those documents instead of asking for the same file twice. Every
+// other segment is uploaded here.
+const FLOW1_GSC_PREFIX = {
+  dijual: "bc_gsc_dijual",
+  disewa: "bc_gsc_disewa",
+  blog: "blog_gsc",
+};
+const FLOW1_GA4_PREFIX = {
+  dijual: "bc_ga4_dijual",
+  disewa: "bc_ga4_disewa",
+  blog: "blog_ga4",
+};
+
+// One row per file the sheet can take. `prefix` is where the row's data lives;
+// `flow2Prefix` is the key a direct upload writes to, so a reuse row still
+// reads as filled (and stays clearable) when it was uploaded here instead.
+function buildSlotRows() {
+  const rows = [];
+
+  for (const seg of SEGMENTS) {
+    const flow1 = FLOW1_GSC_PREFIX[seg.id];
+    rows.push({
+      id: `gsc_${seg.id}`,
+      source: "GSC Export",
+      segment: seg.short,
+      store: flow1 ? "flow1" : "flow2",
+      prefix: flow1 ?? `gsc_${seg.id}`,
+      flow2Prefix: flow1 ? `gsc_${seg.id}` : null,
+      subtitle: flow1 ? "reuse / manual upload" : null,
+    });
+  }
+
+  for (const seg of SEGMENTS) {
+    const flow1 = FLOW1_GA4_PREFIX[seg.id];
+    rows.push({
+      id: `ga4_${seg.id}`,
+      source: "GA4 Export",
+      segment: seg.short,
+      store: flow1 ? "flow1" : "flow2",
+      prefix:
+        flow1 ?? (seg.id === "all_organic" ? "ga4_free" : `ga4_${seg.id}`),
+      flow2Prefix: flow1 ? `ga4_${seg.id}` : null,
+      subtitle: flow1 ? "reuse / manual upload" : null,
+    });
+  }
+
+  for (const seg of SEGMENTS) {
+    rows.push({
+      id: `ga4_leads_${seg.id}`,
+      source: "Event GA4 Export",
+      segment: seg.short,
+      store: "flow2",
+      prefix: seg.id === "all_organic" ? "ga4_leads" : `ga4_leads_${seg.id}`,
+      subtitle: "purchase",
+    });
+  }
+
+  for (const entry of ENTRY_SEGMENTS) {
+    rows.push({
+      id: entry.id,
+      source: "Via Entry GA4 Export",
+      segment: SEGMENTS.find((x) => x.id === entry.base).short,
+      store: "flow2",
+      prefix: `ga4_entry_${entry.base}`,
+      subtitle: "landing page",
+    });
+  }
+
+  for (const entry of ENTRY_SEGMENTS) {
+    rows.push({
+      id: `${entry.id}_leads`,
+      source: "Via Entry Event GA4 Export",
+      segment: SEGMENTS.find((x) => x.id === entry.base).short,
+      store: "flow2",
+      prefix: `ga4_entry_leads_${entry.base}`,
+      subtitle: "landing page · purchase",
+    });
+  }
+
+  return rows;
+}
+
+const SLOT_ROWS_F2 = buildSlotRows();
 
 function SlotGrid({ slots, flow1Data, flow2Data, onClear, clearingKey }) {
   let dataRowCount = 0;
@@ -911,11 +812,18 @@ function SlotGrid({ slots, flow1Data, flow2Data, onClear, clearingKey }) {
           <tbody className="divide-y divide-border">
             {SLOT_ROWS_F2.map((row, ri) => {
               const idx = dataRowCount++;
-              const primaryStore = row.store === "flow1" ? flow1Data : flow2Data;
+              const primaryStore =
+                row.store === "flow1" ? flow1Data : flow2Data;
+              // A rule above the first row of each export type — thirty-six
+              // rows read as one undifferentiated block otherwise.
+              const startsGroup =
+                ri > 0 && SLOT_ROWS_F2[ri - 1].source !== row.source;
               return (
                 <tr
                   key={row.id}
-                  className={idx % 2 === 1 ? "bg-surface-2/40" : ""}
+                  className={`${idx % 2 === 1 ? "bg-surface-2/40" : ""} ${
+                    startsGroup ? "border-t-2 border-border" : ""
+                  }`}
                 >
                   <td className="py-2.5 pr-4">
                     <div className="text-ink text-xs">{row.source}</div>
@@ -992,7 +900,11 @@ function SlotDot({ filled, stale, onClear, clearing }) {
     >
       <span
         className={`${filled ? "dot-ok" : "dot-empty"} text-sm`}
-        title={stale ? "Re-upload to Flow 1 to get exact position/AET values" : undefined}
+        title={
+          stale
+            ? "Re-upload to Flow 1 to get exact position/AET values"
+            : undefined
+        }
       >
         {stale ? "◑" : "●"}
       </span>
@@ -1048,21 +960,24 @@ function OverviewSection({
 
       {/* Segment tabs + metrics table */}
       <div className="card">
-        <div className="flex px-4 pt-3 pb-2.5 border-b border-border overflow-x-auto">
-          <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5 gap-0.5">
-            {SEGMENTS.map((seg) => (
-              <button
-                key={seg.id}
-                onClick={() => setActiveSeg(seg.id)}
-                className={`px-3 py-1 rounded-[5px] text-xs font-medium whitespace-nowrap transition-all ${
-                  activeSeg === seg.id
-                    ? "bg-surface text-ink shadow-card"
-                    : "text-muted hover:text-ink"
-                }`}
-              >
-                {seg.label}
-              </button>
-            ))}
+        <div className="px-4 pt-3 pb-2.5 border-b border-border space-y-2 overflow-x-auto">
+          <SegmentTabs
+            segments={SEGMENTS.map((seg) => ({ id: seg.id, label: seg.short }))}
+            activeSeg={activeSeg}
+            setActiveSeg={setActiveSeg}
+          />
+          <div className="flex items-center gap-2">
+            <span className="text-2xs uppercase tracking-wide text-muted flex-shrink-0">
+              Via Entry
+            </span>
+            <SegmentTabs
+              segments={ENTRY_SEGMENTS.map((entry) => ({
+                id: entry.id,
+                label: SEGMENTS.find((x) => x.id === entry.base).short,
+              }))}
+              activeSeg={activeSeg}
+              setActiveSeg={setActiveSeg}
+            />
           </div>
         </div>
         <SegmentTable segId={activeSeg} output={output} slots={slots} />
@@ -1071,8 +986,33 @@ function OverviewSection({
   );
 }
 
+function SegmentTabs({ segments, activeSeg, setActiveSeg }) {
+  return (
+    <div className="inline-flex bg-surface-2 rounded-[6px] p-0.5 gap-0.5">
+      {segments.map((seg) => (
+        <button
+          key={seg.id}
+          onClick={() => setActiveSeg(seg.id)}
+          className={`px-3 py-1 rounded-[5px] text-xs font-medium whitespace-nowrap transition-all ${
+            activeSeg === seg.id
+              ? "bg-surface text-ink shadow-card"
+              : "text-muted hover:text-ink"
+          }`}
+        >
+          {seg.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function SegmentTable({ segId, output, slots }) {
   const segData = output[segId] ?? {};
+  // The Via Entry table has no GSC export behind it, so it shows the GA4 rows
+  // only — the same nine rows the sheet gives it.
+  const metrics = ENTRY_SEGMENTS.some((e) => e.id === segId)
+    ? ENTRY_METRICS
+    : METRICS;
 
   return (
     <div className="overflow-x-auto">
@@ -1093,31 +1033,28 @@ function SegmentTable({ segId, output, slots }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {METRICS.filter((m) => !m.allOnly || segId === "all_organic").map(
-            (metric, mi) => (
-              <tr
-                key={metric.id}
-                className={`hover:bg-surface-2/50 ${mi % 2 === 1 ? "bg-surface-2/25" : ""}`}
-              >
-                <td className="py-2.5 px-4 text-ink text-xs sticky left-0 bg-surface">
-                  {metric.label}
-                </td>
-                {slots.map((s) => {
-                  const val = segData[s.key]?.[metric.id];
-                  const hasData =
-                    val !== null && val !== undefined && val !== 0;
-                  return (
-                    <td
-                      key={s.key}
-                      className={`py-2.5 px-3 text-center tabular-nums ${hasData ? "text-ink" : "text-empty"}`}
-                    >
-                      {hasData ? formatMetricValue(metric.id, val) : "—"}
-                    </td>
-                  );
-                })}
-              </tr>
-            ),
-          )}
+          {metrics.map((metric, mi) => (
+            <tr
+              key={metric.id}
+              className={`hover:bg-surface-2/50 ${mi % 2 === 1 ? "bg-surface-2/25" : ""}`}
+            >
+              <td className="py-2.5 px-4 text-ink text-xs sticky left-0 bg-surface">
+                {metric.label}
+              </td>
+              {slots.map((s) => {
+                const val = segData[s.key]?.[metric.id];
+                const text = formatMetricValue(metric.id, val);
+                return (
+                  <td
+                    key={s.key}
+                    className={`py-2.5 px-3 text-center tabular-nums ${text ? "text-ink" : "text-empty"}`}
+                  >
+                    {text || "—"}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

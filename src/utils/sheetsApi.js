@@ -140,7 +140,8 @@ async function ensureSheet(spreadsheetId, sheetName, token) {
 /**
  * Push Flow 2 (Traffic Overview) to Google Sheets.
  * Creates the destination sheet if it doesn't exist, clears it, then writes all rows from A1.
- * Layout matches buildFlow2CSV: rows = metrics, columns = segments × months.
+ * Layout matches buildFlow2CSV: one 8-column block per segment, main table on
+ * top and the Via Entry table beneath it.
  */
 export async function pushFlow2ToSheets(spreadsheetId, csvRows) {
   const token = await getValidToken();
@@ -152,7 +153,9 @@ export async function pushFlow2ToSheets(spreadsheetId, csvRows) {
   await ensureSheet(spreadsheetId, sheetName, token);
 
   const nRows = csvRows.length;
-  const nCols = csvRows[0]?.length ?? 1;
+  // Widest row, not row 1 — the Traffic Overview sheet opens with a one-cell
+  // banner row, and sizing the range from it would truncate the write.
+  const nCols = Math.max(...csvRows.map((r) => r.length));
   const range = `'${sheetName}'!A1:${colNum2Letter(nCols)}${nRows}`;
 
   const res = await fetch(

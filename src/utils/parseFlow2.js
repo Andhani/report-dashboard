@@ -3,33 +3,27 @@ import Papa from "papaparse";
 import { formatMonthKey } from "./dateUtils";
 import {
   PAGE_PATH_ALIASES,
+  LANDING_PAGE_ALIASES,
   VIEWS_ALIASES,
   USERS_ALIASES,
   SESSIONS_ALIASES,
   AET_ALIASES,
-  KEY_EVENTS_ALIASES,
+  EVENT_COUNT_ALIASES,
   findDateRowIndex,
   findColumnIndex,
   parseGA4Preamble,
 } from "./ga4ExportUtils";
+import {
+  SPLITTABLE_SEGMENTS,
+  SEGMENTS_BY_ID,
+  ENTRY_SEGMENTS,
+  detectSegmentFromPaths,
+  segmentFromFilterValue,
+} from "./flow2Segments";
 
-const FREE_FORM_ALIAS_GROUPS = [VIEWS_ALIASES, SESSIONS_ALIASES];
-const LEADS_ALIAS_GROUPS = [KEY_EVENTS_ALIASES];
+const TRAFFIC_ALIAS_GROUPS = [VIEWS_ALIASES, SESSIONS_ALIASES];
+const EVENT_ALIAS_GROUPS = [EVENT_COUNT_ALIASES];
 const FIXED_ROWS = { fixedDateRow: 3, fixedHeaderRow: 6, fixedTotalRow: 7 };
-
-/**
- * True if any of the first ~15 rows contains a cell naming this a Leads/Event
- * report ("Leads" or "Key events"). Scans a range rather than fixed rows 2/6
- * so a shifted banner or extra dimension column doesn't defeat detection.
- */
-function isLeadsExport(rows) {
-  const scanLimit = Math.min(15, rows.length);
-  for (let i = 0; i < scanLimit; i++) {
-    if (findColumnIndex(rows[i] ?? [], [/leads/i, ...KEY_EVENTS_ALIASES]) !== -1)
-      return true;
-  }
-  return false;
-}
 
 const MONTH_MAP = {
   january: 1,
@@ -103,16 +97,9 @@ export function parseGSCChartWorkbook(wb) {
           .toLowerCase();
         const val = String(row[1] ?? "").trim();
         if (key === "page") {
-          if (val.includes("/dijual/")) {
-            segment = "dijual";
-            break;
-          }
-          if (val.includes("/disewa/")) {
-            segment = "disewa";
-            break;
-          }
-          if (val.includes("/articles-all/")) {
-            segment = "blog";
+          const detected = segmentFromFilterValue(val);
+          if (detected) {
+            segment = detected;
             break;
           }
         }
@@ -129,6 +116,8 @@ export function parseGSCChartWorkbook(wb) {
 
     // Month from first data row's Date value
     let month = null;
+    let minDay = null;
+    let maxDay = null;
     let totalClicks = 0;
     let totalImpressions = 0;
     let posWeightedSum = 0; // sum(position * daily_impressions) for impression-weighted avg
@@ -139,7 +128,12 @@ export function parseGSCChartWorkbook(wb) {
       if (!dateVal) continue;
 
       // Parse date (SheetJS may return a serial number or a string like "2026-05-01")
-      if (!month) month = extractMonthFromDate(dateVal);
+      const parsed = extractMonthFromDate(dateVal);
+      if (!month) month = parsed;
+      if (parsed?.day) {
+        minDay = minDay === null ? parsed.day : Math.min(minDay, parsed.day);
+        maxDay = maxDay === null ? parsed.day : Math.max(maxDay, parsed.day);
+      }
 
       totalClicks += toNum(r[1]);
       const imp = toNum(r[2]);
@@ -156,6 +150,7 @@ export function parseGSCChartWorkbook(wb) {
       type: "gsc_chart",
       segment,
       month,
+      days: minDay === null ? null : { start: minDay, end: maxDay },
       clicks: totalClicks,
       impressions: totalImpressions,
       avgPosition: totalImpressions > 0 ? posWeightedSum / totalImpressions : 0,
@@ -165,225 +160,239 @@ export function parseGSCChartWorkbook(wb) {
   }
 }
 
-// ─── GA4 Free-form export (.csv / .xlsx) ─────────────────────────────────────
+// ─── GA4 exports (.csv / .xlsx) ───────────────────────────────────────────────
+//
+// Four shapes reach this file, and all four are told apart by their header row
+// rather than by name, because the report titles are hand-written in GA4 and
+// vary month to month:
+//
+//   dimension  | metrics                                   | feeds
+//   -----------|-------------------------------------------|---------------------
+//   Page path  | Views, Active users, Sessions, AET        | main table, traffic
+//   Page path  | Active users, Sessions, Event count       | main table, events
+//   Landing pg | Views, Active users, Sessions, AET        | Via Entry, traffic
+//   Landing pg | Active users, Sessions, Event count       | Via Entry, events
+//
+// Each may be filtered to one segment or cover everything; a mixed file is
+// split by URL so the per-segment blocks still fill in.
 
 /**
- * Scan all of rows[dataStartIndex..] for the single URL segment ('dijual',
- * 'disewa', 'blog') present, if only one is. Returns null when there's no
- * usable path column, too few path rows, or more than one segment present
- * (mixed / all-organic file).
- *
- * Scans the full range rather than a fixed-size prefix: large mixed exports
- * are often sorted such that one segment's paths cluster early (e.g.
- * alphabetically), so a prefix sample can miss segments that are real but
- * appear later in the file, causing a false single-segment detection.
+ * Start and end day of an export's date range, e.g. "# 20260901-20260918"
+ * → { start: 1, end: 18 }. Used to label a partial month in the sheet the way
+ * the report does ("Sep (1-18)"). Returns null for a format it can't read, in
+ * which case the month is simply labelled without a day range.
  */
-function scanSingleSegment(rows, dataStartIndex, pathCol) {
-  if (pathCol === -1) return null;
+function parseDayRange(text) {
+  const s = String(text ?? "")
+    .replace(/^#\s*/, "")
+    .trim();
+  const dash = "\\s*[-\u2013\u2014]\\s*";
 
-  let dijual = 0,
-    disewa = 0,
-    blog = 0,
-    total = 0;
-  for (let i = dataStartIndex; i < rows.length; i++) {
-    const path = String(rows[i]?.[pathCol] ?? "").trim();
-    if (!path.startsWith("/")) continue;
-    total++;
-    if (path.includes("/dijual/")) dijual++;
-    else if (path.includes("/disewa/")) disewa++;
-    else if (path.includes("/articles-all/")) blog++;
+  let m = s.match(new RegExp(`^(\\d{8})${dash}(\\d{8})$`));
+  if (m) return { start: +m[1].slice(6, 8), end: +m[2].slice(6, 8) };
+
+  m = s.match(
+    new RegExp(`^\\d{4}-\\d{2}-(\\d{2})${dash}\\d{4}-\\d{2}-(\\d{2})$`),
+  );
+  if (m) return { start: +m[1], end: +m[2] };
+
+  m = s.match(
+    new RegExp(
+      `^(\\d{1,2})\\s+[A-Za-z]+\\s+\\d{4}${dash}(\\d{1,2})\\s+[A-Za-z]+\\s+\\d{4}$`,
+    ),
+  );
+  if (m) return { start: +m[1], end: +m[2] };
+
+  m = s.match(
+    new RegExp(
+      `^[A-Za-z]+\\s+(\\d{1,2}),?\\s+\\d{4}${dash}[A-Za-z]+\\s+(\\d{1,2}),?\\s+\\d{4}$`,
+    ),
+  );
+  if (m) return { start: +m[1], end: +m[2] };
+
+  return null;
+}
+
+/** The report title lines GA4 writes above the data (rows 0-5, column A). */
+function reportTitleText(rows) {
+  const parts = [];
+  for (let i = 0; i < Math.min(6, rows.length); i++) {
+    parts.push(String(rows[i]?.[0] ?? ""));
   }
-  if (total < 3) return null;
-  // A segment-filtered GA4 export only ever contains paths from ONE segment
-  // (GA4's page-path filter excludes the rest). If more than one segment has
-  // real presence in the sample, this is an All Segments / mixed export, not
-  // a single-segment file — regardless of which segment has the most rows
-  // (long-tail blog URLs can outnumber BC's aggregated property paths by row
-  // count alone).
-  const present = [dijual, disewa, blog].filter((c) => c > 0).length;
-  if (present !== 1) return null;
-  if (dijual > 0) return "dijual";
-  if (disewa > 0) return "disewa";
-  return "blog";
+  return parts.join(" ");
 }
 
 /**
- * Inspect all data rows (index 8+) and return the single URL segment
- * ('dijual', 'disewa', 'blog') that is present, if only one is. Returns null
- * for mixed / all-organic files.
+ * Locate the preamble, decide whether this is a traffic or an event export,
+ * and resolve every column index by header name.
+ * Returns null when the file isn't a recognisable GA4 export.
  */
-function detectGA4Segment(rows) {
-  const pre = parseGA4Preamble(rows, FREE_FORM_ALIAS_GROUPS, FIXED_ROWS);
-  const dataStartIndex = pre ? pre.dataStartIndex : 8;
-  let pathCol = pre ? findColumnIndex(pre.headerRow, PAGE_PATH_ALIASES) : -1;
-  if (pathCol === -1) pathCol = 0;
-  return scanSingleSegment(rows, dataStartIndex, pathCol);
-}
+function classifyGA4Rows(rows) {
+  let pre = parseGA4Preamble(rows, TRAFFIC_ALIAS_GROUPS, FIXED_ROWS);
+  let kind = "traffic";
 
-/**
- * Same idea as detectGA4Segment but for GA4 Leads/Key events exports, which
- * have no Views/Sessions columns to anchor the header row on. Unlike
- * detectGA4Segment, an unresolved path column means the export has no
- * per-URL breakdown at all (e.g. the per-date Key events layout) — there's
- * no column-0 fallback here, since guessing wrong would misattribute leads
- * to the wrong segment rather than just to the wrong URL.
- */
-function detectLeadsSegment(rows) {
-  const pre = parseGA4Preamble(rows, LEADS_ALIAS_GROUPS, FIXED_ROWS);
-  const dataStartIndex = pre ? pre.dataStartIndex : 8;
-  const pathCol = pre ? findColumnIndex(pre.headerRow, PAGE_PATH_ALIASES) : -1;
-  return scanSingleSegment(rows, dataStartIndex, pathCol);
-}
-
-/**
- * Parse a segment-specific GA4 Free-form export (one segment per file).
- * Reads totals from the grand total row (index 7), same as the all-organic parser.
- * Returns: { type: 'ga4_dijual'|'ga4_disewa'|'ga4_blog', month, views, users, sessions, aet_seconds }
- */
-function parseGA4SegmentRows(rows, segment) {
-  const pre = parseGA4Preamble(rows, FREE_FORM_ALIAS_GROUPS, FIXED_ROWS);
-  if (!pre) return null;
-
-  const totRow = rows[pre.totalRowIndex];
-  if (!totRow) return null;
-
-  let viewsCol = findColumnIndex(pre.headerRow, VIEWS_ALIASES);
-  if (viewsCol === -1) viewsCol = 1;
-  let usersCol = findColumnIndex(pre.headerRow, USERS_ALIASES);
-  if (usersCol === -1) usersCol = 2;
-  let sessionsCol = findColumnIndex(pre.headerRow, SESSIONS_ALIASES);
-  if (sessionsCol === -1) sessionsCol = 3;
-  let aetCol = findColumnIndex(pre.headerRow, AET_ALIASES);
-  if (aetCol === -1) aetCol = 4;
-
-  const views = toNum(totRow[viewsCol]);
-  const users = toNum(totRow[usersCol]);
-  const sessions = toNum(totRow[sessionsCol]);
-  const aet_seconds = toNum(totRow[aetCol]);
-
-  return {
-    type: `ga4_${segment}`,
-    month: pre.month,
-    views,
-    users,
-    sessions,
-    aet_seconds,
-  };
-}
-
-/**
- * Core row-level parser for GA4 Free-form exports (all-organic / mixed files).
- * Accepts a 2D array of values (from Papa.parse or SheetJS sheet_to_json).
- * Row layout: index 3 = date range, index 7 = grand total, index 8+ = URL rows.
- */
-function parseGA4FreeRows(rows) {
-  const pre = parseGA4Preamble(rows, FREE_FORM_ALIAS_GROUPS, FIXED_ROWS);
-  if (!pre) return null;
-
-  const totRow = rows[pre.totalRowIndex];
-  if (!totRow) return null;
-
-  let pathCol = findColumnIndex(pre.headerRow, PAGE_PATH_ALIASES);
-  if (pathCol === -1) pathCol = 0;
-  let viewsCol = findColumnIndex(pre.headerRow, VIEWS_ALIASES);
-  if (viewsCol === -1) viewsCol = 1;
-  let usersCol = findColumnIndex(pre.headerRow, USERS_ALIASES);
-  if (usersCol === -1) usersCol = 2;
-  let sessionsCol = findColumnIndex(pre.headerRow, SESSIONS_ALIASES);
-  if (sessionsCol === -1) sessionsCol = 3;
-  let aetCol = findColumnIndex(pre.headerRow, AET_ALIASES);
-  if (aetCol === -1) aetCol = 4;
-
-  const views = toNum(totRow[viewsCol]);
-  const users = toNum(totRow[usersCol]);
-  const sessions = toNum(totRow[sessionsCol]);
-  const aet_seconds = toNum(totRow[aetCol]);
-
-  const segmentTotals = { dijual: z(), disewa: z(), blog: z() };
-
-  for (let i = pre.dataStartIndex; i < rows.length; i++) {
-    const r = rows[i];
-    const path = String(r[pathCol] ?? "").trim();
-    if (!path.startsWith("/")) continue;
-
-    const v = toNum(r[viewsCol]),
-      u = toNum(r[usersCol]),
-      s = toNum(r[sessionsCol]),
-      a = toNum(r[aetCol]);
-
-    if (path.includes("/dijual/")) {
-      segmentTotals.dijual.views += v;
-      segmentTotals.dijual.users += u;
-      segmentTotals.dijual.sessions += s;
-      if (a > 0) {
-        segmentTotals.dijual.aetSum += a;
-        segmentTotals.dijual.count++;
-      }
-    } else if (path.includes("/disewa/")) {
-      segmentTotals.disewa.views += v;
-      segmentTotals.disewa.users += u;
-      segmentTotals.disewa.sessions += s;
-      if (a > 0) {
-        segmentTotals.disewa.aetSum += a;
-        segmentTotals.disewa.count++;
-      }
-    } else if (path.includes("/articles-all/")) {
-      segmentTotals.blog.views += v;
-      segmentTotals.blog.users += u;
-      segmentTotals.blog.sessions += s;
-      if (a > 0) {
-        segmentTotals.blog.aetSum += a;
-        segmentTotals.blog.count++;
-      }
+  // parseGA4Preamble falls back to the historical fixed header row when the
+  // alias groups match nothing, so confirm Views really is there before
+  // trusting the traffic reading — an event export has no Views column.
+  if (!pre || findColumnIndex(pre.headerRow, VIEWS_ALIASES) === -1) {
+    const eventPre = parseGA4Preamble(rows, EVENT_ALIAS_GROUPS, FIXED_ROWS);
+    if (
+      eventPre &&
+      findColumnIndex(eventPre.headerRow, EVENT_COUNT_ALIASES) !== -1
+    ) {
+      pre = eventPre;
+      kind = "event";
+    } else if (!pre) {
+      return null;
     }
   }
 
-  for (const seg of Object.values(segmentTotals)) {
-    seg.aet_seconds = seg.count > 0 ? seg.aetSum / seg.count : 0;
-  }
+  const landingCol = findColumnIndex(pre.headerRow, LANDING_PAGE_ALIASES);
+  const pathCol = findColumnIndex(pre.headerRow, PAGE_PATH_ALIASES);
+  // "Landing page + query string" is the Via Entry dimension; anything else
+  // with a URL column is a page-path export.
+  const dimension = landingCol !== -1 ? "entry" : "path";
+  let dimensionCol = landingCol !== -1 ? landingCol : pathCol;
+  if (dimensionCol === -1) dimensionCol = 0;
 
   return {
-    type: "ga4_free",
-    month: pre.month,
-    all_organic: { views, users, sessions, aet_seconds },
-    dijual: {
-      views: segmentTotals.dijual.views,
-      users: segmentTotals.dijual.users,
-      sessions: segmentTotals.dijual.sessions,
-      aet_seconds: segmentTotals.dijual.aet_seconds,
-    },
-    disewa: {
-      views: segmentTotals.disewa.views,
-      users: segmentTotals.disewa.users,
-      sessions: segmentTotals.disewa.sessions,
-      aet_seconds: segmentTotals.disewa.aet_seconds,
-    },
-    blog: {
-      views: segmentTotals.blog.views,
-      users: segmentTotals.blog.users,
-      sessions: segmentTotals.blog.sessions,
-      aet_seconds: segmentTotals.blog.aet_seconds,
+    kind,
+    dimension,
+    pre,
+    cols: {
+      dimension: dimensionCol,
+      views: findColumnIndex(pre.headerRow, VIEWS_ALIASES),
+      users: findColumnIndex(pre.headerRow, USERS_ALIASES),
+      sessions: findColumnIndex(pre.headerRow, SESSIONS_ALIASES),
+      aet: findColumnIndex(pre.headerRow, AET_ALIASES),
+      eventCount: findColumnIndex(pre.headerRow, EVENT_COUNT_ALIASES),
     },
   };
 }
 
-/**
- * Parse a Flow 2 GA4 Free-form export (.csv).
- * Auto-detects whether the file is segment-specific (dijual / disewa / blog)
- * or all-organic/mixed and routes to the appropriate parser.
- */
-export function parseGA4FreeFile(csvText) {
-  const rows = Papa.parse(csvText, { skipEmptyLines: false }).data;
-  const segment = detectGA4Segment(rows);
-  if (segment) return parseGA4SegmentRows(rows, segment);
-  return parseGA4FreeRows(rows);
+/** Read one row's metrics, leaving out columns this export doesn't have. */
+function readMetrics(row, cols, kind) {
+  if (kind === "event") {
+    return {
+      users: toNum(row[cols.users]),
+      sessions: toNum(row[cols.sessions]),
+      eventCount: toNum(row[cols.eventCount]),
+    };
+  }
+  return {
+    views: toNum(row[cols.views]),
+    users: toNum(row[cols.users]),
+    sessions: toNum(row[cols.sessions]),
+    aet_seconds: toNum(row[cols.aet]),
+  };
+}
+
+function zeroTotals(kind) {
+  return kind === "event"
+    ? { users: 0, sessions: 0, eventCount: 0 }
+    : { views: 0, users: 0, sessions: 0, aetWeighted: 0, aet_seconds: 0 };
+}
+
+function addMetrics(acc, m, kind) {
+  acc.users += m.users;
+  acc.sessions += m.sessions;
+  if (kind === "event") {
+    acc.eventCount += m.eventCount;
+    return;
+  }
+  acc.views += m.views;
+  // "Average engagement time per session" is a per-session average, so rolling
+  // several URLs into one segment means weighting by sessions — an unweighted
+  // mean would let a one-session page count as much as a thousand-session one.
+  if (m.aet_seconds > 0 && m.sessions > 0) {
+    acc.aetWeighted += m.aet_seconds * m.sessions;
+  }
+}
+
+function finishTotals(acc, kind) {
+  if (kind === "event") return acc;
+  return {
+    views: acc.views,
+    users: acc.users,
+    sessions: acc.sessions,
+    aet_seconds: acc.sessions > 0 ? acc.aetWeighted / acc.sessions : 0,
+  };
 }
 
 /**
- * Parse a Flow 2 GA4 Free-form export (.xlsx workbook).
- * Looks for a sheet whose name contains "free-form" or "freeform".
+ * Parse any GA4 export into a stored entry.
+ *
+ * A segment-filtered file stores the grand total as-is. A mixed file stores
+ * the grand total as `all_organic` plus a per-segment split built from the URL
+ * rows, so one all-segments export still fills several blocks.
  */
-export function parseGA4FreeWorkbook(wb) {
+function parseGA4Rows(rows) {
+  const info = classifyGA4Rows(rows);
+  if (!info) return null;
+  const { kind, dimension, pre, cols } = info;
+
+  const totalRow = rows[pre.totalRowIndex];
+  if (!totalRow) return null;
+
+  const paths = [];
+  for (let i = pre.dataStartIndex; i < rows.length; i++) {
+    const v = rows[i]?.[cols.dimension];
+    if (v !== undefined && v !== null && String(v).trim())
+      paths.push(String(v));
+  }
+
+  const segment = detectSegmentFromPaths(paths, reportTitleText(rows));
+  const total = readMetrics(totalRow, cols, kind);
+
+  const dateRowIndex = findDateRowIndex(rows);
+  const base = {
+    type: `ga4_${dimension === "entry" ? "entry_" : ""}${kind === "event" ? "event" : "traffic"}`,
+    dimension,
+    month: pre.month,
+    days: parseDayRange(rows[dateRowIndex >= 0 ? dateRowIndex : 3]?.[0]),
+    segment,
+  };
+
+  if (segment) return { ...base, ...total };
+
+  // Mixed export — split the URL rows across every segment whose rule they
+  // match. Rules overlap on purpose (a viewdetail page counts towards the
+  // whole /perumahan-baru/ area too), so a row can land in more than one.
+  const buckets = {};
+  const targets =
+    dimension === "entry"
+      ? ENTRY_SEGMENTS.map((e) => ({
+          id: e.id,
+          match: SEGMENTS_BY_ID[e.base].match,
+        }))
+      : SPLITTABLE_SEGMENTS.map((seg) => ({ id: seg.id, match: seg.match }));
+  for (const t of targets) buckets[t.id] = zeroTotals(kind);
+
+  for (let i = pre.dataStartIndex; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row) continue;
+    const path = String(row[cols.dimension] ?? "").trim();
+    if (!path.startsWith("/")) continue;
+    const m = readMetrics(row, cols, kind);
+    for (const t of targets) {
+      if (t.match(path)) addMetrics(buckets[t.id], m, kind);
+    }
+  }
+
+  const segments = {};
+  for (const t of targets) segments[t.id] = finishTotals(buckets[t.id], kind);
+
+  return { ...base, all_organic: total, segments };
+}
+
+/** Parse a Flow 2 GA4 export (.csv) — traffic or event, page path or entry. */
+export function parseGA4File(csvText) {
+  const rows = Papa.parse(csvText, { skipEmptyLines: false }).data;
+  return parseGA4Rows(rows);
+}
+
+/** Parse a Flow 2 GA4 export (.xlsx workbook). */
+export function parseGA4Workbook(wb) {
   try {
     const sheetName = findGA4Sheet(wb);
     if (!sheetName) return null;
@@ -392,45 +401,10 @@ export function parseGA4FreeWorkbook(wb) {
       defval: "",
       raw: true,
     });
-    if (isLeadsExport(rows)) return parseGA4LeadsRows(rows);
-    const segment = detectGA4Segment(rows);
-    if (segment) return parseGA4SegmentRows(rows, segment);
-    return parseGA4FreeRows(rows);
+    return parseGA4Rows(rows);
   } catch {
     return null;
   }
-}
-
-// ─── GA4 Leads export (.csv) ──────────────────────────────────────────────────
-
-/**
- * Core row-level parser for GA4 Leads exports.
- * Accepts a 2D array of values (from Papa.parse or SheetJS sheet_to_json).
- */
-function parseGA4LeadsRows(rows) {
-  const pre = parseGA4Preamble(rows, LEADS_ALIAS_GROUPS, FIXED_ROWS);
-  if (!pre) return null;
-
-  const totRow = rows[pre.totalRowIndex];
-  if (!totRow) return null;
-
-  let keyEventsCol = findColumnIndex(pre.headerRow, KEY_EVENTS_ALIASES);
-  if (keyEventsCol === -1) keyEventsCol = 2;
-
-  const clickContactAgent = toNum(totRow[keyEventsCol]);
-  const segment = detectLeadsSegment(rows);
-  const type = segment ? `ga4_leads_${segment}` : "ga4_leads";
-  return { type, month: pre.month, clickContactAgent };
-}
-
-/**
- * Parse a Flow 2 GA4 Leads export (.csv).
- * Extracts Click_Contact_Agent count from grand total row (index 7).
- * Returns: { type: 'ga4_leads' | 'ga4_leads_dijual' | 'ga4_leads_disewa' | 'ga4_leads_blog', month, clickContactAgent }
- */
-export function parseGA4LeadsFile(csvText) {
-  const rows = Papa.parse(csvText, { skipEmptyLines: false }).data;
-  return parseGA4LeadsRows(rows);
 }
 
 // ─── Auto-detect from file content ───────────────────────────────────────────
@@ -444,20 +418,14 @@ export async function parseFlow2File(file, arrayBuffer) {
 
   if (name.endsWith(".xlsx")) {
     const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
-    return parseGSCChartWorkbook(wb) ?? parseGA4FreeWorkbook(wb);
+    return parseGSCChartWorkbook(wb) ?? parseGA4Workbook(wb);
   }
 
   if (name.endsWith(".csv")) {
     // Strip UTF-8 BOM if present
     const raw = new TextDecoder("utf-8").decode(arrayBuffer);
     const text = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
-    // Distinguish GA4 Free-form vs Leads: scan the banner/header lines for
-    // "Leads" or "Key events" — a wider net than a single fixed line, since
-    // banner length and column layout both vary across exports.
-    const bannerText = text.split("\n").slice(0, 15).join("\n").toLowerCase();
-    const isLeads = /leads/.test(bannerText) || /key events?/.test(bannerText);
-    if (isLeads) return parseGA4LeadsFile(text);
-    return parseGA4FreeFile(text);
+    return parseGA4File(text);
   }
 
   return null;
@@ -467,15 +435,30 @@ export async function parseFlow2File(file, arrayBuffer) {
 
 export function getFlow2DataKey(result) {
   const mk = formatMonthKey(result.month.year, result.month.month);
+
   if (result.type === "gsc_chart") return `gsc_${result.segment}_${mk}`;
-  if (result.type === "ga4_free") return `ga4_free_${mk}`;
-  if (result.type === "ga4_dijual") return `ga4_dijual_${mk}`;
-  if (result.type === "ga4_disewa") return `ga4_disewa_${mk}`;
-  if (result.type === "ga4_blog") return `ga4_blog_${mk}`;
-  if (result.type === "ga4_leads") return `ga4_leads_${mk}`;
-  if (result.type === "ga4_leads_dijual") return `ga4_leads_dijual_${mk}`;
-  if (result.type === "ga4_leads_disewa") return `ga4_leads_disewa_${mk}`;
-  if (result.type === "ga4_leads_blog") return `ga4_leads_blog_${mk}`;
+
+  // Via Entry (landing-page) exports live under their own prefix so they never
+  // collide with the page-path export for the same segment.
+  if (result.type === "ga4_entry_traffic")
+    return result.segment
+      ? `ga4_entry_${result.segment}_${mk}`
+      : `ga4_entry_free_${mk}`;
+  if (result.type === "ga4_entry_event")
+    return result.segment
+      ? `ga4_entry_leads_${result.segment}_${mk}`
+      : `ga4_entry_leads_free_${mk}`;
+
+  // Page-path exports. The all-segments keys (`ga4_free_`, `ga4_leads_`) and
+  // the per-segment ones are the same keys earlier versions wrote, so an
+  // account's existing imports keep resolving.
+  if (result.type === "ga4_traffic")
+    return result.segment ? `ga4_${result.segment}_${mk}` : `ga4_free_${mk}`;
+  if (result.type === "ga4_event")
+    return result.segment
+      ? `ga4_leads_${result.segment}_${mk}`
+      : `ga4_leads_${mk}`;
+
   return null;
 }
 
@@ -485,41 +468,28 @@ export function formatFlow2DetectionLabel(result) {
     result.month.month - 1,
   ).toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
-  const segLabel = {
-    all_organic: "GSC Export (All Segments)",
-    dijual: "BC GSC Export (/dijual/)",
-    disewa: "BC GSC Export (/disewa/)",
-    blog: "Blog GSC Export",
-  };
-
   if (result.type === "gsc_chart") {
-    return `${segLabel[result.segment] ?? result.segment} — ${month} · ${result.clicks.toLocaleString()} clicks`;
+    const seg = SEGMENTS_BY_ID[result.segment];
+    const where = seg ? seg.short : result.segment;
+    return `GSC Export (${where}) — ${month} · ${result.clicks.toLocaleString()} clicks`;
   }
-  if (result.type === "ga4_free") {
-    return `GA4 Export (All Segments) — ${month} · ${result.all_organic.views.toLocaleString()} total views`;
-  }
-  if (result.type === "ga4_dijual") {
-    return `BC GA4 Export (/dijual/) — ${month} · ${result.views.toLocaleString()} views`;
-  }
-  if (result.type === "ga4_disewa") {
-    return `BC GA4 Export (/disewa/) — ${month} · ${result.views.toLocaleString()} views`;
-  }
-  if (result.type === "ga4_blog") {
-    return `GA4 Export (Blog) — ${month} · ${result.views.toLocaleString()} views`;
-  }
-  if (result.type === "ga4_leads") {
-    return `Event GA4 Export — ${month} · ${result.clickContactAgent.toLocaleString()} Click_Contact_Agent`;
-  }
-  if (result.type === "ga4_leads_dijual") {
-    return `BC Event GA4 Export (/dijual/) — ${month} · ${result.clickContactAgent.toLocaleString()} Click_Contact_Agent`;
-  }
-  if (result.type === "ga4_leads_disewa") {
-    return `BC Event GA4 Export (/disewa/) — ${month} · ${result.clickContactAgent.toLocaleString()} Click_Contact_Agent`;
-  }
-  if (result.type === "ga4_leads_blog") {
-    return `Event GA4 Export (Blog) — ${month} · ${result.clickContactAgent.toLocaleString()} Click_Contact_Agent`;
-  }
-  return "Unknown";
+
+  const isEntry = result.dimension === "entry";
+  const isEvent = result.type.endsWith("event");
+  const kind = `${isEntry ? "Via Entry " : ""}${isEvent ? "Event " : ""}GA4 Export`;
+  const where = result.segment
+    ? (SEGMENTS_BY_ID[result.segment]?.short ?? result.segment)
+    : "All Segments";
+
+  const figure = result.segment
+    ? isEvent
+      ? `${result.eventCount.toLocaleString()} events`
+      : `${result.views.toLocaleString()} views`
+    : isEvent
+      ? `${result.all_organic.eventCount.toLocaleString()} events`
+      : `${result.all_organic.views.toLocaleString()} views`;
+
+  return `${kind} (${where}) — ${month} · ${figure}`;
 }
 
 // ─── Sheet-finder helpers (name-based with structural fallback) ───────────────
@@ -558,8 +528,9 @@ function findFiltersSheet(wb) {
       });
       return rows.some(
         (r) =>
-          String(r[0] ?? "").trim().toLowerCase() === "date" &&
-          String(r[1] ?? "").trim().length > 0,
+          String(r[0] ?? "")
+            .trim()
+            .toLowerCase() === "date" && String(r[1] ?? "").trim().length > 0,
       );
     }) ?? null
   );
@@ -592,39 +563,29 @@ function toNum(v) {
   return isNaN(n) ? 0 : n;
 }
 
-function z() {
-  return {
-    views: 0,
-    users: 0,
-    sessions: 0,
-    aetSum: 0,
-    count: 0,
-    aet_seconds: 0,
-  };
-}
-
 function extractMonthFromDate(dateVal) {
   // SheetJS may give a date serial (number) or ISO string "2026-05-01"
   if (typeof dateVal === "number") {
     // Excel date serial: days since 1900-01-01
     const d = XLSX.SSF.parse_date_code(dateVal);
-    if (d) return { year: d.y, month: d.m };
+    if (d) return { year: d.y, month: d.m, day: d.d };
   }
   const s = String(dateVal);
   const m =
     s.match(/^(\d{4})-(\d{2})-(\d{2})/) || s.match(/(\d{4})\/(\d{2})\/(\d{2})/);
-  if (m) return { year: parseInt(m[1]), month: parseInt(m[2]) };
+  if (m)
+    return { year: parseInt(m[1]), month: parseInt(m[2]), day: parseInt(m[3]) };
   // Day-first: "1 May 2026"
-  const m2 = s.match(/\d+\s+([A-Za-z]+)\s+(\d{4})/);
+  const m2 = s.match(/(\d+)\s+([A-Za-z]+)\s+(\d{4})/);
   if (m2) {
-    const month = MONTH_MAP[m2[1].toLowerCase()];
-    if (month) return { year: parseInt(m2[2]), month };
+    const month = MONTH_MAP[m2[2].toLowerCase()];
+    if (month) return { year: parseInt(m2[3]), month, day: parseInt(m2[1]) };
   }
   // Month-first: "May 1, 2026"
-  const m3 = s.match(/([A-Za-z]+)\s+\d+,?\s+(\d{4})/);
+  const m3 = s.match(/([A-Za-z]+)\s+(\d+),?\s+(\d{4})/);
   if (m3) {
     const month = MONTH_MAP[m3[1].toLowerCase()];
-    if (month) return { year: parseInt(m3[2]), month };
+    if (month) return { year: parseInt(m3[3]), month, day: parseInt(m3[2]) };
   }
   return null;
 }
