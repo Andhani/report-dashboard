@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { urlToSlug, formatMonthKey } from "./dateUtils";
+import { detectGSCSegment, SEGMENTS_BY_ID } from "./flow2Segments";
 import {
   PAGE_PATH_ALIASES,
   VIEWS_ALIASES,
@@ -97,7 +98,7 @@ function tryParseGSC(wb) {
     // Parse Filters sheet for metadata
     const filterRows = toRows(wb.Sheets[filtersName]);
     let month = null;
-    let segment = null;
+    let pageFilter = "";
 
     for (const row of filterRows) {
       const key = String(row[0] ?? "")
@@ -105,7 +106,7 @@ function tryParseGSC(wb) {
         .toLowerCase();
       const val = String(row[1] ?? "").trim();
       if (key === "date") month = parseGSCDate(val);
-      if (key === "page") segment = detectSegment(val);
+      if (key === "page" && val) pageFilter = val;
     }
 
     if (!month) return null;
@@ -127,6 +128,13 @@ function tryParseGSC(wb) {
     }
 
     if (rows.length === 0) return null;
+
+    // Resolved against the Pages URLs as well as the filter, so an export
+    // whose filter is written as an exclusion still places itself.
+    const detected = detectGSCSegment(
+      pageFilter,
+      rows.map((r) => r.slug),
+    );
 
     // Also parse Chart sheet for daily aggregates (used by Traffic Overview reuse path
     // to match the same method as a direct Chart file upload: simple daily average position).
@@ -158,7 +166,14 @@ function tryParseGSC(wb) {
       // chartAgg remains null; aggregation falls back to URL-level rows
     }
 
-    return { type: "gsc", segment: segment ?? "unknown", month, rows, chartAgg };
+    return {
+      type: "gsc",
+      segment: FLOW1_SEGMENTS[detected] ?? "unknown",
+      detectedSegment: detected,
+      month,
+      rows,
+      chartAgg,
+    };
   } catch {
     return null;
   }
@@ -286,7 +301,7 @@ function tryParseGA4CSV(rows) {
 function tryParseGSCCSV(rows) {
   // Scan first 15 rows for date range and page filter
   let month = null;
-  let segment = null;
+  let pageFilter = "";
 
   for (let i = 0; i < Math.min(15, rows.length); i++) {
     const cell = String(rows[i]?.[0] ?? "").trim();
@@ -295,8 +310,8 @@ function tryParseGSCCSV(rows) {
 
     if (key === "date" || key === "dates") month = parseGSCDate(val1);
     if (!month) month = parseGSCDate(cell);
-    if (key === "page" || key.includes("filter by page"))
-      segment = detectSegment(val1) ?? detectSegment(cell);
+    if ((key === "page" || key.includes("filter by page")) && !pageFilter)
+      pageFilter = val1 || cell;
   }
 
   // Parse URL rows (col[0] starts with "http")
@@ -304,7 +319,6 @@ function tryParseGSCCSV(rows) {
   for (const r of rows) {
     const url = String(r[0] ?? "").trim();
     if (!url.startsWith("http")) continue;
-    if (!segment) segment = detectSegment(url);
     dataRows.push({
       slug: urlToSlug(url),
       clicks: toNum(r[1]),
@@ -315,7 +329,18 @@ function tryParseGSCCSV(rows) {
   }
 
   if (dataRows.length === 0 || !month) return null;
-  return { type: "gsc", segment: segment ?? "unknown", month, rows: dataRows };
+
+  const detected = detectGSCSegment(
+    pageFilter,
+    dataRows.map((r) => r.slug),
+  );
+  return {
+    type: "gsc",
+    segment: FLOW1_SEGMENTS[detected] ?? "unknown",
+    detectedSegment: detected,
+    month,
+    rows: dataRows,
+  };
 }
 
 // ─── Storage key helpers ──────────────────────────────────────────────────────
@@ -346,9 +371,14 @@ export function formatDetectionLabel(result) {
       bc_dijual: "BC GSC Export (/dijual/)",
       bc_disewa: "BC GSC Export (/disewa/)",
       blog: "Blog GSC Export",
-      unknown: "GSC Export (unknown segment)",
     };
-    return `${seg[result.segment] ?? result.segment} — ${month} (${result.rows.length} URLs)`;
+    // A GSC export can be any of the Traffic Overview segments. Naming the
+    // one that was read says whether the file was misidentified or simply
+    // belongs on the Traffic Overview page instead.
+    const other = result.detectedSegment
+      ? `GSC Export (${SEGMENTS_BY_ID[result.detectedSegment]?.short ?? result.detectedSegment}) — belongs to Traffic Overview, not here`
+      : "GSC Export (segment not identified)";
+    return `${seg[result.segment] ?? other} — ${month} (${result.rows.length} URLs)`;
   }
   const projectLabels = {
     bc_dijual: "BC GA4 Export (/dijual/)",
@@ -492,9 +522,11 @@ function parseGSCDate(str) {
   return null;
 }
 
-function detectSegment(val) {
-  if (val.includes("/dijual/")) return "bc_dijual";
-  if (val.includes("/disewa/")) return "bc_disewa";
-  if (val.includes("/articles-all/")) return "blog";
-  return null;
-}
+// Flow 1 covers three of the Traffic Overview segments. Everything else is a
+// Flow 2 upload, so a file resolving to one of those is reported by name
+// rather than as an unreadable export.
+const FLOW1_SEGMENTS = {
+  dijual: "bc_dijual",
+  disewa: "bc_disewa",
+  blog: "blog",
+};

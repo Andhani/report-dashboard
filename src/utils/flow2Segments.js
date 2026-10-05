@@ -81,13 +81,22 @@ function containsSegment(fragment) {
   };
 }
 
+/** Matcher for "URL starts with /x, but not under /x/<child>/". */
+function startsWithSegmentExcept(name, child) {
+  const inArea = startsWithSegment(name);
+  const inChild = containsSegment(`/${name}/${child}/`);
+  return (path) => inArea(path) && !inChild(path);
+}
+
 /**
  * The ten blocks of the main table, in sheet order.
  *
- * `match` decides which rows of a mixed export belong to this segment. Rules
- * deliberately overlap: `/perumahan-baru/viewdetail/x` counts towards both
- * "All Perumahan Baru" (the whole area) and the viewdetail block, exactly as
- * the sheet reports them.
+ * `match` decides which rows of a mixed export belong to this segment. The
+ * rules are disjoint: a detail page belongs to its own block, not to the
+ * listing block above it. `/perumahan-baru/viewdetail/x` therefore counts
+ * towards "Detail Page Primary" only, which is how the GSC exports for these
+ * two blocks are filtered (the Perumahan Baru filter excludes viewdetail
+ * outright) and so how the sheet reports them.
  */
 export const SEGMENTS = [
   {
@@ -144,7 +153,8 @@ export const SEGMENTS = [
     label: "All Perumahan Baru Traffic",
     sublabel: "Listing Page Primary",
     short: "Perumahan Baru",
-    match: startsWithSegment("perumahan-baru"),
+    // Listing pages only — the detail pages under it are their own block.
+    match: startsWithSegmentExcept("perumahan-baru", "viewdetail"),
   },
   {
     id: "perumahan_baru_detail",
@@ -200,8 +210,8 @@ export const ENTRY_SEGMENT_IDS = ENTRY_SEGMENTS.map((s) => s.id);
 
 /**
  * Order used when deciding which single segment an export was filtered to.
- * Narrower rules come first so a viewdetail-only file is not claimed by the
- * whole /perumahan-baru/ area, which also matches every one of its rows.
+ * Narrower rules come first, so that a file matching more than one rule is
+ * read as the most specific of them.
  */
 const DETECTION_ORDER = [
   "perumahan_baru_detail",
@@ -269,26 +279,75 @@ export function detectSegmentFromPaths(paths, titleText) {
 }
 
 /**
- * Segment named by a GSC export's Filters sheet value (e.g. a Page filter of
- * "URL contains /cari-properti/view/"). Longest/narrowest patterns first so
- * "/dijualsewa" is not read as "/dijual".
+ * Path prefixes that name a segment inside a GSC Page filter. Longest first,
+ * so "/dijualsewa" is not read as "/dijual".
  */
 const FILTER_TOKENS = [
   ["perumahan_baru_detail", "/perumahan-baru/viewdetail"],
   ["perumahan_baru", "/perumahan-baru"],
   ["cari_properti_view", "/cari-properti/view"],
   ["dijualsewa", "/dijualsewa"],
-  ["articles", "/articles-all"],
+  ["blog", "/articles-all"],
   ["dijual", "/dijual"],
   ["disewa", "/disewa"],
   ["agent", "/agent"],
 ];
 
-export function segmentFromFilterValue(value) {
-  const v = String(value ?? "").toLowerCase();
-  if (!v.trim()) return null;
-  for (const [id, token] of FILTER_TOKENS) {
-    if (v.includes(token)) return id === "articles" ? "blog" : id;
+/**
+ * A GSC Page filter is `+<pattern>` to keep only matching URLs or
+ * `-<pattern>` to drop them. Older exports wrote prose ("URL contains
+ * /dijual/") with no sign, which is an include.
+ */
+function splitPageFilter(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const sign = raw[0];
+  if (sign === "+" || sign === "-")
+    return { include: sign === "+", body: raw.slice(1).toLowerCase() };
+  return { include: true, body: raw.toLowerCase() };
+}
+
+/**
+ * True when `token` appears in `body` as a whole path prefix. The filter is a
+ * regex, so what follows the token is as likely to be `(`, `|`, `\` or the
+ * end of the pattern as it is `/` — anything that cannot continue a slug ends
+ * it. Without this, `+/dijual(/|\?|$)` reads as naming no segment at all,
+ * because the literal "/dijual/" it used to be matched on is not in it.
+ */
+function hasPathToken(body, token) {
+  let at = body.indexOf(token);
+  while (at !== -1) {
+    const next = body[at + token.length];
+    if (next === undefined || !/[a-z0-9-]/.test(next)) return true;
+    at = body.indexOf(token, at + 1);
   }
-  return segmentFromTitle(v);
+  return false;
+}
+
+/**
+ * Segment named by a GSC export's Filters sheet Page value, or null.
+ *
+ * Only an *include* filter is read. GSC writes an exclusion filter as a long
+ * list of the areas being kept out — the Asumsi Agent Profile export is
+ * defined as "every area except these" and names a dozen segments it is not —
+ * so the tokens inside one describe everything the file does **not** contain.
+ * Those fall through to the export's own URLs, which is also the only thing
+ * that can identify an agent-profile export: it has no path of its own to
+ * filter on.
+ */
+export function segmentFromFilterValue(value) {
+  const filter = splitPageFilter(value);
+  if (!filter || !filter.include) return null;
+  for (const [id, token] of FILTER_TOKENS) {
+    if (hasPathToken(filter.body, token)) return id;
+  }
+  return null;
+}
+
+/**
+ * Which segment a GSC export covers: its Page filter when that names one,
+ * otherwise the URLs on its Pages sheet. Returns null when neither settles it.
+ */
+export function detectGSCSegment(filterValue, paths = []) {
+  return segmentFromFilterValue(filterValue) ?? detectSegmentFromPaths(paths);
 }

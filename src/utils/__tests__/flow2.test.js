@@ -152,31 +152,37 @@ describe("parseGA4File — export classification", () => {
     expect(result.segment).toBe("dijualsewa");
   });
 
-  it("uses the report title to separate Perumahan Baru from its detail pages", () => {
-    const rows = [
-      org("/perumahan-baru/viewdetail/a", 100, 50, 60, 30),
-      org("/perumahan-baru/viewdetail/b", 100, 50, 60, 30),
-      org("/perumahan-baru/viewdetail/c", 100, 50, 60, 30),
-    ];
+  it("separates Perumahan Baru from its detail pages by URL", () => {
     const detail = parseGA4File(
       ga4Csv({
         title: "Report - Traffic Page Path-Viewdetail",
         header: PATH_TRAFFIC_HEADER,
         total: ["", "", 300, 150, 180, 30],
-        rows,
+        rows: [
+          org("/perumahan-baru/viewdetail/a", 100, 50, 60, 30),
+          org("/perumahan-baru/viewdetail/b", 100, 50, 60, 30),
+          org("/perumahan-baru/viewdetail/c", 100, 50, 60, 30),
+        ],
       }),
     );
     expect(detail.segment).toBe("perumahan_baru_detail");
 
-    const all = parseGA4File(
+    // The two blocks are disjoint, so a listing-only export is the only thing
+    // that reads as Perumahan Baru — the GSC export for that block is
+    // filtered the same way, with viewdetail excluded outright.
+    const listing = parseGA4File(
       ga4Csv({
         title: "Report - Traffic Page Path-Perumahan Baru",
         header: PATH_TRAFFIC_HEADER,
         total: ["", "", 300, 150, 180, 30],
-        rows,
+        rows: [
+          org("/perumahan-baru/rumah/lokal/batam", 100, 50, 60, 30),
+          org("/perumahan-baru/ruko/lokal/kediri", 100, 50, 60, 30),
+          org("/perumahan-baru/tanah/lokal/semarang", 100, 50, 60, 30),
+        ],
       }),
     );
-    expect(all.segment).toBe("perumahan_baru");
+    expect(listing.segment).toBe("perumahan_baru");
   });
 
   it("splits an all-segments export across the blocks it covers", () => {
@@ -204,15 +210,12 @@ describe("parseGA4File — export classification", () => {
     expect(result.segments.dijual.views).toBe(100);
     expect(result.segments.cari_properti_view.views).toBe(50);
     expect(result.segments.agent_profile.views).toBe(30);
-    // The whole /perumahan-baru/ area covers its detail pages too, which is
-    // how the sheet reports the two blocks.
-    expect(result.segments.perumahan_baru.views).toBe(150);
+    // A detail page belongs to the detail block only — the listing block
+    // above it does not count it a second time.
+    expect(result.segments.perumahan_baru.views).toBe(60);
     expect(result.segments.perumahan_baru_detail.views).toBe(90);
     // AET is a per-session average, so the split weights it by sessions.
-    expect(result.segments.perumahan_baru.aet_seconds).toBeCloseTo(
-      (50 * 30 + 70 * 45) / 75,
-      6,
-    );
+    expect(result.segments.perumahan_baru.aet_seconds).toBeCloseTo(50, 6);
   });
 });
 
