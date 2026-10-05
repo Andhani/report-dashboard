@@ -61,7 +61,7 @@ The app processes monthly SEO/traffic reports for two projects: **BC** (property
 
 - **Flow 1 — Traffic Import** (`/flow1`): User uploads GSC and GA4 export files (xlsx or CSV, or links to Google Sheets). Data is parsed, merged by URL slug, and written to the report spreadsheet via the Sheets API. BC requires two GSC files (dijual + disewa); these are merged before slug-matching.
 
-- **Flow 2 — Traffic Overview** (`/flow2`): Aggregates GA4 data across segments (organic, paid, etc.) into a pivot-style overview table, then pushes to the `Traffic Overview (BC & Blog)` sheet.
+- **Flow 2 — Traffic Overview** (`/flow2`): Aggregates GSC and GA4 exports into the `Traffic Overview (BC & Blog)` sheet — ten segment blocks of twelve metrics, plus a second "Via Entry" table of three blocks underneath. Segments are identified from the URLs inside each export, so files can be dropped in together in any order.
 
 - **Flow 3 — Leads Summary** (`/flow3`): Computes lead metrics and prepends a new month block to the `BC/Blog Leads Summary` sheet (read existing → prepend → write back).
 
@@ -75,7 +75,8 @@ The app processes monthly SEO/traffic reports for two projects: **BC** (property
 | `src/utils/sheetsApi.js` | All Google Sheets API calls + `buildWorkbookFromSheet` to fetch a Sheet as a SheetJS workbook |
 | `src/utils/computeFlow1.js` | Slug-level metric computation and CSV/Sheets value builders for Flow 1 |
 | `src/utils/parseFlow1.js` | Parse GSC/GA4 xlsx exports into `{ rows }` objects |
-| `src/utils/computeFlow2.js` | Flow 2 aggregation logic |
+| `src/utils/flow2Segments.js` | The ten Traffic Overview segments, their URL rules, and export detection |
+| `src/utils/computeFlow2.js` | Flow 2 metric assembly + the sheet's block layout |
 | `src/utils/parseFlow2.js` | Flow 2 file parsing |
 | `src/utils/computeFlow3.js` | Flow 3 lead metric computation |
 | `src/utils/exportUtils.js` | CSV download helpers |
@@ -137,6 +138,29 @@ Consequences worth preserving:
 - Row lists compare by **contents**, not reference, so re-importing unchanged
   data writes nothing. Flow data chunks deliberately do not: they are large
   enough that serialising to compare costs more than the write it might save.
+
+### Sheets Layout (Flow 2)
+
+The `Traffic Overview (BC & Blog)` sheet is written whole, from A1, as a
+26 × 79 grid. Each segment owns an 8-column block: a metric-label column, six
+month columns, and a spacer. Block 0 starts in column A, so block *n* has its
+labels at column `8n` and its months at `8n+1 … 8n+6`. The one exception is
+block 0's heading, which sits in B rather than A.
+
+Rows are fixed: banner (1), segment headings (2), months (3), the twelve
+metrics (4–15), a blank (16), the Via Entry headings (17), and that table's
+nine metrics (18–26). The Via Entry table reuses the main table's columns for
+`/dijual/`, `/disewa/` and `/articles-all/` (blocks 1, 2 and 4), which is what
+keeps both tables under one row of month headers.
+
+Two details worth preserving:
+
+- A metric with no export behind it is **null**, not 0, all the way to the
+  sheet, where it lands as a blank cell. A zero in this report reads as
+  "measured, and it was zero".
+- Month headers are generated, including the partial-month form the report
+  uses (`Sep (1-18)`). The day range comes from the imported exports' own date
+  ranges, so a push doesn't flatten a hand-typed annotation.
 
 ### Sheets Column Layout (Flow 1)
 

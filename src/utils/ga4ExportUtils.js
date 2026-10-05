@@ -12,6 +12,11 @@ export const USERS_ALIASES = [/active users/i, /\busers\b/i];
 export const SESSIONS_ALIASES = [/sessions/i];
 export const AET_ALIASES = [/engagement time/i];
 export const KEY_EVENTS_ALIASES = [/key events?/i];
+// GA4 renamed the conversion column from "Key events" to "Event count" when
+// the report switched to a single named event; both spellings are in the wild
+// across the months already imported, so both resolve to the same column.
+export const EVENT_COUNT_ALIASES = [/event count/i, /key events?/i];
+export const LANDING_PAGE_ALIASES = [/landing page/i];
 export const SOURCE_MEDIUM_ALIASES = [/session source/i, /source\s*\/\s*medium/i];
 
 /**

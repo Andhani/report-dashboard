@@ -186,7 +186,11 @@ export function computeBCLeads(bcUrls, flow1Data, flow2Data, slot, dateRange) {
   const totalViews = ga4Free?.all_organic?.views ?? 0;
   const totalUsers = ga4Free?.all_organic?.users ?? 0;
   const totalSessions = ga4Free?.all_organic?.sessions ?? 0;
-  const clickContact = ga4Leads?.clickContactAgent ?? 0;
+  // Flow 2's event import renamed this total (click_contact_agent → purchase)
+  // and moved it under all_organic; months imported before that still carry
+  // the old field, so both shapes are read.
+  const clickContact =
+    ga4Leads?.all_organic?.eventCount ?? ga4Leads?.clickContactAgent ?? 0;
 
   const rates = {
     leadPerViews: totalViews > 0 ? clickContact / totalViews : 0,
@@ -276,7 +280,11 @@ export function computeBlogLeads(blogUrls, flow1Data, flow2Data, slot, dateRange
   const totalViews = ga4Free?.all_organic?.views ?? 0;
   const totalUsers = ga4Free?.all_organic?.users ?? 0;
   const totalSessions = ga4Free?.all_organic?.sessions ?? 0;
-  const clickContact = ga4Leads?.clickContactAgent ?? 0;
+  // Flow 2's event import renamed this total (click_contact_agent → purchase)
+  // and moved it under all_organic; months imported before that still carry
+  // the old field, so both shapes are read.
+  const clickContact =
+    ga4Leads?.all_organic?.eventCount ?? ga4Leads?.clickContactAgent ?? 0;
 
   const rates = {
     leadPerViews: totalViews > 0 ? clickContact / totalViews : 0,
