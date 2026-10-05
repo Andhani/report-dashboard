@@ -198,7 +198,9 @@ export default function Flow2() {
   // ─── Import from a Google Sheet link ────────────────────────────────────────
 
   async function importFromSheetLink(url) {
-    const wb = await buildWorkbookFromSheet(url, ["chart", "filters"]);
+    // Pages comes along because a GSC export whose Page filter is written as
+    // an exclusion is placed by its URLs, not by the filter.
+    const wb = await buildWorkbookFromSheet(url, ["chart", "filters", "pages"]);
     // parseGSCChartWorkbook now uses flexible name + structure detection internally.
     let result = parseGSCChartWorkbook(wb);
 

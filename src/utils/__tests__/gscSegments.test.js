@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import {
   segmentFromFilterValue,
   detectGSCSegment,
+  SEGMENTS,
   SEGMENTS_BY_ID,
 } from "../flow2Segments";
 import { parseFlow1Workbook, getDataKey } from "../parseFlow1";
@@ -117,6 +118,29 @@ describe("perumahan-baru blocks are disjoint", () => {
   });
 });
 
+describe("the main-table rules are disjoint", () => {
+  // The mixed-export split adds a row to every block whose rule matches it, so
+  // two overlapping rules would count one page twice across the sheet.
+  const rules = SEGMENTS.filter((s) => s.match);
+  const paths = [
+    "/dijual/rumah/malang",
+    "/disewa/ruko/solo",
+    "/dijualsewa/properti/kediri",
+    "/cari-properti/view/jembatan-dua-raya-1",
+    "/about/articles-all/harga-besi-hollow",
+    "/agent/surabaya",
+    "/agent/search",
+    "/perumahan-baru/rumah/lokal/batam",
+    "/perumahan-baru/viewdetail/taman-jivva-kemlaten",
+    "/yayukpurnamasari",
+  ];
+
+  it.each(paths)("%s belongs to exactly one block", (path) => {
+    const hits = rules.filter((s) => s.match(path)).map((s) => s.id);
+    expect(hits).toHaveLength(1);
+  });
+});
+
 /** A GSC export as both flows receive it: Chart + Pages + Filters tabs. */
 function gscWorkbook({ pageFilter, urls }) {
   const wb = XLSX.utils.book_new();
@@ -223,6 +247,27 @@ describe("Traffic Overview GSC import", () => {
       gscWorkbook({ pageFilter: null, urls: DIJUAL_URLS }),
     );
     expect(result.segment).toBe("all_organic");
+  });
+
+  it("places an exclusion-filtered export only when the Pages tab came too", () => {
+    // The Google Sheets import builds the workbook from named tabs, so this is
+    // what the agent-profile export looks like when Pages was not requested.
+    const withPages = gscWorkbook({
+      pageFilter: FILTERS.agentProfile,
+      urls: PROFILE_URLS,
+    });
+    const withoutPages = gscWorkbook({
+      pageFilter: FILTERS.agentProfile,
+      urls: PROFILE_URLS,
+    });
+    withoutPages.SheetNames = withoutPages.SheetNames.filter(
+      (n) => n !== "Pages",
+    );
+    delete withoutPages.Sheets.Pages;
+
+    expect(parseGSCChartWorkbook(withPages).segment).toBe("agent_profile");
+    // Still never misfiled — it just cannot be placed without the URLs.
+    expect(parseGSCChartWorkbook(withoutPages).segment).toBeNull();
   });
 
   it("gives no storage key to a filtered export it cannot place", () => {

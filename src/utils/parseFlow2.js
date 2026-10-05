@@ -342,9 +342,9 @@ function parseGA4Rows(rows) {
 
   if (segment) return { ...base, ...total };
 
-  // Mixed export — split the URL rows across every segment whose rule they
-  // match. Rules overlap on purpose (a viewdetail page counts towards the
-  // whole /perumahan-baru/ area too), so a row can land in more than one.
+  // Mixed export — split the URL rows across the segment whose rule they
+  // match. The rules are disjoint, so each row lands in one block and the
+  // blocks never double-count a page between them.
   const buckets = {};
   const targets =
     dimension === "entry"
