@@ -132,7 +132,7 @@ export default function Flow1() {
           newLog.push({
             file: file.name,
             status: "warn",
-            message: `Detected as ${result.type} but segment/project unknown — skipped`,
+            message: `${formatDetectionLabel(result)} — skipped`,
           });
           continue;
         }
@@ -188,10 +188,7 @@ export default function Flow1() {
     }
 
     const key = getDataKey(result);
-    if (!key)
-      throw new Error(
-        `Detected as ${result.type} but segment/project could not be determined.`,
-      );
+    if (!key) throw new Error(`${formatDetectionLabel(result)} — skipped.`);
 
     const monthKey = formatMonthKey(result.month.year, result.month.month);
     const inWindow = slotKeys.has(monthKey);

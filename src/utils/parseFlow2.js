@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import { formatMonthKey } from "./dateUtils";
+import { formatMonthKey, urlToSlug } from "./dateUtils";
 import {
   PAGE_PATH_ALIASES,
   LANDING_PAGE_ALIASES,
@@ -18,7 +18,7 @@ import {
   SEGMENTS_BY_ID,
   ENTRY_SEGMENTS,
   detectSegmentFromPaths,
-  segmentFromFilterValue,
+  detectGSCSegment,
 } from "./flow2Segments";
 
 const TRAFFIC_ALIAS_GROUPS = [VIEWS_ALIASES, SESSIONS_ALIASES];
@@ -82,29 +82,16 @@ export function parseGSCChartWorkbook(wb) {
     const chartName = findChartSheet(wb);
     if (!chartName) return null;
 
-    // Segment from Filters sheet (same logic as Flow 1)
-    let segment = "all_organic";
-    const filtersName = findFiltersSheet(wb);
-    if (filtersName) {
-      const filterRows = XLSX.utils.sheet_to_json(wb.Sheets[filtersName], {
-        header: 1,
-        defval: "",
-        raw: true,
-      });
-      for (const row of filterRows) {
-        const key = String(row[0] ?? "")
-          .trim()
-          .toLowerCase();
-        const val = String(row[1] ?? "").trim();
-        if (key === "page") {
-          const detected = segmentFromFilterValue(val);
-          if (detected) {
-            segment = detected;
-            break;
-          }
-        }
-      }
-    }
+    // Segment from the Page filter, falling back to the export's own URLs
+    // (same resolution as Flow 1). An export with no Page filter at all is
+    // the unfiltered one, which is the grand total. A filter that neither it
+    // nor the URLs can place leaves this null: the file is still reported as
+    // a GSC export, it just gets no storage key, so it is skipped loudly
+    // rather than landing silently on another segment's block.
+    const pageFilter = readPageFilter(wb);
+    const segment = pageFilter
+      ? detectGSCSegment(pageFilter, readPagePaths(wb))
+      : "all_organic";
 
     // Parse Chart sheet: headers in row 0, data in row 1+
     // Columns: Date | Clicks | Impressions | CTR | Position
@@ -436,7 +423,8 @@ export async function parseFlow2File(file, arrayBuffer) {
 export function getFlow2DataKey(result) {
   const mk = formatMonthKey(result.month.year, result.month.month);
 
-  if (result.type === "gsc_chart") return `gsc_${result.segment}_${mk}`;
+  if (result.type === "gsc_chart")
+    return result.segment ? `gsc_${result.segment}_${mk}` : null;
 
   // Via Entry (landing-page) exports live under their own prefix so they never
   // collide with the page-path export for the same segment.
@@ -470,7 +458,7 @@ export function formatFlow2DetectionLabel(result) {
 
   if (result.type === "gsc_chart") {
     const seg = SEGMENTS_BY_ID[result.segment];
-    const where = seg ? seg.short : result.segment;
+    const where = seg ? seg.short : "segment not identified";
     return `GSC Export (${where}) — ${month} · ${result.clicks.toLocaleString()} clicks`;
   }
 
@@ -494,17 +482,60 @@ export function formatFlow2DetectionLabel(result) {
 
 // ─── Sheet-finder helpers (name-based with structural fallback) ───────────────
 
+/** The Filters sheet's `Page` value, or null when the export is unfiltered. */
+function readPageFilter(wb) {
+  const name = findFiltersSheet(wb);
+  if (!name) return null;
+  const rows = toRows(wb.Sheets[name]);
+  for (const row of rows) {
+    const key = String(row[0] ?? "")
+      .trim()
+      .toLowerCase();
+    if (key !== "page") continue;
+    const val = String(row[1] ?? "").trim();
+    if (val) return val;
+  }
+  return null;
+}
+
+/** Site-relative paths of the Pages sheet's URLs, for segment detection. */
+function readPagePaths(wb) {
+  const name = findPagesSheet(wb);
+  if (!name) return [];
+  const paths = [];
+  for (const row of toRows(wb.Sheets[name])) {
+    const url = String(row[0] ?? "").trim();
+    if (url.startsWith("http")) paths.push(urlToSlug(url));
+  }
+  return paths;
+}
+
+function findPagesSheet(wb) {
+  const byName = wb.SheetNames.find((n) => /pages/i.test(n));
+  if (byName) return byName;
+  // Structural fallback: sheet has data rows where col A starts with "http".
+  return (
+    wb.SheetNames.find((n) =>
+      toRows(wb.Sheets[n]).some((r) =>
+        String(r[0] ?? "")
+          .trim()
+          .startsWith("http"),
+      ),
+    ) ?? null
+  );
+}
+
+function toRows(sheet) {
+  return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: true });
+}
+
 function findChartSheet(wb) {
   const byName = wb.SheetNames.find((n) => /chart/i.test(n));
   if (byName) return byName;
   // Structural fallback: header row has a "date" column + clicks/impressions.
   return (
     wb.SheetNames.find((n) => {
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], {
-        header: 1,
-        defval: "",
-        raw: true,
-      });
+      const rows = toRows(wb.Sheets[n]);
       if (rows.length < 2) return false;
       const headers = (rows[0] ?? []).map((h) => String(h ?? "").toLowerCase());
       return (
@@ -521,11 +552,7 @@ function findFiltersSheet(wb) {
   // Structural fallback: sheet has a "date" row (col A) with a non-empty value (col B).
   return (
     wb.SheetNames.find((n) => {
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], {
-        header: 1,
-        defval: "",
-        raw: true,
-      });
+      const rows = toRows(wb.Sheets[n]);
       return rows.some(
         (r) =>
           String(r[0] ?? "")

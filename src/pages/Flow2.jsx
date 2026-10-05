@@ -87,6 +87,7 @@ export default function Flow2() {
     setProcessing(true);
     const newEntries = {};
     const newLog = [];
+    const batchFiles = new Map();
 
     for (const file of Array.from(files)) {
       if (!file.name.match(/\.(xlsx|csv)$/i)) {
@@ -116,7 +117,7 @@ export default function Flow2() {
           newLog.push({
             file: file.name,
             status: "warn",
-            message: "Detected but key could not be generated — skipped",
+            message: `${formatFlow2DetectionLabel(result)} — skipped`,
           });
           continue;
         }
@@ -124,14 +125,21 @@ export default function Flow2() {
         const mk = formatMonthKey(result.month.year, result.month.month);
         const inWindow = slotKeys.has(mk);
 
+        // Two files in one batch landing on the same key means one of them
+        // was misidentified; without this the second silently replaces the
+        // first. Replacing a slot stored by an earlier batch is just a
+        // re-import, so it is not flagged.
+        const clash = batchFiles.get(key);
+        batchFiles.set(key, file.name);
         newEntries[key] = result;
 
         newLog.push({
           file: file.name,
-          status: inWindow ? "ok" : "warn",
+          status: inWindow && !clash ? "ok" : "warn",
           message:
             formatFlow2DetectionLabel(result) +
-            (inWindow ? "" : " ⚠ outside current window"),
+            (inWindow ? "" : " ⚠ outside current window") +
+            (clash ? ` ⚠ same slot as "${clash}" — that file was replaced` : ""),
         });
       } catch (err) {
         newLog.push({ file: file.name, status: "error", message: err.message });
